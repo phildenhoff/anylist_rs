@@ -1,0 +1,22 @@
+[package]
+name = "anylist-rs"
+version = "0.1.0"
+authors = ["Phil Denhoff <phil@denhoff.ca>"]
+edition = "2021"
+include = ["src/"]
+
+[lib]
+crate-type = ["cdylib"]
+bench = false
+path = "src/login.rs"
+
+[[bin]]
+name = "al-login"
+path = "src/login.rs"
+
+[dependencies]
+reqwest = { version = "0.11", features = ["json"] }
+serde = "1.0"
+serde_derive = "1.0"
+tokio = { version = "1", features = ["full"] }
+clap = "3.0.0-beta.5"
