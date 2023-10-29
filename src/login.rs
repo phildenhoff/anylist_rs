@@ -3,6 +3,7 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_derive;
 
+use clap::{Arg, Command, SubCommand};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde_derive::{Deserialize, Serialize};
 
@@ -42,4 +43,26 @@ pub async fn login(email: &str, password: &str) -> Result<(), Box<dyn std::error
     }
 
     Ok(())
+}
+
+pub fn login_subcommand() -> Command<'static> {
+    return SubCommand::with_name("login")
+        .arg(
+            Arg::with_name("email")
+                .short('e')
+                .long("email")
+                .value_name("EMAIL")
+                .help("Sets the email to use")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("password")
+                .short('p')
+                .long("password")
+                .value_name("PASSWORD")
+                .help("Sets the password to use")
+                .takes_value(true)
+                .required(true),
+        );
 }
