@@ -3,7 +3,6 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_derive;
 
-use clap::{App, Arg};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde_derive::{Deserialize, Serialize};
 
@@ -14,32 +13,7 @@ struct LoginResponse {
     user_id: String,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let matches = App::new("AnyList Client")
-        .arg(
-            Arg::with_name("email")
-                .short('e')
-                .long("email")
-                .value_name("EMAIL")
-                .help("Sets the email to use")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("password")
-                .short('p')
-                .long("password")
-                .value_name("PASSWORD")
-                .help("Sets the password to use")
-                .takes_value(true)
-                .required(true),
-        )
-        .get_matches();
-
-    let email = matches.value_of("email").unwrap();
-    let password = matches.value_of("password").unwrap();
-
+pub async fn login(email: &str, password: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut headers = HeaderMap::new();
     headers.insert("X-AnyLeaf-API-Version", HeaderValue::from_static("3"));
     headers.insert(
