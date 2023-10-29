@@ -15,5 +15,5 @@ that will return the Signed user ID, which you can use for authentication, and w
 To run the Rust version (compiling & executing in one step):
 
 ```fish
-cargo run --bin al-login -- --email <email> --password "<password>"
+cargo run --bin anylist -- login --email <email> --password "<password>"
 ```
