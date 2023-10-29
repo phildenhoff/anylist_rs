@@ -1,0 +1,1118 @@
+package anylist.proto;
+
+message Tag {
+    required string name = 1;
+    optional string displayName = 7;
+    optional string imageName = 8;
+    repeated string impliedTagNames = 6;
+    repeated string searchTerms = 3;
+    repeated string productIds = 2;
+    optional bytes priceStats = 4;
+    optional TagType tagType = 5;
+
+    enum TagType {
+        TAG_TYPE_GENERIC = 0;
+        TAG_TYPE_PRODUCT = 1;
+        TAG_TYPE_CATEGORY = 2;
+        TAG_TYPE_ATTRIBUTE = 3;
+    }
+}
+
+message PBUserListData {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    repeated string userIds = 3;
+    optional double userIdsTimestamp = 4;
+    repeated string listIds = 5;
+    optional double listIdsTimestamp = 6;
+    optional string rootFolderId = 7;
+    optional double rootFolderIdTimestamp = 8;
+    optional double categorizedItemsTimestamp = 9;
+    optional double categorizedItemsRequireRefreshTimestamp = 10;
+    optional bool hasMigratedListOrdering = 11;
+}
+
+message ShoppingList {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string name = 3;
+    repeated ListItem items = 4;
+    optional string creator = 5;
+    repeated string UNUSEDATTRIBUTE = 6;
+    repeated PBEmailUserIDPair sharedUsers = 7;
+    optional string password = 8;
+    repeated PBNotificationLocation notificationLocations = 9;
+    optional uint64 logicalClockTime = 10;
+    optional string builtInAlexaListType = 11;
+    optional bool allowsMultipleListCategoryGroups = 16;
+    optional int32 listItemSortOrder = 17;
+    optional int32 newListItemPosition = 18;
+
+    enum ListItemSortOrder {
+        Manual = 0;
+        Alphabetical = 1;
+    }
+
+    enum NewListItemPosition {
+        Bottom = 0;
+        Top = 1;
+    }
+}
+
+message ListItem {
+    required string identifier = 1;
+    optional double serverModTime = 2;
+    optional string listId = 3;
+    optional string name = 4;
+    optional string quantity = 18;
+    optional string details = 5;
+    optional bool checked = 6;
+    optional string recipeId = 7;
+    optional string rawIngredient = 8;
+    optional string priceMatchupTag = 9;
+    optional string priceId = 10;
+    optional string category = 11;
+    optional string userId = 12;
+    optional string categoryMatchId = 13;
+    repeated string photoIds = 14;
+    optional string eventId = 15;
+    repeated string storeIds = 16;
+    repeated PBItemPrice prices = 19;
+    repeated PBListItemCategoryAssignment categoryAssignments = 20;
+    optional int32 manualSortIndex = 17;
+}
+
+message PBItemPrice {
+    optional double amount = 2;
+    optional string details = 3;
+    optional string storeId = 4;
+    optional string date = 5;
+}
+
+message PBListFolderItem {
+    required string identifier = 1;
+    optional int32 itemType = 2;
+
+    enum ItemType {
+        ListType = 0;
+        FolderType = 1;
+    }
+}
+
+message PBListFolderSettings {
+    optional int32 listsSortOrder = 1;
+    optional int32 folderSortPosition = 2;
+    optional string folderHexColor = 3;
+
+    enum SortOrder {
+        ManualSortOrder = 0;
+        AlphabeticalSortOrder = 1;
+    }
+
+    enum FolderSortPosition {
+        FolderSortPositionAfterLists = 0;
+        FolderSortPositionBeforeLists = 1;
+        FolderSortPositionWithLists = 2;
+    }
+}
+
+message PBListFolder {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string name = 3;
+    repeated PBListFolderItem items = 4;
+    optional PBListFolderSettings folderSettings = 5;
+}
+
+message PBListFoldersResponse {
+    optional string listDataId = 1;
+    optional string rootFolderId = 2;
+    optional bool includesAllFolders = 3;
+    repeated PBListFolder listFolders = 4;
+    repeated string deletedFolderIds = 5;
+    optional bool hasMigratedListOrdering = 6;
+}
+
+message PBListFolderTimestamps {
+    optional string rootFolderId = 1;
+    repeated PBTimestamp folderTimestamps = 2;
+}
+
+message PBListCategoryGroupResponse {
+    optional PBListCategoryGroup categoryGroup = 1;
+    repeated string deletedCategoryIds = 2;
+}
+
+message ShoppingListsResponse {
+    repeated ShoppingList newLists = 1;
+    repeated ShoppingList modifiedLists = 2;
+    repeated string unmodifiedIds = 3;
+    repeated string unknownIds = 4;
+    repeated string orderedIds = 5;
+    repeated PBListResponse listResponses = 6;
+}
+
+message PBListResponse {
+    optional string listId = 1;
+    optional bool isFullSync = 2;
+    optional uint64 logicalTimestamp = 3;
+    repeated PBListCategoryGroupResponse categoryGroupResponses = 7;
+    repeated string deletedCategoryGroupIds = 8;
+    repeated PBListCategorizationRule categorizationRules = 13;
+    repeated string deletedCategorizationRuleIds = 14;
+    repeated PBStore stores = 9;
+    repeated string deletedStoreIds = 10;
+    repeated PBStoreFilter storeFilters = 11;
+    repeated string deletedStoreFilterIds = 12;
+}
+
+message StarterList {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string name = 3;
+    repeated ListItem items = 4;
+    optional string userId = 5;
+    optional string listId = 6;
+    optional int32 starterListType = 7;
+
+    enum Type {
+        UserType = 0;
+        RecentItemsType = 1;
+        FavoriteItemsType = 2;
+    }
+}
+
+message StarterListResponse {
+    optional StarterList starterList = 1;
+}
+
+message StarterListBatchResponse {
+    repeated StarterListResponse listResponses = 1;
+    optional bool includesAllLists = 2;
+    repeated string unknownListIds = 3;
+}
+
+message StarterListsResponseV2 {
+    optional StarterListBatchResponse userListsResponse = 1;
+    optional StarterListBatchResponse recentItemListsResponse = 2;
+    optional StarterListBatchResponse favoriteItemListsResponse = 3;
+    optional bool hasMigratedUserFavorites = 4;
+}
+
+message StarterListsResponse {
+    repeated StarterList newLists = 1;
+    repeated StarterList modifiedLists = 2;
+    repeated string unmodifiedIds = 3;
+    repeated string unknownIds = 4;
+    repeated string orderedIds = 5;
+}
+
+message PBStore {
+    required string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string listId = 3;
+    optional string name = 4;
+    optional int32 sortIndex = 5;
+}
+
+message PBStoreFilter {
+    required string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string listId = 3;
+    optional string name = 4;
+    repeated string storeIds = 5;
+    optional bool includesUnassignedItems = 6;
+    optional int32 sortIndex = 7;
+    optional string listCategoryGroupId = 8;
+    optional bool showsAllItems = 9;
+}
+
+message PBListCategory {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string categoryGroupId = 3;
+    optional string listId = 4;
+    optional string name = 5;
+    optional string icon = 6;
+    optional string systemCategory = 7;
+    optional int32 sortIndex = 9;
+}
+
+message PBListCategoryGroup {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string listId = 3;
+    optional string name = 4;
+    repeated PBListCategory categories = 5;
+    optional string defaultCategoryId = 8;
+    optional uint64 categoriesLogicalTimestamp = 6;
+    optional uint64 deletedCategoriesLogicalTimestamp = 7;
+}
+
+message PBListCategorizationRule {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string listId = 3;
+    optional string categoryGroupId = 4;
+    optional string itemName = 5;
+    optional string categoryId = 6;
+}
+
+message PBListCategorizationRuleList {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string listId = 3;
+    repeated PBListCategorizationRule categorizationRules = 4;
+    optional uint64 categorizationRulesLogicalTimestamp = 5;
+    optional uint64 deletedCategorizationRulesLogicalTimestamp = 6;
+}
+
+message PBListItemCategoryAssignment {
+    optional string identifier = 1;
+    optional string categoryGroupId = 2;
+    optional string categoryId = 3;
+}
+
+message PBRecipe {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string name = 3;
+    optional string icon = 4;
+    optional string note = 5;
+    optional string sourceName = 6;
+    optional string sourceUrl = 7;
+    repeated PBIngredient ingredients = 8;
+    repeated string preparationSteps = 9;
+    repeated string photoIds = 11;
+    optional string adCampaignId = 12;
+    repeated string photoUrls = 13;
+    optional double scaleFactor = 14;
+    optional int32 rating = 15;
+    optional double creationTimestamp = 16;
+    optional string nutritionalInfo = 17;
+    optional int32 cookTime = 18;
+    optional int32 prepTime = 19;
+    optional string servings = 20;
+    optional string paprikaIdentifier = 21;
+}
+
+message PBIngredient {
+    optional string rawIngredient = 1;
+    optional string name = 2;
+    optional string quantity = 3;
+    optional string note = 4;
+}
+
+message PBAndroidEditableIngredient {
+    optional string identifier = 1;
+    optional PBIngredient ingredient = 2;
+}
+
+message PBAndroidEditableIngredientList {
+    repeated PBAndroidEditableIngredient editableIngredients = 1;
+}
+
+message PBRecipeCollectionSettings {
+    optional int32 recipesSortOrder = 1;
+    optional bool showOnlyRecipesWithNoCollection = 2;
+
+    enum SortOrder {
+        ManualSortOrder = 0;
+        AlphabeticalSortOrder = 1;
+        RatingSortOrder = 2;
+        DateCreatedSortOrder = 3;
+        PrepTimeSortOrder = 4;
+        CookTimeSortOrder = 5;
+    }
+}
+
+message PBRecipeCollection {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string name = 3;
+    repeated string recipeIds = 4;
+    optional PBRecipeCollectionSettings collectionSettings = 5;
+}
+
+message PBUserRecipeData {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional double recipesTimestamp = 3;
+    optional double allRecipesTimestamp = 4;
+    optional double recipeCollectionsTimestamp = 5;
+    optional double recipeCollectionIdsTimestamp = 6;
+    optional string allRecipesId = 7;
+    repeated string recipeCollectionIds = 8;
+    repeated string userIds = 9;
+    optional double userIdsTimestamp = 10;
+    optional bool hasImportedPunchforkRecipes = 11;
+    optional string mealPlanningCalendarId = 12;
+}
+
+message PBRecipeLinkRequest {
+    required string identifier = 1;
+    optional string requestingUserId = 2;
+    optional string requestingEmail = 3;
+    optional string requestingName = 4;
+    optional string confirmingUserId = 5;
+    optional string confirmingEmail = 6;
+    optional string confirmingName = 7;
+}
+
+message PBRecipeLinkRequestResponse {
+    optional int32 statusCode = 1;
+    optional PBRecipeDataResponse recipeDataResponse = 2;
+    optional string errorTitle = 3;
+    optional string errorMessage = 4;
+}
+
+message PBRecipeDataResponse {
+    optional double timestamp = 1;
+    optional PBRecipeCollection allRecipesCollection = 2;
+    repeated PBRecipe recipes = 3;
+    repeated string recipeCollectionIds = 4;
+    repeated PBRecipeCollection recipeCollections = 5;
+    repeated PBRecipeLinkRequest pendingRecipeLinkRequests = 6;
+    repeated PBRecipeLinkRequest recipeLinkRequestsToConfirm = 7;
+    repeated PBEmailUserIDPair linkedUsers = 8;
+    optional string recipeDataId = 9;
+    optional bool hasImportedPunchforkRecipes = 10;
+    optional bool includesRecipeCollectionIds = 11;
+}
+
+message PBRecipeOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string recipeDataId = 2;
+    optional PBRecipe recipe = 3;
+    optional PBRecipeCollection recipeCollection = 4;
+    optional PBRecipeLinkRequest recipeLinkRequest = 5;
+    repeated string recipeCollectionIds = 6;
+    repeated PBRecipe recipes = 7;
+    optional bool isNewRecipeFromWebImport = 8;
+    repeated string recipeIds = 9;
+}
+
+message PBRecipeOperationList {
+    repeated PBRecipeOperation operations = 1;
+}
+
+message PBRecipeList {
+    repeated PBRecipe recipes = 1;
+}
+
+message PBRecipeWebImportResponse {
+    optional int32 statusCode = 1;
+    optional PBRecipe recipe = 2;
+    optional bool isPremiumUser = 3;
+    optional string siteSpecificHelpText = 4;
+    optional int32 freeRecipeImportsRemainingCount = 5;
+}
+
+message PBCalendar {
+    required string identifier = 1;
+    optional uint64 logicalClockTime = 2;
+}
+
+message PBCalendarEvent {
+    required string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string calendarId = 3;
+    optional string date = 4;
+    optional string title = 5;
+    optional string details = 6;
+    optional string recipeId = 7;
+    optional string labelId = 8;
+    optional int32 orderAddedSortIndex = 9;
+    optional double recipeScaleFactor = 10;
+}
+
+message PBCalendarLabel {
+    required string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string calendarId = 3;
+    optional string hexColor = 4;
+    optional string name = 5;
+    optional int32 sortIndex = 6;
+}
+
+message PBCalendarResponse {
+    required string calendarId = 1;
+    optional bool isFullSync = 2;
+    optional uint64 logicalTimestamp = 3;
+    repeated PBCalendarEvent events = 4;
+    repeated string deletedEventIds = 5;
+    repeated PBCalendarLabel labels = 6;
+    repeated string deletedLabelIds = 7;
+}
+
+message PBCalendarOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string calendarId = 2;
+    optional PBCalendarEvent updatedEvent = 3;
+    optional PBCalendarEvent originalEvent = 4;
+    optional PBCalendarLabel updatedLabel = 5;
+    optional PBCalendarLabel originalLabel = 6;
+    repeated string sortedLabelIds = 7;
+    repeated string eventIds = 8;
+    repeated PBCalendarEvent updatedEvents = 9;
+    repeated PBCalendarEvent originalEvents = 10;
+}
+
+message PBCalendarOperationList {
+    repeated PBCalendarOperation operations = 1;
+}
+
+message PBOperationMetadata {
+    optional string operationId = 1;
+    optional string handlerId = 2;
+    optional string userId = 3;
+    optional int32 operationClass = 4;
+
+    enum OperationClass {
+        UndefinedOperation = 0;
+        StoreOperation = 1;
+        StoreFilterOperation = 2;
+        ListCategoryOperation = 3;
+        ListCategoryGroupOperation = 4;
+        ListCategorizationRuleOperation = 5;
+    }
+}
+
+message PBFavoriteProductOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string productId = 2;
+}
+
+message PBFavoriteProductOperationList {
+    repeated PBFavoriteProductOperation operations = 1;
+}
+
+message PBSavedRecipeOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string recipeId = 2;
+}
+
+message PBSavedRecipeOperationList {
+    repeated PBSavedRecipeOperation operations = 1;
+}
+
+message PBOrderedShoppingListIDsOperation {
+    optional PBOperationMetadata metadata = 1;
+    repeated string orderedListIds = 2;
+}
+
+message PBOrderedShoppingListIDsOperationList {
+    repeated PBOrderedShoppingListIDsOperation operations = 1;
+}
+
+message PBOrderedStarterListIDsOperation {
+    optional PBOperationMetadata metadata = 1;
+    repeated string orderedListIds = 2;
+}
+
+message PBOrderedStarterListIDsOperationList {
+    repeated PBOrderedStarterListIDsOperation operations = 1;
+}
+
+message PBListOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string listId = 2;
+    optional string listItemId = 3;
+    optional string updatedValue = 4;
+    optional string originalValue = 5;
+    optional ListItem listItem = 6;
+    optional ShoppingList list = 7;
+    optional string listFolderId = 8;
+    optional PBNotificationLocation notificationLocation = 9;
+    optional PBStore updatedStore = 10;
+    optional PBStore originalStore = 11;
+    repeated string sortedStoreIds = 12;
+    optional PBStoreFilter updatedStoreFilter = 13;
+    optional PBStoreFilter originalStoreFilter = 14;
+    repeated string sortedStoreFilterIds = 15;
+    optional PBItemPrice itemPrice = 16;
+    optional PBListCategory updatedCategory = 17;
+    optional PBListCategory originalCategory = 18;
+    optional PBListCategoryGroup updatedCategoryGroup = 19;
+    optional PBListCategoryGroup originalCategoryGroup = 20;
+    optional PBListCategorizationRule updatedCategorizationRule = 21;
+    optional PBListCategorizationRule originalCategorizationRule = 22;
+    repeated PBListCategorizationRule updatedCategorizationRules = 23;
+}
+
+message PBListOperationList {
+    repeated PBListOperation operations = 1;
+}
+
+message PBShareListOperationResponse {
+    optional PBEmailUserIDPair sharedUser = 1;
+    optional double originalListTimestamp = 2;
+    optional double updatedListTimestamp = 3;
+    optional int32 statusCode = 4;
+    optional string errorTitle = 5;
+    optional string errorMessage = 6;
+}
+
+message PBListFolderOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string listDataId = 2;
+    optional PBListFolder listFolder = 3;
+    repeated PBListFolderItem folderItems = 4;
+    optional string originalParentFolderId = 5;
+    optional string updatedParentFolderId = 6;
+}
+
+message PBListFolderOperationList {
+    repeated PBListFolderOperation operations = 1;
+}
+
+message PBStarterListOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional string listId = 2;
+    optional string listItemId = 3;
+    optional string updatedValue = 4;
+    optional string originalValue = 5;
+    optional ListItem listItem = 6;
+    optional StarterList list = 7;
+    optional PBItemPrice itemPrice = 8;
+}
+
+message PBStarterListOperationList {
+    repeated PBStarterListOperation operations = 1;
+}
+
+message PBCategorizeItemOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional ListItem listItem = 2;
+}
+
+message PBCategorizeItemOperationList {
+    repeated PBCategorizeItemOperation operations = 1;
+}
+
+message PBCategorizedItemsList {
+    optional PBTimestamp timestamp = 1;
+    repeated ListItem categorizedItems = 2;
+}
+
+message PBCategoryOrdering {
+    required string identifier = 1;
+    optional string name = 2;
+    repeated string categories = 3;
+}
+
+message PBListSettings {
+    required string identifier = 1;
+    optional string userId = 2;
+    optional string listId = 3;
+    optional double timestamp = 4;
+    optional bool shouldHideCategories = 5;
+    optional string selectedCategoryOrdering = 6;
+    repeated PBCategoryOrdering categoryOrderings = 7;
+    optional bool genericGroceryAutocompleteEnabled = 8;
+    optional string listItemSortOrder = 9;
+    optional string categoryGroupingId = 10;
+    optional bool shouldRememberItemCategories = 11;
+    optional bool favoritesAutocompleteEnabled = 12;
+    optional bool recentItemsAutocompleteEnabled = 13;
+    optional bool shouldHideCompletedItems = 14;
+    optional int32 listColorType = 15;
+    optional string listThemeId = 16;
+    optional PBListTheme customTheme = 17;
+    optional string badgeMode = 18;
+    optional bool locationNotificationsEnabled = 19;
+    optional string storeFilterId = 20;
+    optional bool shouldHideStoreNames = 21;
+    optional bool shouldHideRunningTotals = 22;
+    optional bool shouldHidePrices = 23;
+    optional int32 leftRunningTotalType = 24;
+    optional int32 rightRunningTotalType = 25;
+    optional string linkedAlexaListId = 26;
+    optional string listCategoryGroupId = 27;
+    optional string migrationListCategoryGroupIdForNewList = 28;
+    optional bool shouldShowSharedListCategoryOrderHintBanner = 29;
+    optional string linkedGoogleAssistantListId = 30;
+}
+
+message PBListSettingsList {
+    optional PBTimestamp timestamp = 1;
+    repeated PBListSettings settings = 2;
+}
+
+message PBListSettingsOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional PBListSettings updatedSettings = 2;
+}
+
+message PBListSettingsOperationList {
+    repeated PBListSettingsOperation operations = 1;
+}
+
+message PBListTheme {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string userId = 3;
+    optional string name = 4;
+    optional string fontName = 5;
+    optional string bannerHexColor = 6;
+    optional string backgroundHexColor = 7;
+    optional string backgroundTexture = 8;
+    optional string itemNameHexColor = 9;
+    optional string itemDetailsHexColor = 10;
+    optional string controlHexColor = 11;
+    optional string separatorHexColor = 12;
+    optional string navigationBarHexColor = 13;
+    optional string cellHexColor = 14;
+    optional string cellTexture = 15;
+    optional string tableHexColor = 16;
+    optional string tableTexture = 17;
+    optional string backgroundImage = 18;
+    optional string selectionHexColor = 19;
+}
+
+message PBListThemeList {
+    optional PBTimestamp timestamp = 1;
+    repeated PBListTheme themes = 2;
+}
+
+message PBMobileAppSettings {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional string defaultListId = 3;
+    optional string crossOffGesture = 4;
+    optional string listsSortOrder = 5;
+    optional string starterListsSortOrder = 6;
+    optional bool remindersAppImportEnabled = 7;
+    optional string appBadgeMode = 8;
+    optional bool shouldAutoImportReminders = 9;
+    optional bool shouldPreventScreenAutolock = 10;
+    optional bool promptToLoadPhotosOverCellularData = 11;
+    optional string listIdForRecipeIngredients = 12;
+    optional string webSelectedRecipeId = 13;
+    optional string webSelectedRecipeCollectionId = 14;
+    optional string webSelectedTabId = 15;
+    optional string webSelectedListFolderPath = 16;
+    optional int32 webSelectedMealPlanTab = 17;
+    optional bool webHasHiddenStoresAndFiltersHelp = 18;
+    optional bool webHasHiddenItemPricesHelp = 22;
+    optional string webDecimalSeparator = 23;
+    optional string webCurrencyCode = 24;
+    optional string webCurrencySymbol = 25;
+    repeated PBHintBannerDisplayStats hintBannerDisplayStats = 19;
+    optional PBRecipeCollectionSettings webSelectedRecipeCollectionSettingsOverride = 20;
+    optional bool shouldUseMetricUnits = 21;
+    repeated PBAlexaList unlinkedAlexaLists = 26;
+    optional bool alexaSkillHasListReadPermission = 27;
+    optional bool alexaSkillHasListWritePermission = 28;
+    optional bool isAccountLinkedToAlexaSkill = 29;
+    optional string alexaApiEndpoint = 30;
+    optional bool alexaSkillOnlySupportsBuiltInLists = 31;
+    optional bool hasMigratedUserCategoriesToListCategories = 32;
+    repeated PBGoogleAssistantList unlinkedGoogleAssistantLists = 33;
+    optional bool isAccountLinkedToGoogleAssistant = 34;
+    optional bool isActiveGoogleAssistantProvider = 35;
+    optional bool clientHasShownGoogleAssistantOnboarding = 36;
+}
+
+message PBHintBannerDisplayStats {
+    required string identifier = 1;
+    repeated double displayTimestamps = 2;
+}
+
+message PBMobileAppSettingsOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional PBMobileAppSettings updatedSettings = 2;
+}
+
+message PBMobileAppSettingsOperationList {
+    repeated PBMobileAppSettingsOperation operations = 1;
+}
+
+message PBUserCategory {
+    optional string identifier = 1;
+    optional string userId = 2;
+    optional string name = 3;
+    optional string icon = 4;
+    optional string systemCategory = 5;
+    optional string categoryMatchId = 6;
+    optional bool fromSharedList = 7;
+    optional double timestamp = 8;
+}
+
+message PBCategoryGrouping {
+    optional string identifier = 1;
+    optional string userId = 2;
+    optional string name = 3;
+    optional double timestamp = 4;
+    optional string sharingId = 5;
+    repeated string categoryIds = 6;
+    optional bool shouldHideFromBrowseListCategoryGroupsScreen = 7;
+}
+
+message PBUserCategoryData {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional double requiresRefreshTimestamp = 3;
+    repeated PBUserCategory categories = 4;
+    repeated PBCategoryGrouping groupings = 5;
+    optional bool hasMigratedCategoryOrderings = 6;
+}
+
+message PBUserCategoryOperation {
+    optional PBOperationMetadata metadata = 1;
+    optional PBUserCategory category = 2;
+    optional PBCategoryGrouping grouping = 3;
+}
+
+message PBUserCategoryOperationList {
+    repeated PBUserCategoryOperation operations = 1;
+}
+
+message PBTimestamp {
+    optional string identifier = 1;
+    optional double timestamp = 2;
+}
+
+message PBTimestampList {
+    repeated PBTimestamp timestamps = 1;
+}
+
+message PBLogicalTimestamp {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string description = 3;
+}
+
+message PBLogicalTimestampList {
+    repeated PBLogicalTimestamp timestamps = 1;
+}
+
+message PBEditOperationResponse {
+    repeated PBTimestamp originalTimestamps = 1;
+    repeated PBTimestamp newTimestamps = 2;
+    repeated string processedOperations = 3;
+    repeated PBLogicalTimestamp originalLogicalTimestamps = 4;
+    repeated PBLogicalTimestamp currentLogicalTimestamps = 5;
+    repeated string fullRefreshTimestampIds = 6;
+}
+
+message PBUserSubscriptionInfo {
+    required string identifier = 1;
+    optional bool subscriptionIsActive = 16;
+    optional int32 subscriptionManagementSystem = 14;
+    optional string expirationTimestampMsStr = 2;
+    optional int64 expirationTimestampMs = 15;
+    optional int32 subscriptionType = 3;
+    optional PBEmailUserIDPair masterUser = 4;
+    repeated PBEmailUserIDPair subusers = 5;
+    repeated PBIAPReceipt nonrenewIapReceipts = 6;
+    repeated PBIAPReceipt autorenewIapReceipts = 7;
+    repeated PBStripeCharge nonrenewStripeCharges = 9;
+    repeated PBGooglePlayPurchase googlePlayPurchases = 12;
+    optional string googlePlayPurchaseToken = 13;
+    repeated string googlePlayOrderIds = 17;
+    optional int32 subuserLimit = 8 [default = 5];
+    repeated string sentEmailIdentifiers = 10;
+    optional bool userConfirmedNotRenewing = 11;
+}
+
+message PBIAPReceipt {
+    optional string transactionId = 1;
+    optional bytes receiptData = 2;
+    optional string parsedReceipt = 3;
+}
+
+message PBStripeCharge {
+    optional string chargeId = 1;
+    optional string charge = 2;
+}
+
+message PBGooglePlayPurchase {
+    optional string orderId = 1;
+    optional string purchaseToken = 3;
+    optional string purchaseInfo = 2;
+}
+
+message PBUserEmailInfo {
+    required string identifier = 1;
+    optional string unsubscribeId = 2;
+    repeated string sentMessageIdentifiers = 4;
+    optional bool shouldSendNewsletters = 3;
+    optional bool shouldSendOnboardingTips = 5;
+}
+
+message PBAccountInfoResponse {
+    optional int32 statusCode = 1;
+    optional string firstName = 2;
+    optional string lastName = 3;
+    optional string email = 4;
+    optional bool isPremiumUser = 5;
+    optional int32 subscriptionType = 6;
+    optional string expirationTimestampMsStr = 7;
+    optional int64 expirationTimestampMs = 11;
+    optional PBEmailUserIDPair masterUser = 8;
+    repeated PBEmailUserIDPair subusers = 9;
+    optional int32 subscriptionManagementSystem = 10;
+}
+
+message PBAccountChangePasswordResponse {
+    optional int32 statusCode = 1;
+    optional string errorTitle = 2;
+    optional string errorMessage = 3;
+}
+
+message PBRedemptionCodeInfo {
+    optional string identifier = 1;
+    optional string redemptionCode = 2;
+    optional string purchasingUserId = 3;
+    optional string redeemingUserId = 4;
+    optional double redemptionTimestamp = 5;
+    optional int32 subscriptionType = 6;
+    optional double creationTimestamp = 7;
+    optional bool wasPurchased = 8;
+}
+
+message PBRedemptionCodeResponse {
+    optional int32 statusCode = 1;
+    optional PBAccountInfoResponse accountInfo = 2;
+    optional string errorTitle = 3;
+    optional string errorMessage = 4;
+}
+
+message PBIdentifierList {
+    optional double timestamp = 1;
+    repeated string identifiers = 2;
+}
+
+message PBEmailUserIDPair {
+    optional string email = 1;
+    optional string userId = 2;
+    optional string fullName = 3;
+}
+
+message PBNotificationLocation {
+    required string identifier = 1;
+    optional double latitude = 2;
+    optional double longitude = 3;
+    optional string name = 4;
+    optional string address = 5;
+}
+
+message PBUserDataClientTimestamps {
+    optional PBTimestampList shoppingListTimestamps = 1;
+    optional PBListFolderTimestamps listFolderTimestamps = 2;
+    optional PBTimestamp userRecipeDataTimestamp = 3;
+    optional PBLogicalTimestamp mealPlanningCalendarTimestamp = 4;
+    optional PBTimestamp categorizedItemsTimestamp = 5;
+    optional PBTimestamp userCategoriesTimestamp = 6;
+    optional PBTimestampList starterListTimestamps = 7;
+    optional PBTimestampList recentItemTimestamps = 8;
+    optional PBTimestampList favoriteItemTimestamps = 9;
+    optional PBTimestamp orderedStarterListIdsTimestamp = 10;
+    optional PBTimestamp listSettingsTimestamp = 11;
+    optional PBTimestamp starterListSettingsTimestamp = 12;
+    optional PBTimestamp mobileAppSettingsTimestamp = 13;
+    optional PBLogicalTimestampList shoppingListLogicalTimestamps = 14;
+}
+
+message PBUserDataResponse {
+    optional ShoppingListsResponse shoppingListsResponse = 1;
+    optional PBListFoldersResponse listFoldersResponse = 2;
+    optional PBRecipeDataResponse recipeDataResponse = 3;
+    optional PBCalendarResponse mealPlanningCalendarResponse = 4;
+    optional PBCategorizedItemsList categorizedItemsResponse = 5;
+    optional PBUserCategoryData userCategoriesResponse = 6;
+    optional StarterListsResponseV2 starterListsResponse = 7;
+    optional PBIdentifierList orderedStarterListIdsResponse = 8;
+    optional PBListSettingsList listSettingsResponse = 9;
+    optional PBListSettingsList starterListSettingsResponse = 10;
+    optional PBMobileAppSettings mobileAppSettingsResponse = 11;
+}
+
+message PBValue {
+    optional string identifier = 1;
+    repeated string stringValue = 2;
+    optional bool boolValue = 3;
+    optional int32 intValue = 4;
+    optional double doubleValue = 5;
+    optional bytes dataValue = 6;
+    optional bytes encodedPb = 7;
+    optional string pbClassName = 8;
+    optional uint64 logicalTimestampValue = 9;
+}
+
+message PBValueList {
+    repeated PBValue values = 1;
+}
+
+message PBDeletedObjectID {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+}
+
+message PBDeletedObjectIDList {
+    optional string identifier = 1;
+    optional string containerId = 2;
+    optional string logicalClockId = 3;
+    optional uint64 creationLogicalTimestamp = 4;
+    optional uint64 logicalTimestamp = 5;
+    repeated PBDeletedObjectID deletedObjectIds = 6;
+}
+
+message PBEmailUserIDPairList {
+    repeated PBEmailUserIDPair emailUserIdPair = 1;
+}
+
+message PBRecipeLinkRequestList {
+    repeated PBRecipeLinkRequest recipeLinkRequest = 1;
+}
+
+message PBSyncOperation {
+    optional string identifier = 1;
+    optional string operationQueueId = 2;
+    optional string operationClassName = 3;
+    optional bytes encodedOperation = 4;
+}
+
+message PBWatchSyncResponse {
+    optional string watchId = 23;
+    optional string userId = 1;
+    optional bool isPremiumUser = 2;
+    optional string rootFolderId = 3;
+    optional uint64 logicalTimestamp = 4;
+    optional bool isFullSync = 22;
+    repeated ShoppingList shoppingLists = 5;
+    repeated string deletedShoppingListIds = 6;
+    repeated ListItem listItems = 7;
+    repeated string deletedListItemIds = 8;
+    repeated PBStore stores = 9;
+    repeated string deletedStoresIds = 10;
+    repeated PBStoreFilter storeFilters = 11;
+    repeated string deletedStoreFilterIds = 12;
+    repeated PBListSettings listSettings = 13;
+    repeated string deletedListSettingIds = 14;
+    repeated PBCategoryGrouping categoryGroups = 15;
+    repeated string deletedCategoryGroupIds = 16;
+    repeated PBUserCategory categories = 17;
+    repeated string deletedCategoryIds = 18;
+    repeated PBListCategory listCategories = 24;
+    repeated string deletedListCategoryIds = 25;
+    repeated PBListCategoryGroup listCategoryGroups = 26;
+    repeated string deletedListCategoryGroupIds = 27;
+    repeated PBListCategorizationRule listCategorizationRules = 28;
+    repeated string deletedListCategorizationRuleIds = 29;
+    repeated PBListFolder listFolders = 19;
+    repeated string deletedListFolderIds = 20;
+    repeated string processedOperationIds = 21;
+}
+
+message PBWatchSyncMultipartResponsePart {
+    optional string fullResponseHash = 1;
+    optional int32 partIndex = 2;
+    optional int32 partsCount = 3;
+    optional bytes responsePart = 4;
+}
+
+message PBWatchSyncMultipartResponse {
+    repeated PBWatchSyncMultipartResponsePart reponsePart = 1;
+    optional string fullResponseHash = 2;
+    optional uint64 responseLogicalTimestamp = 3;
+}
+
+message PBAlexaUser {
+    optional string identifier = 1;
+    optional string alexaUserId = 2;
+    optional string anylistUserId = 3;
+    optional bool hasListReadPermission = 4;
+    optional bool hasListWritePermission = 5;
+    optional bool isSkillEnabled = 6;
+    optional string accountLinkedTimestamp = 7;
+    optional string skillEnabledTimestamp = 8;
+    optional string skillPermissionTimestamp = 10;
+    optional string alexaApiEndpoint = 11;
+}
+
+message PBAlexaList {
+    optional string identifier = 1;
+    optional string alexaListId = 2;
+    optional string anylistListId = 3;
+    optional string alexaUserId = 4;
+    optional string name = 5;
+    repeated PBAlexaListItem items = 6;
+    optional string state = 7;
+    optional int32 version = 8;
+}
+
+message PBAlexaListItem {
+    optional string identifier = 1;
+    optional string alexaItemId = 2;
+    optional string anylistItemId = 3;
+    optional string alexaListId = 4;
+    optional string alexaUserId = 5;
+    optional int32 version = 6;
+    optional string itemValue = 7;
+    optional string status = 8;
+}
+
+message PBAlexaListOperation {
+    optional string identifier = 1;
+    optional string operationType = 2;
+    optional string alexaUserId = 3;
+    repeated PBAlexaListItem operationItems = 4;
+    repeated PBAlexaList operationLists = 5;
+}
+
+message PBAlexaTask {
+    optional string identifier = 1;
+    optional string alexaUserId = 2;
+    optional string eventJson = 3;
+    optional PBAlexaListOperation listOperation = 4;
+}
+
+message PBGoogleAssistantUser {
+    optional string identifier = 1;
+    optional string anylistUserId = 2;
+    optional string listActionsApiRefreshToken = 3;
+    optional bool isGoogleAssistantAccountLinked = 4;
+    optional bool isActiveGoogleAssistantProvider = 5;
+    optional string anylistRefreshToken = 6;
+    optional string anylistAccessToken = 7;
+}
+
+message PBGoogleAssistantList {
+    optional string identifier = 1;
+    optional string googleAssistantListId = 2;
+    optional string anylistListId = 3;
+    optional string anylistUserId = 4;
+    optional string title = 5;
+    repeated PBGoogleAssistantListItem items = 6;
+    optional bool isArchived = 7;
+    optional string createTime = 8;
+    optional string updateTime = 9;
+}
+
+message PBGoogleAssistantListItem {
+    optional string identifier = 1;
+    optional string googleAssistantItemId = 2;
+    optional string anylistItemId = 3;
+    optional string googleAssistantListId = 4;
+    optional string anylistUserId = 5;
+    optional string content = 6;
+    optional bool isChecked = 7;
+    optional string createTime = 8;
+    optional string updateTime = 9;
+}
+
+message PBGoogleAssistantListOperation {
+    optional string identifier = 1;
+    optional string operationType = 2;
+    optional string anylistUserId = 3;
+    repeated PBGoogleAssistantListItem operationItems = 4;
+    repeated PBGoogleAssistantList operationLists = 5;
+}
+
+message PBGoogleAssistantTask {
+    optional string identifier = 1;
+    optional string anylistUserId = 2;
+    optional PBGoogleAssistantListOperation listOperation = 3;
+}

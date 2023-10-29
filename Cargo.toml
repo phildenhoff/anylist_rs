@@ -1,22 +1,22 @@
 [package]
-name = "anylist-rs"
+name = "anylist_client"
 version = "0.1.0"
 authors = ["Phil Denhoff <phil@denhoff.ca>"]
 edition = "2021"
 include = ["src/"]
 
 [lib]
-crate-type = ["cdylib"]
+name = "anylist_client"
+crate-type = ["lib", "cdylib"]
 bench = false
-path = "src/login.rs"
-
-[[bin]]
-name = "anylist"
-path = "src/main.rs"
+path = "src/lib.rs"
 
 [dependencies]
 reqwest = { version = "0.11", features = ["json"] }
 serde = "1.0"
 serde_derive = "1.0"
 tokio = { version = "1", features = ["full"] }
-clap = "3.0.0-beta.5"
+prost = "0.12"
+
+[build-dependencies]
+prost-build = "0.11.0"
