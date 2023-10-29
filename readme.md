@@ -1,6 +1,6 @@
-# anylist-swift
+# anylist_rs
 
-WIP client for [AnyList](https://www.anylist.com/).
+A Rust crate for interacting with [AnyList](https://www.anylist.com/)'s undocumented API.
 
 ## running scripts
 
