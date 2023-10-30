@@ -37,15 +37,13 @@ async fn get_user_data(
 fn transform_api_list_item(items: Vec<ApiListItem>) -> Vec<ListItem> {
     let mut result: Vec<ListItem> = Vec::new();
     for item in items {
-        if let (Some(name), Some(details), Some(is_checked), Some(list_id)) =
-            (item.name, item.details, item.checked, item.list_id)
-        {
+        if let (Some(name), Some(list_id)) = (item.name, item.list_id) {
             let item = ListItem {
                 id: item.identifier,
                 list_id: list_id.clone(),
                 name,
-                details,
-                is_checked,
+                details: item.details.unwrap_or("".to_string()),
+                is_checked: item.checked.unwrap_or(false),
             };
             result.push(item);
         }
@@ -68,9 +66,7 @@ fn lists_from_response(response: ShoppingListsResponse) -> Vec<List> {
     lists
 }
 
-pub async fn get_lists(
-    signed_user_id: &str,
-) -> Result<Vec<List>, Box<dyn std::error::Error>> {
+pub async fn get_lists(signed_user_id: &str) -> Result<Vec<List>, Box<dyn std::error::Error>> {
     let data = get_user_data(signed_user_id).await?;
     let lists = match data.shopping_lists_response {
         Some(ref res) => lists_from_response(res.clone()),
