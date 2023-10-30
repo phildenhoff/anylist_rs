@@ -6,13 +6,19 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-struct LoginResponse {
+struct ApiLoginResponse {
     is_premium_user: bool,
     signed_user_id: String,
     user_id: String,
 }
 
-pub async fn login(email: &str, password: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub struct LoginResult {
+    pub is_premium_user: bool,
+    pub credential: String,
+    pub user_id: String,
+}
+
+pub async fn login(email: &str, password: &str) -> Result<LoginResult, Box<dyn std::error::Error>> {
     let mut headers = HeaderMap::new();
     headers.insert("X-AnyLeaf-API-Version", HeaderValue::from_static("3"));
     headers.insert(
@@ -32,13 +38,14 @@ pub async fn login(email: &str, password: &str) -> Result<(), Box<dyn std::error
         .send()
         .await?;
 
-    match res.json::<LoginResponse>().await {
+    match res.json::<ApiLoginResponse>().await {
         Ok(response) => {
-            println!("Is premium user?: {:?}", response.is_premium_user);
-            println!("Signed user ID: {:?}", response.signed_user_id);
+            Ok(LoginResult {
+                is_premium_user: response.is_premium_user,
+                credential: response.signed_user_id,
+                user_id: response.user_id,
+            })
         }
-        Err(e) => println!("Error: {:?}", e),
+        Err(e) => Err(Box::new(e)),
     }
-
-    Ok(())
 }
