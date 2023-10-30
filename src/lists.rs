@@ -14,7 +14,6 @@ async fn get_user_data(
         .await?;
 
     let bytes = res.bytes().await?;
-    // println!("{:?}", bytes);
     let data = PbUserDataResponse::decode(bytes.as_ref())?;
     Ok(data)
 }
