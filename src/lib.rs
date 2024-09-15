@@ -1,5 +1,7 @@
+pub mod api;
 pub mod lists;
 pub mod login;
+pub mod recipes;
 
 pub mod protobuf {
     pub mod anylist {
