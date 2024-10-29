@@ -1,9 +1,5 @@
-use crate::protobuf::anylist::{
-    ListItem as ApiListItem, PbUserDataResponse, ShoppingListsResponse,
-};
-use prost::Message;
-use reqwest::header;
-
+use crate::api::get_user_data;
+use crate::protobuf::anylist::{ListItem as ApiListItem, ShoppingListsResponse};
 pub struct ListItem {
     pub id: String,
     pub list_id: String,
@@ -16,22 +12,6 @@ pub struct List {
     pub id: String,
     pub name: String,
     pub items: Vec<ListItem>,
-}
-
-async fn get_user_data(
-    signed_user_id: &str,
-) -> Result<PbUserDataResponse, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
-    let res = client
-        .post("https://www.anylist.com/data/user-data/get")
-        .header(header::CONTENT_TYPE, "application/x-protobuf")
-        .header("X-AnyLeaf-Signed-User-ID", signed_user_id)
-        .send()
-        .await?;
-
-    let bytes = res.bytes().await?;
-    let data = PbUserDataResponse::decode(bytes.as_ref())?;
-    Ok(data)
 }
 
 fn transform_api_list_item(items: Vec<ApiListItem>) -> Vec<ListItem> {
