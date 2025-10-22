@@ -81,7 +81,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("add-list-item".to_string()),
+                handler_id: Some("add-shopping-list-item".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -118,7 +118,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update", buf).await?;
 
         Ok(ListItem {
             id: item_id,
@@ -215,7 +215,9 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        // Note: "update-list-item" handler not found in API docs - may need to use specific handlers
+        // like set-list-item-name, set-list-item-quantity-v2, set-list-item-details
+        self.post("data/shopping-lists/update", buf).await?;
         Ok(())
     }
 
@@ -231,7 +233,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("delete-list-item".to_string()),
+                handler_id: Some("remove-shopping-list-item".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -268,7 +270,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update", buf).await?;
         Ok(())
     }
 
@@ -337,12 +339,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some(if checked {
-                    "check-list-item"
-                } else {
-                    "uncheck-list-item"
-                }
-                .to_string()),
+                handler_id: Some("set-list-item-checked".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -379,7 +376,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update", buf).await?;
         Ok(())
     }
 

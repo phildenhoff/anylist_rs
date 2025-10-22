@@ -92,7 +92,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update-v2", buf).await?;
 
         Ok(Category {
             id: category_id,
@@ -114,7 +114,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("delete-category".to_string()),
+                handler_id: Some("remove-category".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::ListCategoryOperation as i32),
             }),
@@ -151,7 +151,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update-v2", buf).await?;
         Ok(())
     }
 
@@ -186,7 +186,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("update-category-name".to_string()),
+                handler_id: Some("set-category-name".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::ListCategoryOperation as i32),
             }),
@@ -223,7 +223,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update-v2", buf).await?;
         Ok(())
     }
 }

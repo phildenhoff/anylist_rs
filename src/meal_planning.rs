@@ -103,7 +103,7 @@ impl AnyListClient {
         let operation = PbCalendarOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("create-meal-event".to_string()),
+                handler_id: Some("new-event".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -127,7 +127,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("meal-planning/update", buf).await?;
+        self.post("data/meal-planning-calendar/update", buf).await?;
 
         Ok(MealPlanEvent {
             id: event_id,
@@ -176,7 +176,7 @@ impl AnyListClient {
         let operation = PbCalendarOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("update-meal-event".to_string()),
+                handler_id: Some("update-event".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -200,7 +200,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("meal-planning/update", buf).await?;
+        self.post("data/meal-planning-calendar/update", buf).await?;
         Ok(())
     }
 
@@ -220,7 +220,7 @@ impl AnyListClient {
         let operation = PbCalendarOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("delete-meal-event".to_string()),
+                handler_id: Some("delete-event".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -244,7 +244,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("meal-planning/update", buf).await?;
+        self.post("data/meal-planning-calendar/update", buf).await?;
         Ok(())
     }
 

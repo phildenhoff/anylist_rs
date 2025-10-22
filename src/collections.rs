@@ -59,7 +59,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("create-collection".to_string()),
+                handler_id: Some("new-recipe-collection".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -82,7 +82,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
 
         Ok(RecipeCollection {
             id: collection_id,
@@ -102,7 +102,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("delete-collection".to_string()),
+                handler_id: Some("remove-recipe-collection".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -125,7 +125,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
     }
 
@@ -170,7 +170,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("add-recipe-to-collection".to_string()),
+                handler_id: Some("add-recipes-to-collection".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -193,7 +193,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
     }
 
@@ -240,7 +240,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("remove-recipe-from-collection".to_string()),
+                handler_id: Some("remove-recipes-from-collection".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -263,7 +263,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
     }
 }

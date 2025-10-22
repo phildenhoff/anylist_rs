@@ -168,7 +168,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("create-recipe".to_string()),
+                handler_id: Some("save-recipe".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -191,7 +191,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
 
         Ok(Recipe {
             id: recipe_id,
@@ -262,7 +262,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("update-recipe".to_string()),
+                handler_id: Some("save-recipe".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -285,7 +285,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
     }
 
@@ -300,7 +300,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("delete-recipe".to_string()),
+                handler_id: Some("remove-recipe".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -323,7 +323,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("recipes/update", buf).await?;
+        self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
     }
 

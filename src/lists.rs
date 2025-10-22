@@ -127,7 +127,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("create-list".to_string()),
+                handler_id: Some("new-shopping-list".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -164,7 +164,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update", buf).await?;
 
         Ok(List {
             id: list_id,
@@ -221,7 +221,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update", buf).await?;
         Ok(())
     }
 
@@ -257,7 +257,7 @@ impl AnyListClient {
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("update-list-name".to_string()),
+                handler_id: Some("rename-list".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
@@ -294,13 +294,13 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update", buf).await?;
         Ok(())
     }
 
     /// Get user data from the API
     pub async fn get_user_data(&self) -> Result<PbUserDataResponse> {
-        let bytes = self.post("user-data/get", vec![]).await?;
+        let bytes = self.post("data/user-data/get", vec![]).await?;
         let data = PbUserDataResponse::decode(bytes.as_ref())?;
         Ok(data)
     }
