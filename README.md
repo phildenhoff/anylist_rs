@@ -64,6 +64,8 @@ tokio = { version = "1", features = ["full"] }
 - [Categories](./docs/examples/categories.rs)
 - [Stores](./docs/examples/stores.rs)
 
+... or you can see my [anylist_cli](https://github.com/phildenhoff/anylist_cli)
+
 ## Credential Management
 
 To reuse credentials without re-authenticating:
