@@ -166,6 +166,287 @@ All operations include `PBOperationMetadata` with:
 
 ## Protobuf operation / endpoint mapping
 
+This is the **critical mapping** showing which handler IDs go to which endpoints.
+
+### `/data/shopping-lists/update` (Legacy Queue)
+
+**Basic list and item operations** use this endpoint:
+
+| Handler ID | Description |
+|------------|-------------|
+| `new-shopping-list` | Create new shopping list |
+| `add-shopping-list-item` | Add item to list |
+| `remove-shopping-list-item` | Remove item from list |
+| `set-list-item-checked` | Check/uncheck item |
+| `set-list-item-name` | Rename item |
+| `set-list-item-details` | Set item details/notes |
+| `set-list-item-product-upc` | Set item UPC code |
+| `set-list-item-photo-id` | Set item photo |
+| `set-list-item-quantity-v2` | Set item quantity |
+| `set-item-quantity-should-override-ingredient-quantity` | Quantity override setting |
+| `set-list-item-price-quantity` | Set price quantity |
+| `set-list-item-price-quantity-should-override-item-quantity` | Price quantity override |
+| `set-list-item-package-size` | Set package size |
+| `set-item-package-size-should-override-ingredient-package-size` | Package size override |
+| `set-list-item-price-package-size` | Set price package size |
+| `set-list-item-price-package-size-should-override-item-package-size` | Price package size override |
+| `bulk-remove-list-items` | Remove multiple items |
+| `set-ordered-list-items` | Reorder items |
+| `bulk-uncross-list-items` | Uncheck multiple items |
+| `bulk-cross-off-list-items` | Check multiple items |
+| `uncheck-all` | Uncheck all items |
+| `share-shopping-list` | Share list with user |
+| `unshare-shopping-list` | Unshare list |
+| `rename-list` | Rename list |
+| `move-shopping-list-item-to-index` | Move item to position |
+| `update-list-item-category-assignment` | Update item category |
+| `set-list-item-category-match-id` | Set category match ID |
+| `set-list-item-price-matchup-tag` | Set price matchup tag |
+| `add-list-item-store-id` | Add store to item |
+| `remove-list-item-store-id` | Remove store from item |
+| `add-store-ids-to-items` | Add store to multiple items |
+| `remove-store-ids-from-items` | Remove store from multiple items |
+| `remove-store-id-from-all-items` | Remove store from all items |
+| `save-item-price` | Save item price |
+| `add-list-notification-location` | Add notification location |
+| `set-list-password` | Set list password |
+| `set-allows-multiple-category-groups` | Allow multiple category groups |
+| `set-list-item-sort-order` | Set item sort order |
+| `set-new-list-item-position` | Set new item position |
+| `add-item-ingredient-to-list-item` | Add recipe ingredient to item |
+| `remove-ingredient-id-from-list-item` | Remove ingredient from item |
+
+**All use**: `PBListOperationList` request, `PBEditOperationResponse` response
+
+### `/data/shopping-lists/update-v2` (V2 Queue)
+
+**Advanced features** (categories, stores, filters) use this endpoint:
+
+#### Store Operations (operationClass = 1)
+| Handler ID | Description |
+|------------|-------------|
+| `new-store` | Create store |
+| `delete-store` | Delete store |
+| `set-store-name` | Set store name |
+| `set-sorted-store-ids` | Sort stores |
+
+#### Store Filter Operations (operationClass = 2)
+| Handler ID | Description |
+|------------|-------------|
+| `new-store-filter` | Create store filter |
+| `update-store-filter` | Update store filter |
+| `delete-store-filter` | Delete store filter |
+| `set-sorted-store-filter-ids` | Sort store filters |
+
+#### List Category Operations (operationClass = 3)
+| Handler ID | Description |
+|------------|-------------|
+| `create-category` | Create category |
+| `set-category-name` | Set category name |
+| `set-category-icon` | Set category icon |
+| `migrate-list-category` | Migrate category |
+
+#### List Category Group Operations (operationClass = 4)
+| Handler ID | Description |
+|------------|-------------|
+| `create-category-group` | Create category group |
+| `set-category-group-name` | Set category group name |
+| `set-default-category-id` | Set default category |
+| `set-sorted-category-ids` | Sort categories |
+
+#### List Categorization Rule Operations (operationClass = 5)
+| Handler ID | Description |
+|------------|-------------|
+| `save-categorization-rule` | Save categorization rule |
+| `bulk-save-categorization-rules` | Save multiple categorization rules |
+| `remove-categorization-rules-for-category-ids` | Remove categorization rules |
+
+**All use**: `PBListOperationList` request, `PBEditOperationResponse` response
+
+### `/data/user-recipe-data/update`
+
+**Recipe operations** use this endpoint:
+
+| Handler ID | Description |
+|------------|-------------|
+| `save-recipe` | Save/update recipe |
+| `remove-recipe` | Remove recipe |
+| `remove-recipe-ids` | Remove multiple recipes |
+| `add-recipes-to-collection` | Add recipes to collection |
+| `remove-recipes-from-collection` | Remove recipes from collection |
+| `new-recipe-collection` | Create recipe collection |
+| `set-recipe-collection-name` | Set collection name |
+| `set-recipe-collection-icon` | Set collection icon |
+| `set-recipe-collection-sort-order` | Set collection sort order |
+| `set-system-collection-sort-order` | Set system collection sort order |
+| `set-system-collection-collections-sort-order` | Set system collection order |
+| `remove-recipe-collection` | Remove collection |
+| `set-ordered-recipe-collection-ids` | Reorder collections |
+| `set-ordered-recipe-ids-for-collection` | Reorder recipes in collection |
+| `set-max-recipe-count` | Set max recipe count |
+
+**All use**: `PBRecipeOperationList` request, `PBEditOperationResponse` response
+
+### `/data/meal-planning-calendar/update`
+
+**Meal planning operations** use this endpoint:
+
+| Handler ID | Description |
+|------------|-------------|
+| `new-event` | Create meal event |
+| `update-event` | Update meal event |
+| `delete-event` | Delete meal event |
+| `delete-events-for-recipe-id` | Delete all events for recipe |
+| `set-event-title` | Set event title |
+| `set-event-details` | Set event details |
+| `set-event-label` | Set event label (breakfast/lunch/dinner) |
+| `set-date-for-events` | Move events to date |
+| `save-new-events` | Save multiple new events |
+| `new-label` | Create custom label |
+| `update-label` | Update label |
+| `delete-label` | Delete label |
+| `set-sorted-label-ids` | Sort labels |
+
+**All use**: `PBCalendarOperationList` request, `PBEditOperationResponse` response
+
+### `/data/list-folders/update`
+
+**Folder operations** use this endpoint:
+
+| Handler ID | Description |
+|------------|-------------|
+| `create-new-folder` | Create list folder |
+| `delete-folder-items` | Delete folder items |
+| `set-folder-name` | Rename folder |
+| `set-folder-hex-color` | Set folder color |
+| `set-ordered-folder-items` | Reorder lists in folder |
+| `set-folder-sort-position` | Set folder sort position |
+
+**All use**: `PBListFolderOperationList` request, `PBEditOperationResponse` response
+
+### `/data/user-categories/update` (Legacy)
+
+**User category operations** (deprecated, use list categories instead):
+
+| Handler ID | Description |
+|------------|-------------|
+| `add-category` | Add user category |
+| `remove-category` | Remove user category |
+| `set-category-name` | Set category name |
+| `set-category-icon` | Set category icon |
+| `add-grouping` | Add category grouping |
+| `remove-grouping` | Remove category grouping |
+| `set-grouping-name` | Rename grouping |
+| `set-grouping-categories` | Update grouping categories |
+| `set-grouping-category-order` | Reorder categories in grouping |
+
+**All use**: `PBUserCategoryOperationList` request, `PBEditOperationResponse` response
+
+### `/data/categorized-items/update`
+
+**Item categorization operations**:
+
+| Handler ID | Description |
+|------------|-------------|
+| `categorize-item` | Categorize item |
+| `remove-categorized-item` | Remove item categorization |
+
+**All use**: `PBCategorizeItemOperationList` request, `PBEditOperationResponse` response
+
+### `/data/starter-lists/update`
+
+**Starter list operations** (favorites/recent items):
+
+| Handler ID | Description |
+|------------|-------------|
+| `new-starter-list` | Create starter list |
+| `remove-starter-list` | Delete starter list |
+| `add-item` | Add item to starter list |
+| `remove-item` | Remove item from starter list |
+| `bulk-remove-list-items` | Remove multiple items |
+| `clear-starter-list` | Clear all items |
+| `rename-list` | Rename starter list |
+| Various item property setters | Similar to shopping list items |
+
+**All use**: `PBStarterListOperationList` request, `PBEditOperationResponse` response
+
+### `/data/starter-lists/update-ordered-ids`
+
+**Starter list ordering**:
+
+| Handler ID | Description |
+|------------|-------------|
+| `set-ordered-list-ids` | Order starter lists |
+
+**All use**: `PBOrderedStarterListIDsOperationList` request, `PBEditOperationResponse` response
+
+### `/data/list-settings/update`
+
+**List settings operations**:
+
+| Handler ID | Description |
+|------------|-------------|
+| `set-should-hide-categories` | Hide/show categories |
+| `set-should-hide-completed-items` | Hide/show checked items |
+| `set-should-hide-prices` | Hide/show prices |
+| `set-should-hide-running-total-bar` | Hide/show running totals |
+| `set-should-hide-store-names` | Hide/show store names |
+| `set-should-remember-item-categories` | Remember item categories |
+| `set-favorites-autocomplete-enabled` | Enable favorites autocomplete |
+| `set-recent-items-autocomplete-enabled` | Enable recent items autocomplete |
+| `set-generic-grocery-autocomplete-enabled` | Enable generic autocomplete |
+| `set-location-notifications-enabled` | Enable location reminders |
+| `set-badge-mode` | Set badge notification mode |
+| `set-left-running-total-type` | Set left total display |
+| `set-right-running-total-type` | Set right total display |
+| `set-lists-sort-order` | Set list sort order |
+| `set-store-filter-id` | Set active store filter |
+| `set-list-category-group-id` | Set active category group |
+| `set-list-theme-id` | Set list theme |
+| `set-should-show-shared-list-category-order-hint-banner` | Show/hide hint |
+| `set-icon` | Set list icon |
+
+**All use**: `PBListSettingsOperationList` request, `PBEditOperationResponse` response
+
+### `/data/mobile-app-settings/update`
+
+**App-wide settings operations**:
+
+| Handler ID | Description |
+|------------|-------------|
+| `set-list-id-for-recipe-ingredients` | Set default list for recipe ingredients |
+| `set-web-selected-list-id` | Set web selected list |
+| `set-web-selected-recipe-id` | Set web selected recipe |
+| `set-web-selected-recipe-collection-id` | Set web selected collection |
+| `set-web-selected-recipe-collection-type` | Set web collection type |
+| `set-web-selected-list-folder-path` | Set web folder path |
+| `set-web-selected-tab-id` | Set web tab |
+| `set-web-selected-meal-plan-tab` | Set meal plan tab |
+| `set-web-has-hidden-stores-and-filters-help` | Hide stores help |
+| `set-web-has-hidden-item-prices-help` | Hide prices help |
+| `set-did-suppress-account-name-prompt` | Suppress account prompt |
+| `set-should-exclude-new-lists-from-alexa-by-default` | Alexa exclusion setting |
+| `set-has-migrated-user-categories-to-list-categories` | Category migration flag |
+| `save-recipe-cooking-states` | Save cooking states |
+| `remove-recipe-cooking-states` | Remove cooking states |
+
+**All use**: `PBMobileAppSettingsOperationList` request, `PBEditOperationResponse` response
+
+### Key Insights
+
+1. **Two Shopping List Queues**:
+   - **Legacy endpoint** (`/data/shopping-lists/update`): Basic CRUD for lists and items
+   - **V2 endpoint** (`/data/shopping-lists/update-v2`): Advanced features (categories, stores, filters)
+
+2. **Operation Class Required for V2**:
+   - Store operations: `operationClass = 1`
+   - Store filter operations: `operationClass = 2`
+   - List category operations: `operationClass = 3`
+   - List category group operations: `operationClass = 4`
+   - List categorization rule operations: `operationClass = 5`
+
+3. **Handler ID determines routing**: The handler ID string determines which endpoint an operation goes to, not the operation type itself.
+
 ### Update Endpoints (POST with protobuf)
 
 All update endpoints follow the pattern:
