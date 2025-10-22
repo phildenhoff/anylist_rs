@@ -20,10 +20,12 @@ pub struct LoginResult {
 
 pub async fn login(email: &str, password: &str) -> Result<LoginResult, Box<dyn std::error::Error>> {
     let mut headers = HeaderMap::new();
+    let client_identifer = format!("anylist-rs-{}", env!("CARGO_PKG_VERSION"));
+
     headers.insert("X-AnyLeaf-API-Version", HeaderValue::from_static("3"));
     headers.insert(
         "X-AnyLeaf-Client-Identifier",
-        HeaderValue::from_static("asejfklasdfj"),
+        HeaderValue::from_str(&client_identifer).unwrap(),
     );
     headers.insert(
         CONTENT_TYPE,
