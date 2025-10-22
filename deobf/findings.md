@@ -1112,3 +1112,95 @@ Recipe import from URLs uses schema.org microdata:
   - `freeRecipeImportsRemainingCount` - Remaining free imports (max 5 for free users)
 - Free users limited to 5 imports
 - Premium users have unlimited imports
+
+## Technology Stack
+
+### Confirmed Frontend Technologies
+
+**Client-Side Framework**
+- React (extensive use of `React.createElement()` throughout the codebase)
+- Modern React patterns visible in the obfuscated code
+- Single-page application architecture
+
+**Data Serialization**
+- Protocol Buffers (protobuf) for all API communication
+- Binary format reduces bandwidth compared to JSON
+- Strongly-typed message schemas
+
+**Real-Time Communication**
+- WebSocket connection: `wss://www.anylist.com/data/add-user-listener`
+- Bidirectional updates for collaborative features
+- Heartbeat protocol for connection health monitoring
+- Exponential backoff reconnection (500ms to 120s)
+
+### Confirmed Infrastructure Services
+
+**Error Tracking**
+- Bugsnag integration for JavaScript error monitoring
+- API Key: `c722cecfd3b143cd76eb11935135c6fc`
+- Configured for production, production-testing, and staging environments
+- Professional error tracking suggests mature, production-grade infrastructure
+
+**Photo Storage**
+- Amazon S3 for image hosting
+- Production URL: `https://photos.anylist.com/`
+- Development URL: `https://photosdev.anylist.com/`
+- Two-step upload process:
+  1. Request presigned URL from `/data/photos/upload-url`
+  2. Upload directly to S3
+- Client polls for S3 availability after upload (`waitForS3Image()`)
+
+**iCalendar Integration**
+- Dedicated subdomain: `icalendar.anylist.com`
+- Read-only feed export for meal planning calendars
+- Standard iCalendar format for compatibility with external calendar apps
+
+**Authentication**
+- Primary: Bearer token (JWT-based)
+- Token refresh endpoint: `/auth/token/refresh`
+- Legacy support: `X-AnyLeaf-Signed-User-ID` header
+- Token refresh queue to prevent concurrent refresh requests
+
+### Backend Technology (Unknown)
+
+**What the JavaScript Does NOT Reveal:**
+- No server-side language indicators (no `.php`, `.py`, `.rb`, `.go`, etc. in paths)
+- No framework names (Rails, Django, Flask, Express, Spring, etc.)
+- No hosting platform indicators (Heroku, Vercel, AWS Lambda, etc.)
+- No database technology references
+- No server-side runtime clues
+
+**What We Can Infer:**
+- The backend is language-agnostic from the client's perspective
+- Protocol Buffers provide language independence
+- Could be written in any language: Go, Java, Python, Node.js, Rust, C#, etc.
+- RESTful HTTP API with protobuf payloads
+- Professional infrastructure (S3, Bugsnag, WebSocket) suggests experienced engineering team
+- Domain structure (`www.anylist.com`, `photos.anylist.com`, `icalendar.anylist.com`) suggests AWS or similar cloud hosting
+
+### Implications for Client Library Implementation
+
+**Protocol Buffers Are Key:**
+- Any language with protobuf support can implement a client
+- Message schemas define the contract, not the server language
+- Our Rust implementation is fully compatible regardless of backend technology
+
+**API Surface:**
+- 50+ documented endpoints
+- Well-defined request/response patterns
+- Operation-based architecture with handler IDs
+- Batch operations supported through operation lists
+
+**Authentication Strategy:**
+- Bearer token is the primary method
+- Token refresh must handle concurrent requests properly
+- Client identifier required for some operations
+- Session persistence via saved tokens
+
+**Real-Time Features:**
+- WebSocket integration required for live collaboration
+- Must implement heartbeat protocol
+- Exponential backoff for reconnection
+- Handle "refresh-shopping-lists" messages
+
+This technology stack analysis shows that AnyList uses modern, scalable infrastructure with professional-grade tooling, but maintains language independence through Protocol Buffers, allowing client implementations in any language with protobuf support.
