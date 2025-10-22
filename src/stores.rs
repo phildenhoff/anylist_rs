@@ -5,7 +5,7 @@ use crate::protobuf::anylist::{
     PbOperationMetadata, PbStore,
 };
 use prost::Message;
-use crate::utils::{current_timestamp, generate_id};
+use crate::utils::generate_id;
 
 /// Represents a store
 #[derive(Debug, Clone)]
@@ -169,7 +169,7 @@ impl AnyListClient {
             list_id: Some(list_id.to_string()),
             list_item_id: None,
             updated_value: None,
-            original_value: None,
+            original_value: Some(store_id.to_string()),
             list_item: None,
             list: None,
             list_folder_id: None,

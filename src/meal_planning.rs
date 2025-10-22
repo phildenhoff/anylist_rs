@@ -4,8 +4,9 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbCalendarEvent, PbCalendarOperation,
     PbCalendarOperationList, PbOperationMetadata,
 };
+use chrono::NaiveDate;
 use prost::Message;
-use crate::utils::{current_timestamp, generate_id};
+use crate::utils::generate_id;
 
 /// Represents a meal planning calendar event
 #[derive(Debug, Clone)]
@@ -30,6 +31,11 @@ impl AnyListClient {
         start_date: &str,
         end_date: &str,
     ) -> Result<Vec<MealPlanEvent>> {
+        let start = NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
+            .map_err(|e| AnyListError::Other(format!("Invalid start date: {}", e)))?;
+        let end = NaiveDate::parse_from_str(end_date, "%Y-%m-%d")
+            .map_err(|e| AnyListError::Other(format!("Invalid end date: {}", e)))?;
+
         let data = self.get_user_data().await?;
         let events = match data.meal_planning_calendar_response {
             Some(ref res) => res
@@ -37,7 +43,12 @@ impl AnyListClient {
                 .iter()
                 .filter(|e| {
                     if let Some(date) = &e.date {
-                        date >= start_date && date <= end_date
+                        let parsed_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").ok();
+
+                        if let Some(parsed_date) = parsed_date {
+                            return parsed_date >= start && parsed_date <= end;
+                        }
+                        false
                     } else {
                         false
                     }

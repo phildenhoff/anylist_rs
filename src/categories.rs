@@ -1,11 +1,11 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbListCategory, PbListCategoryGroup,
+    pb_operation_metadata::OperationClass, PbListCategory,
     PbListOperation, PbListOperationList, PbOperationMetadata,
 };
 use prost::Message;
-use crate::utils::{current_timestamp, generate_id};
+use crate::utils::generate_id;
 
 /// Represents a category for organizing list items
 #[derive(Debug, Clone)]
@@ -121,7 +121,7 @@ impl AnyListClient {
             list_id: Some(list_id.to_string()),
             list_item_id: None,
             updated_value: None,
-            original_value: None,
+            original_value: Some(category_id.to_string()),
             list_item: None,
             list: None,
             list_folder_id: None,

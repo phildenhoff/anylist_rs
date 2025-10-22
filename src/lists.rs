@@ -1,12 +1,13 @@
+use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
-    pb_list_operation::list_item, pb_operation_metadata::OperationClass,
     ListItem as ApiListItem, PbListOperation, PbListOperationList, PbOperationMetadata,
     PbUserDataResponse, ShoppingList as ApiShoppingList, ShoppingListsResponse,
 };
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
+
 
 /// Represents a shopping list item
 #[derive(Debug, Clone)]
@@ -298,7 +299,7 @@ impl AnyListClient {
     }
 
     /// Get user data from the API
-    async fn get_user_data(&self) -> Result<PbUserDataResponse> {
+    pub async fn get_user_data(&self) -> Result<PbUserDataResponse> {
         let bytes = self.post("user-data/get", vec![]).await?;
         let data = PbUserDataResponse::decode(bytes.as_ref())?;
         Ok(data)

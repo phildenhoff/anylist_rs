@@ -151,7 +151,7 @@ impl AnyListClient {
             source_name: None,
             source_url: None,
             ingredients: pb_ingredients,
-            preparation_steps,
+            preparation_steps: preparation_steps.clone(),
             photo_ids: vec![],
             ad_campaign_id: None,
             photo_urls: vec![],
