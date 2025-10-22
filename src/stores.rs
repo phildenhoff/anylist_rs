@@ -7,7 +7,6 @@ use crate::protobuf::anylist::{
 use prost::Message;
 use crate::utils::generate_id;
 
-/// Represents a store
 #[derive(Debug, Clone)]
 pub struct Store {
     pub id: String,
@@ -28,16 +27,17 @@ impl AnyListClient {
 
         let new_store = PbStore {
             identifier: store_id.clone(),
-            logical_timestamp: Some(1),
+            logical_timestamp: None,
             list_id: Some(list_id.to_string()),
             name: Some(name.to_string()),
+            // TODO: set this as the lists num. of stores + 1
             sort_index: Some(0),
         };
 
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("create-store".to_string()),
+                handler_id: Some("new-store".to_string()),
                 user_id: Some(self.user_id.clone()),
                 operation_class: Some(OperationClass::StoreOperation as i32),
             }),
@@ -74,7 +74,7 @@ impl AnyListClient {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
         })?;
 
-        self.post("lists/update", buf).await?;
+        self.post("data/shopping-lists/update-v2", buf).await?;
 
         Ok(Store {
             id: store_id,

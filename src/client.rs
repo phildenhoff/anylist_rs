@@ -2,13 +2,15 @@ use crate::error::{AnyListError, Result};
 use crate::login::{login, LoginResult};
 use reqwest::header::{HeaderMap, HeaderValue};
 
-/// Main client for interacting with the AnyList API
+/// Main client for interacting with the AnyList API.
+///
+/// To re-use an existing login session, save [AnyListClient::signed_user_id],
+/// [AnyListClient::user_id], and [AnyListClient::is_premium_user] then, later,
+/// call [AnyListClient::from_credentials]
 pub struct AnyListClient {
-    /// Signed user ID used for authentication
+    /// Used as a credential to authorize requests, obtained during a call to [AnyListClient::new]
     pub signed_user_id: String,
-    /// User ID
     pub user_id: String,
-    /// Whether the user has a premium subscription
     pub is_premium_user: bool,
     /// HTTP client for making requests
     client: reqwest::Client,
