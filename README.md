@@ -37,13 +37,14 @@ async fn main() -> Result<()> {
 
 ## Features
 
-- **Authentication**: Email/password login with long-lived credentials for reuse
+- **Authentication**: Bearer token authentication with automatic token refresh
 - **Lists**: Create, read, update, and delete shopping lists
 - **Items**: Full CRUD operations for list items including quantity,
   details, and categories
 - **Recipes**: Create and manage recipes with ingredients and steps
 - Categories, stores, and meal plans
 - Uses Protobuf-based AnyList API
+- Automatic token refresh on expiration
 
 ## Installation
 
@@ -66,9 +67,9 @@ tokio = { version = "1", features = ["full"] }
 
 ... or you can see my [anylist_cli](https://github.com/phildenhoff/anylist_cli)
 
-## Credential Management
+## Token Management
 
-To reuse credentials without re-authenticating:
+The client uses bearer token authentication with automatic refresh. To reuse tokens without re-authenticating:
 
 ```rust
 use anylist_rs::AnyListClient;
@@ -76,28 +77,35 @@ use anylist_rs::AnyListClient;
 // Initial login
 let client = AnyListClient::new("email@example.com", "password").await?;
 
-// Save credentials (an exercise for the reader)
-let signed_user_id = &client.signed_user_id;
+// Save tokens for later use
+let access_token = client.get_access_token();
+let refresh_token = client.get_refresh_token();
 let user_id = &client.user_id;
 let is_premium = client.is_premium_user;
 
-// Later, restore from saved credentials
-let client = AnyListClient::from_credentials(
-    signed_user_id.to_string(),
+// Later, restore from saved tokens
+let client = AnyListClient::from_tokens(
+    access_token,
+    refresh_token,
     user_id.to_string(),
     is_premium
 );
 ```
 
+The client automatically refreshes the access token when it expires (401 response), so you don't need to handle token refresh manually.
+
 ## Possible future features
 
-- Collaboration
-- Real-time sync via Websockets
-  - Get JWT via https://www.anylist.com/auth/token/refresh
-  - Connect to WebSocket wss://www.anylist.com/data/add-user-listener?client_id=<CLIENT_ID>&access_token=<JWT>
-  - When an item is added, marked-off, or deleted, we see the same event:
-    "refresh-shopping-lists". So we'd want to build a caching layer that diffs
-    the list before & after to know what's changed
+- Real-time sync via WebSockets
+  - Connect to WebSocket `wss://www.anylist.com/data/add-user-listener?access_token=<JWT>`
+  - Heartbeat protocol for connection health
+  - Handle "refresh-shopping-lists" messages for collaborative updates
+- Logical timestamps for conflict resolution
+- Request queue during token refresh
+- Photo upload/download support (S3 presigned URLs)
+- List folders and organization
+- Recipe web import from URLs
+- iCalendar feed export for meal planning
 
 
 ## Disclaimer
