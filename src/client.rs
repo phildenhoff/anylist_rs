@@ -3,7 +3,6 @@ use crate::login::{login, LoginResult};
 use crate::utils::generate_id;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde_derive::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TokenRefreshRequest {
@@ -23,9 +22,9 @@ struct TokenRefreshResponse {
 /// [AnyListClient::is_premium_user] then, later, call [AnyListClient::from_tokens]
 pub struct AnyListClient {
     /// Access token for authentication (Bearer token)
-    access_token: Arc<Mutex<String>>,
+    pub access_token: String,
     /// Refresh token for obtaining new access tokens
-    refresh_token: Arc<Mutex<String>>,
+    pub refresh_token: String,
     /// User ID
     pub user_id: String,
     /// Whether the user has premium subscription
@@ -92,8 +91,8 @@ impl AnyListClient {
         is_premium_user: bool,
     ) -> Self {
         Self {
-            access_token: Arc::new(Mutex::new(access_token)),
-            refresh_token: Arc::new(Mutex::new(refresh_token)),
+            access_token,
+            refresh_token,
             user_id,
             is_premium_user,
             client_identifier: generate_id(),
@@ -104,8 +103,8 @@ impl AnyListClient {
     /// Create an AnyList client from a login result
     fn from_login_result(login_result: LoginResult) -> Self {
         Self {
-            access_token: Arc::new(Mutex::new(login_result.access_token)),
-            refresh_token: Arc::new(Mutex::new(login_result.refresh_token)),
+            access_token: login_result.access_token,
+            refresh_token: login_result.refresh_token,
             user_id: login_result.user_id,
             is_premium_user: login_result.is_premium_user,
             client_identifier: generate_id(),
@@ -113,50 +112,27 @@ impl AnyListClient {
         }
     }
 
-    /// Get the current access token
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use anylist_rs::AnyListClient;
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// # let client = AnyListClient::new("user@example.com", "password")
-    /// #     .await
-    /// #     .expect("Failed to authenticate");
-    /// let access_token = client.get_access_token();
-    /// println!("Access token: {}", access_token);
-    /// # }
-    /// ```
-    pub fn get_access_token(&self) -> String {
-        self.access_token.lock().unwrap().clone()
-    }
-
-    /// Get the current refresh token
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use anylist_rs::AnyListClient;
-    /// # #[tokio::main]
-    /// # async fn main() {
-    /// # let client = AnyListClient::new("user@example.com", "password")
-    /// #     .await
-    /// #     .expect("Failed to authenticate");
-    /// let refresh_token = client.get_refresh_token();
-    /// println!("Refresh token: {}", refresh_token);
-    /// # }
-    /// ```
-    pub fn get_refresh_token(&self) -> String {
-        self.refresh_token.lock().unwrap().clone()
-    }
-
     /// Refresh the access token using the refresh token
-    async fn refresh_token(&self) -> Result<()> {
-        let refresh_token = self.refresh_token.lock().unwrap().clone();
-
+    ///
+    /// Returns a new client with updated tokens. The old client's tokens will be invalid.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use anylist_rs::AnyListClient;
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let client = AnyListClient::new("user@example.com", "password")
+    ///     .await
+    ///     .expect("Failed to authenticate");
+    ///
+    /// // Later, when token expires...
+    /// let client = client.refresh().await.expect("Failed to refresh token");
+    /// # }
+    /// ```
+    pub async fn refresh(self) -> Result<Self> {
         let request_body = TokenRefreshRequest {
-            refresh_token,
+            refresh_token: self.refresh_token.clone(),
         };
 
         let mut headers = HeaderMap::new();
@@ -187,18 +163,21 @@ impl AnyListClient {
 
         let token_response: TokenRefreshResponse = response.json().await?;
 
-        *self.access_token.lock().unwrap() = token_response.access_token;
-        *self.refresh_token.lock().unwrap() = token_response.refresh_token;
-
-        Ok(())
+        Ok(Self {
+            access_token: token_response.access_token,
+            refresh_token: token_response.refresh_token,
+            user_id: self.user_id,
+            is_premium_user: self.is_premium_user,
+            client_identifier: self.client_identifier,
+            client: self.client,
+        })
     }
 
     /// Get default headers for API requests
     fn get_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
 
-        let access_token = self.access_token.lock().unwrap().clone();
-        let bearer_value = format!("Bearer {}", access_token);
+        let bearer_value = format!("Bearer {}", self.access_token);
 
         headers.insert(
             AUTHORIZATION,
@@ -219,42 +198,20 @@ impl AnyListClient {
         headers
     }
 
-    /// Make a POST request to the AnyList API with automatic token refresh on 401
+    /// Make a POST request to the AnyList API
+    ///
+    /// If you receive a 401 Unauthorized error, call `client.refresh().await?` to get
+    /// a new client with refreshed tokens.
     pub(crate) async fn post(&self, endpoint: &str, body: Vec<u8>) -> Result<Vec<u8>> {
         let url = format!("https://www.anylist.com/{}", endpoint);
 
-        // Try the request with current token
         let response = self
             .client
             .post(&url)
             .headers(self.get_headers())
-            .body(body.clone())
+            .body(body)
             .send()
             .await?;
-
-        // If 401 Unauthorized, try to refresh token and retry once
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            self.refresh_token().await?;
-
-            // Retry with new token
-            let response = self
-                .client
-                .post(&url)
-                .headers(self.get_headers())
-                .body(body)
-                .send()
-                .await?;
-
-            if !response.status().is_success() {
-                return Err(AnyListError::NetworkError(format!(
-                    "Request failed with status: {} after token refresh",
-                    response.status()
-                )));
-            }
-
-            let bytes = response.bytes().await?;
-            return Ok(bytes.to_vec());
-        }
 
         if !response.status().is_success() {
             return Err(AnyListError::NetworkError(format!(

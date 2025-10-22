@@ -37,14 +37,13 @@ async fn main() -> Result<()> {
 
 ## Features
 
-- **Authentication**: Bearer token authentication with automatic token refresh
+- **Authentication**: Bearer token authentication with explicit token refresh
 - **Lists**: Create, read, update, and delete shopping lists
 - **Items**: Full CRUD operations for list items including quantity,
   details, and categories
 - **Recipes**: Create and manage recipes with ingredients and steps
 - Categories, stores, and meal plans
 - Uses Protobuf-based AnyList API
-- Automatic token refresh on expiration
 
 ## Installation
 
@@ -69,7 +68,7 @@ tokio = { version = "1", features = ["full"] }
 
 ## Token Management
 
-The client uses bearer token authentication with automatic refresh. To reuse tokens without re-authenticating:
+The client uses bearer token authentication. Tokens can be saved and reused:
 
 ```rust
 use anylist_rs::AnyListClient;
@@ -77,22 +76,39 @@ use anylist_rs::AnyListClient;
 // Initial login
 let client = AnyListClient::new("email@example.com", "password").await?;
 
-// Save tokens for later use
-let access_token = client.get_access_token();
-let refresh_token = client.get_refresh_token();
+// Save tokens for later use (tokens are public fields)
+let access_token = &client.access_token;
+let refresh_token = &client.refresh_token;
 let user_id = &client.user_id;
 let is_premium = client.is_premium_user;
 
 // Later, restore from saved tokens
 let client = AnyListClient::from_tokens(
-    access_token,
-    refresh_token,
+    access_token.clone(),
+    refresh_token.clone(),
     user_id.to_string(),
     is_premium
 );
 ```
 
-The client automatically refreshes the access token when it expires (401 response), so you don't need to handle token refresh manually.
+### Token Refresh
+
+When tokens expire (you'll get a 401 error), explicitly refresh them:
+
+```rust
+use anylist_rs::AnyListClient;
+
+let client = AnyListClient::new("email@example.com", "password").await?;
+
+// ... use client for API calls ...
+
+// When you get a 401 error, refresh the token
+let client = client.refresh().await?;
+
+// Continue using the refreshed client
+```
+
+The `refresh()` method consumes the old client and returns a new one with updated tokens.
 
 ## Possible future features
 
@@ -101,7 +117,6 @@ The client automatically refreshes the access token when it expires (401 respons
   - Heartbeat protocol for connection health
   - Handle "refresh-shopping-lists" messages for collaborative updates
 - Logical timestamps for conflict resolution
-- Request queue during token refresh
 - Photo upload/download support (S3 presigned URLs)
 - List folders and organization
 - Recipe web import from URLs
