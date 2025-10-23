@@ -359,7 +359,7 @@ impl AnyListClient {
             .client
             .post(&url)
             .headers(self.get_headers())
-            .multipart(form.clone())
+            .multipart(form)
             .send()
             .await?;
 
@@ -373,6 +373,8 @@ impl AnyListClient {
             if auto_refresh {
                 // Try to refresh tokens
                 self.refresh_tokens().await?;
+                let part = reqwest::multipart::Part::bytes(body.clone());
+                let form = reqwest::multipart::Form::new().part("operations", part);
 
                 // Retry the request with new token
                 let retry_response = self
@@ -407,6 +409,7 @@ impl AnyListClient {
         }
 
         let bytes = response.bytes().await?;
+
         Ok(bytes.to_vec())
     }
 }
