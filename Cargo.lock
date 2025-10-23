@@ -28,7 +28,7 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
 name = "anylist_rs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "prost 0.12.1",
