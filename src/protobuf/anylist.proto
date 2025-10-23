@@ -110,9 +110,9 @@ message PBListFolderSettings {
     }
 
     enum FolderSortPosition {
-        FolderSortPositionAfterLists = 0;
-        FolderSortPositionBeforeLists = 1;
-        FolderSortPositionWithLists = 2;
+        FolderSortPositionAfter = 0;
+        FolderSortPositionBefore = 1;
+        FolderSortPositionWith = 2;
     }
 }
 
@@ -176,9 +176,9 @@ message PBStarterList {
     optional int32 starterListType = 7;
 
     enum Type {
-        UserType = 0;
-        RecentItemsType = 1;
-        FavoriteItemsType = 2;
+        User = 0;
+        RecentItems = 1;
+        FavoriteItems = 2;
     }
 }
 
@@ -317,12 +317,12 @@ message PBRecipeCollectionSettings {
     optional bool showOnlyRecipesWithNoCollection = 2;
 
     enum SortOrder {
-        ManualSortOrder = 0;
-        AlphabeticalSortOrder = 1;
-        RatingSortOrder = 2;
-        DateCreatedSortOrder = 3;
-        PrepTimeSortOrder = 4;
-        CookTimeSortOrder = 5;
+        Manual = 0;
+        Alphabetical = 1;
+        Rating = 2;
+        DateCreated = 3;
+        PrepTime = 4;
+        CookTime = 5;
     }
 }
 
@@ -469,12 +469,12 @@ message PBOperationMetadata {
     optional int32 operationClass = 4;
 
     enum OperationClass {
-        UndefinedOperation = 0;
-        StoreOperation = 1;
-        StoreFilterOperation = 2;
-        ListCategoryOperation = 3;
-        ListCategoryGroupOperation = 4;
-        ListCategorizationRuleOperation = 5;
+        Undefined = 0;
+        Store = 1;
+        StoreFilter = 2;
+        ListCategory = 3;
+        ListCategoryGroup = 4;
+        ListCategorizationRule = 5;
     }
 }
 
