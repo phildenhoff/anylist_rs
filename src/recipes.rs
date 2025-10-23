@@ -40,7 +40,7 @@ impl AnyListClient {
     /// # use anylist_rs::AnyListClient;
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let client = AnyListClient::new("user@example.com", "password")
+    /// let client = AnyListClient::login("user@example.com", "password")
     ///     .await
     ///     .expect("Failed to authenticate");
     ///
@@ -101,7 +101,7 @@ impl AnyListClient {
     /// # use anylist_rs::{AnyListClient, recipes::Ingredient};
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let client = AnyListClient::new("user@example.com", "password")
+    /// let client = AnyListClient::login("user@example.com", "password")
     ///     .await
     ///     .expect("Failed to authenticate");
     ///
@@ -339,7 +339,7 @@ impl AnyListClient {
     /// # use anylist_rs::AnyListClient;
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let client = AnyListClient::new("user@example.com", "password")
+    /// let client = AnyListClient::login("user@example.com", "password")
     ///     .await
     ///     .expect("Failed to authenticate");
     ///

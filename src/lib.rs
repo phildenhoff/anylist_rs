@@ -1,7 +1,7 @@
 //! Unofficial crate for interacting with the grocery list management app
 //! [AnyList](https://www.anylist.com/)'s API.
 //!
-//! ```
+//! ```no_run
 //! use anylist_rs::{AnyListClient, Ingredient, Result};
 //!
 //! #[tokio::main]

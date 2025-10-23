@@ -61,7 +61,7 @@ struct AuthState {
 ///     let lists = client.get_lists().await.expect("Failed to get lists");
 ///
 ///     // Export tokens for later use
-///     let tokens = client.export_tokens().await.expect("Failed to export");
+///     let tokens = client.export_tokens().expect("Failed to export");
 ///     // Save tokens to disk/keychain...
 ///
 ///     // Restore from saved tokens
@@ -178,7 +178,7 @@ impl AnyListClient {
     /// let client = AnyListClient::login("user@example.com", "password").await?;
     ///
     /// // Export and save tokens
-    /// let tokens = client.export_tokens().await?;
+    /// let tokens = client.export_tokens()?;
     /// // save_to_keychain(&tokens)?;
     /// # Ok(())
     /// # }

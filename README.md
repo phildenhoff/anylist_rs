@@ -9,7 +9,7 @@ use anylist_rs::{AnyListClient, Ingredient, Result};
 #[tokio::main]
 async fn main() -> Result<()> {
     // Authenticate with email and password
-    let client = AnyListClient::new("your-email@example.com", "your-password").await?;
+    let client = AnyListClient::login("your-email@example.com", "your-password").await?;
 
     // Get all lists
     let lists = client.get_lists().await?;
@@ -37,12 +37,13 @@ async fn main() -> Result<()> {
 
 ## Features
 
-- **Authentication**: Bearer token authentication with explicit token refresh
+- **Authentication**: Bearer token authentication with automatic token refresh
 - **Lists**: Create, read, update, and delete shopping lists
 - **Items**: Full CRUD operations for list items including quantity,
   details, and categories
 - **Recipes**: Create and manage recipes with ingredients and steps
-- Categories, stores, and meal plans
+- **Categories, stores, and meal plans**
+- **Token persistence**: Save and restore authentication sessions
 - Uses Protobuf-based AnyList API
 
 ## Installation
@@ -68,47 +69,54 @@ tokio = { version = "1", features = ["full"] }
 
 ## Token Management
 
-The client uses bearer token authentication. Tokens can be saved and reused:
+The client automatically manages authentication tokens and refreshes them on 401 errors. You can also save and restore sessions:
 
 ```rust
-use anylist_rs::AnyListClient;
+use anylist_rs::{AnyListClient, SavedTokens};
 
 // Initial login
-let client = AnyListClient::new("email@example.com", "password").await?;
+let client = AnyListClient::login("email@example.com", "password").await?;
 
-// Save tokens for later use (tokens are public fields)
-let access_token = &client.access_token;
-let refresh_token = &client.refresh_token;
-let user_id = &client.user_id;
-let is_premium = client.is_premium_user;
+// Export tokens for persistence (e.g., save to keychain/config)
+let tokens: SavedTokens = client.export_tokens()?;
+// save_to_storage(&tokens)?;
 
 // Later, restore from saved tokens
-let client = AnyListClient::from_tokens(
-    access_token.clone(),
-    refresh_token.clone(),
-    user_id.to_string(),
-    is_premium
-);
+let tokens: SavedTokens = load_from_storage()?;
+let client = AnyListClient::from_tokens(tokens)?;
+
+// Use the client - tokens automatically refresh on 401
+let lists = client.get_lists().await?;
 ```
 
-### Token Refresh
+### Monitoring Token Refresh
 
-When tokens expire (you'll get a 401 error), explicitly refresh them:
+You can optionally track authentication events:
 
 ```rust
-use anylist_rs::AnyListClient;
+use anylist_rs::{AnyListClient, AuthEvent};
 
-let client = AnyListClient::new("email@example.com", "password").await?;
-
-// ... use client for API calls ...
-
-// When you get a 401 error, refresh the token
-let client = client.refresh().await?;
-
-// Continue using the refreshed client
+let client = AnyListClient::login("email@example.com", "password")
+    .await?
+    .on_auth_event(|event| {
+        match event {
+            AuthEvent::TokensRefreshed => println!("Tokens refreshed!"),
+            AuthEvent::RefreshFailed(err) => eprintln!("Refresh failed: {}", err),
+        }
+    });
 ```
 
-The `refresh()` method consumes the old client and returns a new one with updated tokens.
+### Disabling Auto-Refresh
+
+If you want manual control over token refresh:
+
+```rust
+let client = AnyListClient::login("email@example.com", "password")
+    .await?
+    .disable_auto_refresh();
+
+// Now 401 errors will be returned instead of automatically refreshing
+```
 
 ## Possible future features
 
