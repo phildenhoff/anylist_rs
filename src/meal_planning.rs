@@ -4,9 +4,9 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbCalendarEvent, PbCalendarOperation,
     PbCalendarOperationList, PbOperationMetadata,
 };
+use crate::utils::generate_id;
 use chrono::NaiveDate;
 use prost::Message;
-use crate::utils::generate_id;
 
 /// Represents a meal planning calendar event
 #[derive(Debug, Clone)]
@@ -104,7 +104,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("new-event".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             calendar_id: Some(calendar_id.to_string()),
@@ -177,7 +177,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("update-event".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             calendar_id: Some(calendar_id.to_string()),
@@ -210,18 +210,14 @@ impl AnyListClient {
     ///
     /// * `calendar_id` - The ID of the meal planning calendar
     /// * `event_id` - The ID of the event to delete
-    pub async fn delete_meal_plan_event(
-        &self,
-        calendar_id: &str,
-        event_id: &str,
-    ) -> Result<()> {
+    pub async fn delete_meal_plan_event(&self, calendar_id: &str, event_id: &str) -> Result<()> {
         let operation_id = generate_id();
 
         let operation = PbCalendarOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("delete-event".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             calendar_id: Some(calendar_id.to_string()),

@@ -4,8 +4,8 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbListOperation, PbListOperationList,
     PbOperationMetadata, PbStore,
 };
-use prost::Message;
 use crate::utils::generate_id;
+use prost::Message;
 
 #[derive(Debug, Clone)]
 pub struct Store {
@@ -38,7 +38,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("new-store".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::StoreOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -90,12 +90,7 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list
     /// * `store_id` - The ID of the store
     /// * `new_name` - The new name for the store
-    pub async fn update_store(
-        &self,
-        list_id: &str,
-        store_id: &str,
-        new_name: &str,
-    ) -> Result<()> {
+    pub async fn update_store(&self, list_id: &str, store_id: &str, new_name: &str) -> Result<()> {
         let operation_id = generate_id();
 
         let updated_store = PbStore {
@@ -110,7 +105,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("set-store-name".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::StoreOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -163,7 +158,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("delete-store".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::StoreOperation as i32),
             }),
             list_id: Some(list_id.to_string()),

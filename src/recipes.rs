@@ -4,8 +4,8 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbIngredient, PbOperationMetadata, PbRecipe,
     PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
 };
-use prost::Message;
 use crate::utils::{current_timestamp, generate_id};
+use prost::Message;
 
 #[derive(Debug, Clone)]
 pub struct Ingredient {
@@ -167,7 +167,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("save-recipe".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
@@ -261,7 +261,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("save-recipe".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
@@ -299,7 +299,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("remove-recipe".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
@@ -414,7 +414,6 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
     }
     recipes
 }
-
 
 /// Simple quantity scaling - attempts to parse and scale numeric quantities
 fn scale_quantity(quantity: &str, scale: f64) -> String {

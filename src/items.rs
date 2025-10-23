@@ -2,11 +2,11 @@ use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::lists::ListItem;
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbListItem, PbListOperation,
-    PbListOperationList, PbOperationMetadata,
+    pb_operation_metadata::OperationClass, PbListItem, PbListOperation, PbListOperationList,
+    PbOperationMetadata,
 };
-use prost::Message;
 use crate::utils::{current_timestamp, generate_id};
+use prost::Message;
 
 impl AnyListClient {
     /// Add an item to a shopping list
@@ -32,7 +32,8 @@ impl AnyListClient {
     /// # }
     /// ```
     pub async fn add_item(&self, list_id: &str, name: &str) -> Result<ListItem> {
-        self.add_item_with_details(list_id, name, None, None, None).await
+        self.add_item_with_details(list_id, name, None, None, None)
+            .await
     }
 
     /// Add an item to a shopping list with additional details
@@ -68,7 +69,7 @@ impl AnyListClient {
             price_matchup_tag: None,
             price_id: None,
             category: category.map(|c| c.to_string()),
-            user_id: Some(self.user_id.clone()),
+            user_id: Some(self.user_id()),
             category_match_id: None,
             photo_ids: vec![],
             event_id: None,
@@ -82,7 +83,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("add-shopping-list-item".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -165,7 +166,7 @@ impl AnyListClient {
             price_matchup_tag: None,
             price_id: None,
             category: category.map(|c| c.to_string()),
-            user_id: Some(self.user_id.clone()),
+            user_id: Some(self.user_id()),
             category_match_id: None,
             photo_ids: vec![],
             event_id: None,
@@ -179,7 +180,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("update-list-item".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -234,7 +235,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("remove-shopping-list-item".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -295,21 +296,13 @@ impl AnyListClient {
     }
 
     /// Set the checked status of an item
-    async fn set_item_checked(
-        &self,
-        list_id: &str,
-        item_id: &str,
-        checked: bool,
-    ) -> Result<()> {
+    async fn set_item_checked(&self, list_id: &str, item_id: &str, checked: bool) -> Result<()> {
         let operation_id = generate_id();
 
         // Need to get the current item to preserve other fields
         let list = self.get_list_by_id(list_id).await?;
-        let item = list
-            .items
-            .iter()
-            .find(|i| i.id == item_id)
-            .ok_or_else(|| {
+        let item =
+            list.items.iter().find(|i| i.id == item_id).ok_or_else(|| {
                 AnyListError::NotFound(format!("Item with ID {} not found", item_id))
             })?;
 
@@ -326,7 +319,7 @@ impl AnyListClient {
             price_matchup_tag: None,
             price_id: None,
             category: item.category.clone(),
-            user_id: Some(self.user_id.clone()),
+            user_id: Some(self.user_id()),
             category_match_id: None,
             photo_ids: vec![],
             event_id: None,
@@ -340,7 +333,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("set-list-item-checked".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.to_string()),

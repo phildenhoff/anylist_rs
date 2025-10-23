@@ -1,11 +1,11 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbListCategory,
-    PbListOperation, PbListOperationList, PbOperationMetadata,
+    pb_operation_metadata::OperationClass, PbListCategory, PbListOperation, PbListOperationList,
+    PbOperationMetadata,
 };
-use prost::Message;
 use crate::utils::generate_id;
+use prost::Message;
 
 /// Represents a category for organizing list items
 #[derive(Debug, Clone)]
@@ -56,7 +56,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("create-category".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::ListCategoryOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -115,7 +115,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("remove-category".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::ListCategoryOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -187,7 +187,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("set-category-name".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::ListCategoryOperation as i32),
             }),
             list_id: Some(list_id.to_string()),

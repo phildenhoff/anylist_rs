@@ -1,13 +1,12 @@
-use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
+use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
 use crate::protobuf::anylist::{
-    PbListItem, PbListOperation, PbListOperationList, PbOperationMetadata,
-    PbUserDataResponse, PbShoppingList, PbShoppingListsResponse,
+    PbListItem, PbListOperation, PbListOperationList, PbOperationMetadata, PbShoppingList,
+    PbShoppingListsResponse, PbUserDataResponse,
 };
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
-
 
 /// Represents a shopping list item
 #[derive(Debug, Clone)]
@@ -112,7 +111,7 @@ impl AnyListClient {
             timestamp: Some(current_timestamp()),
             name: Some(name.to_string()),
             items: vec![],
-            creator: Some(self.user_id.clone()),
+            creator: Some(self.user_id()),
             unusedattribute: vec![],
             shared_users: vec![],
             password: None,
@@ -120,7 +119,7 @@ impl AnyListClient {
             logical_clock_time: Some(1),
             built_in_alexa_list_type: None,
             allows_multiple_list_category_groups: Some(true),
-            list_item_sort_order: Some(0), // Manual
+            list_item_sort_order: Some(0),   // Manual
             new_list_item_position: Some(0), // Bottom
         };
 
@@ -128,7 +127,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("new-shopping-list".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.clone()),
@@ -185,7 +184,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("delete-list".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.to_string()),
@@ -242,7 +241,7 @@ impl AnyListClient {
             timestamp: Some(current_timestamp()),
             name: Some(new_name.to_string()),
             items: vec![],
-            creator: Some(self.user_id.clone()),
+            creator: Some(self.user_id()),
             unusedattribute: vec![],
             shared_users: vec![],
             password: None,
@@ -258,7 +257,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("rename-list".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             list_id: Some(list_id.to_string()),

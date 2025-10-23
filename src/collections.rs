@@ -4,8 +4,8 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbOperationMetadata, PbRecipeCollection,
     PbRecipeCollectionSettings, PbRecipeOperation, PbRecipeOperationList,
 };
-use prost::Message;
 use crate::utils::{current_timestamp, generate_id};
+use prost::Message;
 
 #[derive(Debug, Clone)]
 pub struct RecipeCollection {
@@ -58,7 +58,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("new-recipe-collection".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
@@ -101,7 +101,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("remove-recipe-collection".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
@@ -169,7 +169,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("add-recipes-to-collection".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
@@ -239,7 +239,7 @@ impl AnyListClient {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
                 handler_id: Some("remove-recipes-from-collection".to_string()),
-                user_id: Some(self.user_id.clone()),
+                user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::UndefinedOperation as i32),
             }),
             recipe_data_id: None,
