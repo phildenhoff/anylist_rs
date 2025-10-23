@@ -2,7 +2,7 @@ use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::lists::ListItem;
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, ListItem as ApiListItem, PbListOperation,
+    pb_operation_metadata::OperationClass, PbListItem, PbListOperation,
     PbListOperationList, PbOperationMetadata,
 };
 use prost::Message;
@@ -55,7 +55,7 @@ impl AnyListClient {
         let item_id = generate_id();
         let operation_id = generate_id();
 
-        let new_item = ApiListItem {
+        let new_item = PbListItem {
             identifier: item_id.clone(),
             server_mod_time: Some(current_timestamp()),
             list_id: Some(list_id.to_string()),
@@ -152,7 +152,7 @@ impl AnyListClient {
     ) -> Result<()> {
         let operation_id = generate_id();
 
-        let updated_item = ApiListItem {
+        let updated_item = PbListItem {
             identifier: item_id.to_string(),
             server_mod_time: Some(current_timestamp()),
             list_id: Some(list_id.to_string()),
@@ -313,7 +313,7 @@ impl AnyListClient {
                 AnyListError::NotFound(format!("Item with ID {} not found", item_id))
             })?;
 
-        let updated_item = ApiListItem {
+        let updated_item = PbListItem {
             identifier: item_id.to_string(),
             server_mod_time: Some(current_timestamp()),
             list_id: Some(list_id.to_string()),
@@ -396,4 +396,3 @@ impl AnyListClient {
         Ok(())
     }
 }
-

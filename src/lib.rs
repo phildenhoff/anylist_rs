@@ -10,7 +10,7 @@ pub mod collections;
 pub mod meal_planning;
 mod utils;
 
-pub mod protobuf {
+mod protobuf {
     pub mod anylist {
         include!(concat!(env!("OUT_DIR"), "/anylist.proto.rs"));
     }

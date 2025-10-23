@@ -1,6 +1,6 @@
 package anylist.proto;
 
-message Tag {
+message PBTag {
     required string name = 1;
     optional string displayName = 7;
     optional string imageName = 8;
@@ -32,11 +32,11 @@ message PBUserListData {
     optional bool hasMigratedListOrdering = 11;
 }
 
-message ShoppingList {
+message PBShoppingList {
     required string identifier = 1;
     optional double timestamp = 2;
     optional string name = 3;
-    repeated ListItem items = 4;
+    repeated PBListItem items = 4;
     optional string creator = 5;
     repeated string UNUSEDATTRIBUTE = 6;
     repeated PBEmailUserIDPair sharedUsers = 7;
@@ -59,7 +59,7 @@ message ShoppingList {
     }
 }
 
-message ListItem {
+message PBListItem {
     required string identifier = 1;
     optional double serverModTime = 2;
     optional string listId = 3;
@@ -143,9 +143,9 @@ message PBListCategoryGroupResponse {
     repeated string deletedCategoryIds = 2;
 }
 
-message ShoppingListsResponse {
-    repeated ShoppingList newLists = 1;
-    repeated ShoppingList modifiedLists = 2;
+message PBShoppingListsResponse {
+    repeated PBShoppingList newLists = 1;
+    repeated PBShoppingList modifiedLists = 2;
     repeated string unmodifiedIds = 3;
     repeated string unknownIds = 4;
     repeated string orderedIds = 5;
@@ -166,11 +166,11 @@ message PBListResponse {
     repeated string deletedStoreFilterIds = 12;
 }
 
-message StarterList {
+message PBStarterList {
     required string identifier = 1;
     optional double timestamp = 2;
     optional string name = 3;
-    repeated ListItem items = 4;
+    repeated PBListItem items = 4;
     optional string userId = 5;
     optional string listId = 6;
     optional int32 starterListType = 7;
@@ -182,26 +182,26 @@ message StarterList {
     }
 }
 
-message StarterListResponse {
-    optional StarterList starterList = 1;
+message PBStarterListResponse {
+    optional PBStarterList starterList = 1;
 }
 
-message StarterListBatchResponse {
-    repeated StarterListResponse listResponses = 1;
+message PBStarterListBatchResponse {
+    repeated PBStarterListResponse listResponses = 1;
     optional bool includesAllLists = 2;
     repeated string unknownListIds = 3;
 }
 
-message StarterListsResponseV2 {
-    optional StarterListBatchResponse userListsResponse = 1;
-    optional StarterListBatchResponse recentItemListsResponse = 2;
-    optional StarterListBatchResponse favoriteItemListsResponse = 3;
+message PBStarterListsResponseV2 {
+    optional PBStarterListBatchResponse userListsResponse = 1;
+    optional PBStarterListBatchResponse recentItemListsResponse = 2;
+    optional PBStarterListBatchResponse favoriteItemListsResponse = 3;
     optional bool hasMigratedUserFavorites = 4;
 }
 
-message StarterListsResponse {
-    repeated StarterList newLists = 1;
-    repeated StarterList modifiedLists = 2;
+message PBStarterListsResponse {
+    repeated PBStarterList newLists = 1;
+    repeated PBStarterList modifiedLists = 2;
     repeated string unmodifiedIds = 3;
     repeated string unknownIds = 4;
     repeated string orderedIds = 5;
@@ -520,8 +520,8 @@ message PBListOperation {
     optional string listItemId = 3;
     optional string updatedValue = 4;
     optional string originalValue = 5;
-    optional ListItem listItem = 6;
-    optional ShoppingList list = 7;
+    optional PBListItem listItem = 6;
+    optional PBShoppingList list = 7;
     optional string listFolderId = 8;
     optional PBNotificationLocation notificationLocation = 9;
     optional PBStore updatedStore = 10;
@@ -572,8 +572,8 @@ message PBStarterListOperation {
     optional string listItemId = 3;
     optional string updatedValue = 4;
     optional string originalValue = 5;
-    optional ListItem listItem = 6;
-    optional StarterList list = 7;
+    optional PBListItem listItem = 6;
+    optional PBStarterList list = 7;
     optional PBItemPrice itemPrice = 8;
 }
 
@@ -583,7 +583,7 @@ message PBStarterListOperationList {
 
 message PBCategorizeItemOperation {
     optional PBOperationMetadata metadata = 1;
-    optional ListItem listItem = 2;
+    optional PBListItem listItem = 2;
 }
 
 message PBCategorizeItemOperationList {
@@ -592,7 +592,7 @@ message PBCategorizeItemOperationList {
 
 message PBCategorizedItemsList {
     optional PBTimestamp timestamp = 1;
-    repeated ListItem categorizedItems = 2;
+    repeated PBListItem categorizedItems = 2;
 }
 
 message PBCategoryOrdering {
@@ -916,13 +916,13 @@ message PBUserDataClientTimestamps {
 }
 
 message PBUserDataResponse {
-    optional ShoppingListsResponse shoppingListsResponse = 1;
+    optional PBShoppingListsResponse shoppingListsResponse = 1;
     optional PBListFoldersResponse listFoldersResponse = 2;
     optional PBRecipeDataResponse recipeDataResponse = 3;
     optional PBCalendarResponse mealPlanningCalendarResponse = 4;
     optional PBCategorizedItemsList categorizedItemsResponse = 5;
     optional PBUserCategoryData userCategoriesResponse = 6;
-    optional StarterListsResponseV2 starterListsResponse = 7;
+    optional PBStarterListsResponseV2 starterListsResponse = 7;
     optional PBIdentifierList orderedStarterListIdsResponse = 8;
     optional PBListSettingsList listSettingsResponse = 9;
     optional PBListSettingsList starterListSettingsResponse = 10;
@@ -981,9 +981,9 @@ message PBWatchSyncResponse {
     optional string rootFolderId = 3;
     optional uint64 logicalTimestamp = 4;
     optional bool isFullSync = 22;
-    repeated ShoppingList shoppingLists = 5;
+    repeated PBShoppingList shoppingLists = 5;
     repeated string deletedShoppingListIds = 6;
-    repeated ListItem listItems = 7;
+    repeated PBListItem listItems = 7;
     repeated string deletedListItemIds = 8;
     repeated PBStore stores = 9;
     repeated string deletedStoresIds = 10;

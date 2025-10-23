@@ -2,8 +2,8 @@ use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
-    ListItem as ApiListItem, PbListOperation, PbListOperationList, PbOperationMetadata,
-    PbUserDataResponse, ShoppingList as ApiShoppingList, ShoppingListsResponse,
+    PbListItem, PbListOperation, PbListOperationList, PbOperationMetadata,
+    PbUserDataResponse, PbShoppingList, PbShoppingListsResponse,
 };
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
@@ -107,7 +107,7 @@ impl AnyListClient {
         let list_id = generate_id();
         let operation_id = generate_id();
 
-        let new_list = ApiShoppingList {
+        let new_list = PbShoppingList {
             identifier: list_id.clone(),
             timestamp: Some(current_timestamp()),
             name: Some(name.to_string()),
@@ -237,7 +237,7 @@ impl AnyListClient {
         // Get the current list to preserve other fields
         let current_list = self.get_list_by_id(list_id).await?;
 
-        let updated_list = ApiShoppingList {
+        let updated_list = PbShoppingList {
             identifier: list_id.to_string(),
             timestamp: Some(current_timestamp()),
             name: Some(new_name.to_string()),
@@ -306,7 +306,7 @@ impl AnyListClient {
     }
 }
 
-fn transform_api_list_item(items: Vec<ApiListItem>) -> Vec<ListItem> {
+fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
     let mut result: Vec<ListItem> = Vec::new();
     for item in items {
         if let (Some(name), Some(list_id)) = (item.name, item.list_id) {
@@ -325,7 +325,7 @@ fn transform_api_list_item(items: Vec<ApiListItem>) -> Vec<ListItem> {
     result
 }
 
-fn lists_from_response(response: ShoppingListsResponse) -> Vec<List> {
+fn lists_from_response(response: PbShoppingListsResponse) -> Vec<List> {
     let mut lists: Vec<List> = Vec::new();
     for list in response.new_lists {
         if let Some(name) = list.name {

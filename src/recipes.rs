@@ -7,7 +7,6 @@ use crate::protobuf::anylist::{
 use prost::Message;
 use crate::utils::{current_timestamp, generate_id};
 
-/// Represents a recipe ingredient
 #[derive(Debug, Clone)]
 pub struct Ingredient {
     pub name: String,
@@ -16,7 +15,6 @@ pub struct Ingredient {
     pub raw_ingredient: Option<String>,
 }
 
-/// Represents a recipe
 #[derive(Debug, Clone)]
 pub struct Recipe {
     pub id: String,

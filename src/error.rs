@@ -3,15 +3,10 @@ use std::fmt;
 /// Custom error type for AnyList API operations
 #[derive(Debug)]
 pub enum AnyListError {
-    /// Authentication failed
     AuthenticationFailed(String),
-    /// Network request failed
     NetworkError(String),
-    /// Invalid response from server
     InvalidResponse(String),
-    /// Resource not found
     NotFound(String),
-    /// Operation not permitted
     PermissionDenied(String),
     /// Protocol buffer decoding error
     ProtobufError(String),

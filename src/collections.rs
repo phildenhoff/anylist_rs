@@ -7,7 +7,6 @@ use crate::protobuf::anylist::{
 use prost::Message;
 use crate::utils::{current_timestamp, generate_id};
 
-/// Represents a recipe collection
 #[derive(Debug, Clone)]
 pub struct RecipeCollection {
     pub id: String,
@@ -16,7 +15,6 @@ pub struct RecipeCollection {
 }
 
 impl AnyListClient {
-    /// Get all recipe collections
     pub async fn get_recipe_collections(&self) -> Result<Vec<RecipeCollection>> {
         let data = self.get_user_data().await?;
         let collections = match data.recipe_data_response {
@@ -267,4 +265,3 @@ impl AnyListClient {
         Ok(())
     }
 }
-
