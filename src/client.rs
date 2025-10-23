@@ -341,10 +341,6 @@ impl AnyListClient {
             "X-AnyLeaf-Client-Identifier",
             HeaderValue::from_str(&self.client_identifier).unwrap(),
         );
-        headers.insert(
-            "Content-Type",
-            HeaderValue::from_static("application/x-protobuf"),
-        );
 
         headers
     }
@@ -355,11 +351,15 @@ impl AnyListClient {
     pub(crate) async fn post(&self, endpoint: &str, body: Vec<u8>) -> Result<Vec<u8>> {
         let url = format!("https://www.anylist.com/{}", endpoint);
 
+        // Wrap the binary protobuf data in multipart form-data with "operations" field
+        let part = reqwest::multipart::Part::bytes(body.clone());
+        let form = reqwest::multipart::Form::new().part("operations", part);
+
         let response = self
             .client
             .post(&url)
             .headers(self.get_headers())
-            .body(body.clone())
+            .multipart(form.clone())
             .send()
             .await?;
 
@@ -379,7 +379,7 @@ impl AnyListClient {
                     .client
                     .post(&url)
                     .headers(self.get_headers())
-                    .body(body)
+                    .multipart(form)
                     .send()
                     .await?;
 
