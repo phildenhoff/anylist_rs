@@ -15,6 +15,46 @@ pub struct Store {
 }
 
 impl AnyListClient {
+    /// Get all stores for a specific list
+    ///
+    /// # Arguments
+    ///
+    /// * `list_id` - The ID of the list
+    pub async fn get_stores_for_list(&self, list_id: &str) -> Result<Vec<Store>> {
+        let data = self.get_user_data().await?;
+
+        // Get the stores from the shopping lists response
+        if let Some(shopping_lists_response) = data.shopping_lists_response {
+            // Find the list response for this specific list
+            for list_response in shopping_lists_response.list_responses {
+                if let Some(id) = &list_response.list_id {
+                    if id == list_id {
+                        // Convert PbStore to Store
+                        let stores: Vec<Store> = list_response
+                            .stores
+                            .into_iter()
+                            .filter_map(|pb_store| {
+                                pb_store.name.map(|name| Store {
+                                    id: pb_store.identifier,
+                                    name,
+                                    sort_index: pb_store.sort_index.unwrap_or(0),
+                                })
+                            })
+                            .collect();
+
+                        return Ok(stores);
+                    }
+                }
+            }
+        }
+
+        // If we didn't find the list, return an error
+        Err(AnyListError::NotFound(format!(
+            "List with ID {} not found",
+            list_id
+        )))
+    }
+
     /// Create a new store for a list
     ///
     /// # Arguments
