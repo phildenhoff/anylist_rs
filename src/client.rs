@@ -348,12 +348,13 @@ impl AnyListClient {
     /// Make a POST request to the AnyList API.
     ///
     /// Automatically handles token refresh on 401 errors if auto_refresh is enabled.
+    /// Sends the protobuf data as multipart/form-data with field name "operations".
     pub(crate) async fn post(&self, endpoint: &str, body: Vec<u8>) -> Result<Vec<u8>> {
         let url = format!("https://www.anylist.com/{}", endpoint);
 
-        // Wrap the binary protobuf data in multipart form-data with "operations" field
-        let part = reqwest::multipart::Part::bytes(body.clone());
-        let form = reqwest::multipart::Form::new().part("operations", part);
+        // Create multipart form with "operations" field containing the protobuf data
+        let form = reqwest::multipart::Form::new()
+            .part("operations", reqwest::multipart::Part::bytes(body.clone()));
 
         let response = self
             .client
@@ -373,15 +374,16 @@ impl AnyListClient {
             if auto_refresh {
                 // Try to refresh tokens
                 self.refresh_tokens().await?;
-                let part = reqwest::multipart::Part::bytes(body.clone());
-                let form = reqwest::multipart::Form::new().part("operations", part);
 
                 // Retry the request with new token
+                let retry_form = reqwest::multipart::Form::new()
+                    .part("operations", reqwest::multipart::Part::bytes(body));
+
                 let retry_response = self
                     .client
                     .post(&url)
                     .headers(self.get_headers())
-                    .multipart(form)
+                    .multipart(retry_form)
                     .send()
                     .await?;
 

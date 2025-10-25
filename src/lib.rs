@@ -61,4 +61,4 @@ pub use collections::RecipeCollection;
 pub use lists::{List, ListItem};
 pub use meal_planning::MealPlanEvent;
 pub use recipes::{Ingredient, Recipe};
-pub use stores::Store;
+pub use stores::{Store, StoreFilter};

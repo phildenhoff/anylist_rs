@@ -2,7 +2,7 @@ use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbListOperation, PbListOperationList,
-    PbOperationMetadata, PbStore,
+    PbOperationMetadata, PbStore, PbStoreFilter,
 };
 use crate::utils::generate_id;
 use prost::Message;
@@ -12,6 +12,13 @@ pub struct Store {
     pub id: String,
     pub name: String,
     pub sort_index: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoreFilter {
+    pub id: String,
+    pub name: String,
+    pub store_ids: Vec<String>,
 }
 
 impl AnyListClient {
@@ -82,27 +89,8 @@ impl AnyListClient {
                 operation_class: Some(OperationClass::Store as i32),
             }),
             list_id: Some(list_id.to_string()),
-            list_item_id: None,
-            updated_value: None,
-            original_value: None,
-            list_item: None,
-            list: None,
-            list_folder_id: None,
-            notification_location: None,
             updated_store: Some(new_store),
-            original_store: None,
-            sorted_store_ids: vec![],
-            updated_store_filter: None,
-            original_store_filter: None,
-            sorted_store_filter_ids: vec![],
-            item_price: None,
-            updated_category: None,
-            original_category: None,
-            updated_category_group: None,
-            original_category_group: None,
-            updated_categorization_rule: None,
-            original_categorization_rule: None,
-            updated_categorization_rules: vec![],
+            ..Default::default()
         };
 
         let operation_list = PbListOperationList {
@@ -149,27 +137,9 @@ impl AnyListClient {
                 operation_class: Some(OperationClass::Store as i32),
             }),
             list_id: Some(list_id.to_string()),
-            list_item_id: None,
             updated_value: Some(new_name.to_string()),
-            original_value: None,
-            list_item: None,
-            list: None,
-            list_folder_id: None,
-            notification_location: None,
             updated_store: Some(updated_store),
-            original_store: None,
-            sorted_store_ids: vec![],
-            updated_store_filter: None,
-            original_store_filter: None,
-            sorted_store_filter_ids: vec![],
-            item_price: None,
-            updated_category: None,
-            original_category: None,
-            updated_category_group: None,
-            original_category_group: None,
-            updated_categorization_rule: None,
-            original_categorization_rule: None,
-            updated_categorization_rules: vec![],
+            ..Default::default()
         };
 
         let operation_list = PbListOperationList {
@@ -185,14 +155,257 @@ impl AnyListClient {
         Ok(())
     }
 
-    /// Delete a store
+    /// Get all store filters for a specific list
+    ///
+    /// # Arguments
+    ///
+    /// * `list_id` - The ID of the list
+    pub async fn get_store_filters_for_list(&self, list_id: &str) -> Result<Vec<StoreFilter>> {
+        let data = self.get_user_data().await?;
+
+        if let Some(shopping_lists_response) = data.shopping_lists_response {
+            for list_response in shopping_lists_response.list_responses {
+                if let Some(id) = &list_response.list_id {
+                    if id == list_id {
+                        let filters: Vec<StoreFilter> = list_response
+                            .store_filters
+                            .into_iter()
+                            .filter_map(|pb_filter| {
+                                pb_filter.name.map(|name| StoreFilter {
+                                    id: pb_filter.identifier,
+                                    name,
+                                    store_ids: pb_filter.store_ids,
+                                })
+                            })
+                            .collect();
+
+                        return Ok(filters);
+                    }
+                }
+            }
+        }
+
+        Err(AnyListError::NotFound(format!(
+            "List with ID {} not found",
+            list_id
+        )))
+    }
+
+    /// Remove a store ID from all items in shopping lists
+    ///
+    /// # Arguments
+    ///
+    /// * `list_id` - The ID of the list
+    /// * `store_id` - The ID of the store to remove from items
+    async fn remove_store_from_shopping_list_items(&self, list_id: &str, store_id: &str) -> Result<()> {
+        let operation_id = generate_id();
+
+        let operation = PbListOperation {
+            metadata: Some(PbOperationMetadata {
+                operation_id: Some(operation_id),
+                handler_id: Some("remove-store-id-from-all-items".to_string()),
+                user_id: Some(self.user_id()),
+                operation_class: Some(OperationClass::Undefined as i32),
+            }),
+            list_id: Some(list_id.to_string()),
+            updated_value: Some(store_id.to_string()),
+            ..Default::default()
+        };
+
+        let operation_list = PbListOperationList {
+            operations: vec![operation],
+        };
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+
+        self.post("data/shopping-lists/update", buf).await?;
+        Ok(())
+    }
+
+    /// Remove a store ID from all items in starter lists
+    ///
+    /// # Arguments
+    ///
+    /// * `list_id` - The ID of the list
+    /// * `store_id` - The ID of the store to remove from items
+    async fn remove_store_from_starter_list_items(&self, list_id: &str, store_id: &str) -> Result<()> {
+        let operation_id = generate_id();
+
+        let operation = PbListOperation {
+            metadata: Some(PbOperationMetadata {
+                operation_id: Some(operation_id),
+                handler_id: Some("remove-store-id-from-all-items".to_string()),
+                user_id: Some(self.user_id()),
+                operation_class: Some(OperationClass::Undefined as i32),
+            }),
+            list_id: Some(list_id.to_string()),
+            updated_value: Some(store_id.to_string()),
+            ..Default::default()
+        };
+
+        let operation_list = PbListOperationList {
+            operations: vec![operation],
+        };
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+
+        self.post("data/starter-lists/update", buf).await?;
+        Ok(())
+    }
+
+    /// Update or delete store filters that contain a specific store ID
+    ///
+    /// This follows the webapp's orchestration logic:
+    /// - If a filter contains the deleted store and still has other stores after removal: UPDATE the filter
+    /// - If a filter contains only the deleted store and becomes empty: DELETE the filter
+    ///
+    /// # Arguments
+    ///
+    /// * `list_id` - The ID of the list
+    /// * `store_id` - The ID of the store to remove from filters
+    async fn delete_store_filters_with_store(&self, list_id: &str, store_id: &str) -> Result<()> {
+        let filters = self.get_store_filters_for_list(list_id).await?;
+
+        // Find filters that contain this store_id
+        let affected_filters: Vec<_> = filters
+            .into_iter()
+            .filter(|filter| filter.store_ids.contains(&store_id.to_string()))
+            .collect();
+
+        if affected_filters.is_empty() {
+            return Ok(());
+        }
+
+        // Process each affected filter
+        for filter in affected_filters {
+            let operation_id = generate_id();
+
+            // Remove the store ID from the filter's store_ids array
+            let mut updated_store_ids = filter.store_ids.clone();
+            updated_store_ids.retain(|id| id != store_id);
+
+            // Decide whether to UPDATE or DELETE based on remaining stores
+            if updated_store_ids.is_empty() {
+                // DELETE: Filter has no stores left
+                let pb_filter = PbStoreFilter {
+                    identifier: filter.id.clone(),
+                    logical_timestamp: None,
+                    list_id: Some(list_id.to_string()),
+                    name: Some(filter.name.clone()),
+                    store_ids: vec![],
+                    includes_unassigned_items: None,
+                    sort_index: None,
+                    list_category_group_id: None,
+                    shows_all_items: None,
+                };
+
+                let operation = PbListOperation {
+                    metadata: Some(PbOperationMetadata {
+                        operation_id: Some(operation_id),
+                        handler_id: Some("delete-store-filter".to_string()),
+                        user_id: Some(self.user_id()),
+                        operation_class: Some(OperationClass::StoreFilter as i32),
+                    }),
+                    list_id: Some(list_id.to_string()),
+                    updated_store_filter: Some(pb_filter),
+                    ..Default::default()
+                };
+
+                let operation_list = PbListOperationList {
+                    operations: vec![operation],
+                };
+
+                let mut buf = Vec::new();
+                operation_list.encode(&mut buf).map_err(|e| {
+                    AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+                })?;
+
+                self.post("data/shopping-lists/update-v2", buf).await?;
+            } else {
+                // UPDATE: Filter still has other stores
+                let pb_filter = PbStoreFilter {
+                    identifier: filter.id.clone(),
+                    logical_timestamp: None,
+                    list_id: Some(list_id.to_string()),
+                    name: Some(filter.name.clone()),
+                    store_ids: updated_store_ids,
+                    includes_unassigned_items: None,
+                    sort_index: None,
+                    list_category_group_id: None,
+                    shows_all_items: None,
+                };
+
+                let operation = PbListOperation {
+                    metadata: Some(PbOperationMetadata {
+                        operation_id: Some(operation_id),
+                        handler_id: Some("update-store-filter".to_string()),
+                        user_id: Some(self.user_id()),
+                        operation_class: Some(OperationClass::StoreFilter as i32),
+                    }),
+                    list_id: Some(list_id.to_string()),
+                    updated_store_filter: Some(pb_filter),
+                    ..Default::default()
+                };
+
+                let operation_list = PbListOperationList {
+                    operations: vec![operation],
+                };
+
+                let mut buf = Vec::new();
+                operation_list.encode(&mut buf).map_err(|e| {
+                    AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+                })?;
+
+                self.post("data/shopping-lists/update-v2", buf).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Delete a store (with proper cleanup of items and filters)
+    ///
+    /// This method performs the following operations in order:
+    /// 1. Remove the store from all items in shopping lists (data/shopping-lists/update)
+    /// 2. Remove the store from all items in starter lists (data/starter-lists/update)
+    /// 3. Delete any store filters that contain this store (data/shopping-lists/update-v2)
+    /// 4. Remove the store from starter list items again (data/starter-lists/update)
+    /// 5. Delete the store itself (data/shopping-lists/update-v2)
     ///
     /// # Arguments
     ///
     /// * `list_id` - The ID of the list
     /// * `store_id` - The ID of the store to delete
     pub async fn delete_store(&self, list_id: &str, store_id: &str) -> Result<()> {
+        // Step 1: Remove store from all items in shopping lists
+        self.remove_store_from_shopping_list_items(list_id, store_id).await?;
+
+        // Step 2: Remove store from all items in starter lists
+        self.remove_store_from_starter_list_items(list_id, store_id).await?;
+
+        // Step 3: Delete store filters containing this store
+        self.delete_store_filters_with_store(list_id, store_id).await?;
+
+        // Step 4: Remove store from starter list items again
+        self.remove_store_from_starter_list_items(list_id, store_id).await?;
+
+        // Step 5: Delete the store itself
         let operation_id = generate_id();
+
+        // Create PbStore object with minimal required fields
+        let pb_store = PbStore {
+            identifier: store_id.to_string(),
+            logical_timestamp: None,
+            list_id: Some(list_id.to_string()),
+            name: None,
+            sort_index: None,
+        };
 
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
@@ -202,27 +415,8 @@ impl AnyListClient {
                 operation_class: Some(OperationClass::Store as i32),
             }),
             list_id: Some(list_id.to_string()),
-            list_item_id: None,
-            updated_value: None,
-            original_value: Some(store_id.to_string()),
-            list_item: None,
-            list: None,
-            list_folder_id: None,
-            notification_location: None,
-            updated_store: None,
-            original_store: None,
-            sorted_store_ids: vec![],
-            updated_store_filter: None,
-            original_store_filter: None,
-            sorted_store_filter_ids: vec![],
-            item_price: None,
-            updated_category: None,
-            original_category: None,
-            updated_category_group: None,
-            original_category_group: None,
-            updated_categorization_rule: None,
-            original_categorization_rule: None,
-            updated_categorization_rules: vec![],
+            updated_store: Some(pb_store),
+            ..Default::default()
         };
 
         let operation_list = PbListOperationList {
