@@ -299,36 +299,6 @@ impl AnyListClient {
     async fn set_item_checked(&self, list_id: &str, item_id: &str, checked: bool) -> Result<()> {
         let operation_id = generate_id();
 
-        // Need to get the current item to preserve other fields
-        let list = self.get_list_by_id(list_id).await?;
-        let item =
-            list.items.iter().find(|i| i.id == item_id).ok_or_else(|| {
-                AnyListError::NotFound(format!("Item with ID {} not found", item_id))
-            })?;
-
-        let updated_item = PbListItem {
-            identifier: item_id.to_string(),
-            server_mod_time: Some(current_timestamp()),
-            list_id: Some(list_id.to_string()),
-            name: Some(item.name.clone()),
-            quantity: item.quantity.clone(),
-            details: Some(item.details.clone()),
-            checked: Some(checked),
-            recipe_id: None,
-            raw_ingredient: None,
-            price_matchup_tag: None,
-            price_id: None,
-            category: item.category.clone(),
-            user_id: Some(self.user_id()),
-            category_match_id: None,
-            photo_ids: vec![],
-            event_id: None,
-            store_ids: vec![],
-            prices: vec![],
-            category_assignments: vec![],
-            manual_sort_index: Some(0),
-        };
-
         let operation = PbListOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
@@ -338,26 +308,8 @@ impl AnyListClient {
             }),
             list_id: Some(list_id.to_string()),
             list_item_id: Some(item_id.to_string()),
-            updated_value: Some(checked.to_string()),
-            original_value: Some((!checked).to_string()),
-            list_item: Some(updated_item),
-            list: None,
-            list_folder_id: None,
-            notification_location: None,
-            updated_store: None,
-            original_store: None,
-            sorted_store_ids: vec![],
-            updated_store_filter: None,
-            original_store_filter: None,
-            sorted_store_filter_ids: vec![],
-            item_price: None,
-            updated_category: None,
-            original_category: None,
-            updated_category_group: None,
-            original_category_group: None,
-            updated_categorization_rule: None,
-            original_categorization_rule: None,
-            updated_categorization_rules: vec![],
+            updated_value: Some(if checked { "y" } else { "n" }.to_string()),
+            ..Default::default()
         };
 
         let operation_list = PbListOperationList {
