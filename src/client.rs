@@ -258,6 +258,68 @@ impl AnyListClient {
         auth.is_premium_user
     }
 
+    /// Get the client identifier for this client.
+    pub fn client_identifier(&self) -> &str {
+        &self.client_identifier
+    }
+
+    /// Set the client identifier.
+    ///
+    /// This changes the identifier used for all subsequent requests.
+    /// If you have an active RealtimeSync connection, you'll need to
+    /// reconnect for it to use the new identifier.
+    pub fn set_client_identifier(&mut self, id: String) {
+        self.client_identifier = id;
+    }
+
+    /// Start real-time sync with a callback for events
+    ///
+    /// The callback will be invoked whenever the server sends a change notification.
+    /// It's the caller's responsibility to decide what to do (re-fetch data, update cache, etc.)
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use anylist_rs::{AnyListClient, SyncEvent};
+    /// use std::sync::Arc;
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let client = Arc::new(
+    ///         AnyListClient::login("user@example.com", "password").await?
+    ///     );
+    ///
+    ///     let mut sync = client.start_realtime_sync(|event| {
+    ///         match event {
+    ///             SyncEvent::ShoppingListsChanged => {
+    ///                 println!("Shopping lists changed - consider re-fetching");
+    ///             }
+    ///             SyncEvent::RecipeDataChanged => {
+    ///                 println!("Recipes changed");
+    ///             }
+    ///             _ => {}
+    ///         }
+    ///     }).await?;
+    ///
+    ///     // Do work...
+    ///
+    ///     // Clean shutdown
+    ///     sync.disconnect().await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn start_realtime_sync<F>(
+        self: &Arc<Self>,
+        callback: F,
+    ) -> Result<crate::realtime::RealtimeSync>
+    where
+        F: Fn(crate::realtime::SyncEvent) + Send + Sync + 'static,
+    {
+        let mut sync = crate::realtime::RealtimeSync::new(Arc::clone(self), callback);
+        sync.connect().await?;
+        Ok(sync)
+    }
+
     // ========================================================================
     // Internal authentication methods
     // ========================================================================
@@ -265,7 +327,7 @@ impl AnyListClient {
     /// Refresh the access token using the refresh token.
     ///
     /// This calls /auth/token/refresh endpoint with multipart form data
-    async fn refresh_tokens(&self) -> Result<()> {
+    pub async fn refresh_tokens(&self) -> Result<()> {
         let refresh_token = {
             let auth = self.auth.lock().unwrap();
             auth.refresh_token.clone()
