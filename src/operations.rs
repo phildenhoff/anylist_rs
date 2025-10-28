@@ -290,6 +290,84 @@ pub fn build_delete_store_operation(params: DeleteStoreParams) -> PbListOperatio
     }
 }
 
+// ============================================================================
+// Item Operations
+// ============================================================================
+
+use crate::protobuf::anylist::{PbListItem, PbListItemCategoryAssignment};
+
+/// Parameters for adding an item to a list
+pub struct AddItemParams {
+    pub item_id: String,
+    pub list_id: String,
+    pub operation_id: String,
+    pub user_id: String,
+    pub name: String,
+    pub category: Option<String>,
+    pub category_match_id: Option<String>,
+    pub category_assignment: Option<CategoryAssignment>,
+}
+
+/// Category assignment for an item
+pub struct CategoryAssignment {
+    pub identifier: String,
+    pub category_group_id: String,
+    pub category_id: String,
+}
+
+/// Build an add-item operation (pure function)
+pub fn build_add_item_operation(params: AddItemParams) -> PbListOperationList {
+    let category_assignments = if let Some(assignment) = params.category_assignment {
+        vec![PbListItemCategoryAssignment {
+            identifier: Some(assignment.identifier),
+            category_group_id: Some(assignment.category_group_id),
+            category_id: Some(assignment.category_id),
+        }]
+    } else {
+        vec![]
+    };
+
+    let pb_item = PbListItem {
+        identifier: params.item_id.clone(),
+        server_mod_time: None,
+        list_id: Some(params.list_id.clone()),
+        name: Some(params.name),
+        quantity: None,
+        details: None,
+        checked: None,
+        recipe_id: None,
+        raw_ingredient: None,
+        price_matchup_tag: None,
+        price_id: None,
+        category: params.category,
+        user_id: Some(params.user_id.clone()),
+        category_match_id: params.category_match_id,
+        photo_ids: vec![],
+        event_id: None,
+        store_ids: vec![],
+        manual_sort_index: None,
+        prices: vec![],
+        category_assignments,
+    };
+
+    let operation = PbListOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(params.operation_id),
+            handler_id: Some("add-shopping-list-item".to_string()),
+            user_id: Some(params.user_id),
+            operation_class: None,
+        }),
+        list_id: Some(params.list_id),
+        list_item_id: Some(params.item_id),
+        list_item: Some(pb_item),
+        ..Default::default()
+    };
+
+    PbListOperationList {
+        operations: vec![operation],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -457,6 +535,31 @@ mod tests {
 
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).unwrap();
+        insta::assert_snapshot!(hex::encode(&buf));
+    }
+
+    #[test]
+    fn test_webapp_add_shopping_list_item_2025_10_28() {
+        let params = AddItemParams {
+            item_id: "d83d31d5d48d4b7591b05c7efb725a46".to_string(),
+            list_id: "58ec2be417b247d7a9edc2d9d66889ab".to_string(),
+            operation_id: "0da34b3d00f54ce1bd6fd501ddf62f99".to_string(),
+            user_id: "cda21b0078644a01b640c84d3d74187e".to_string(),
+            name: "nice new things".to_string(),
+            category: Some("other".to_string()),
+            category_match_id: Some("other".to_string()),
+            category_assignment: Some(CategoryAssignment {
+                identifier: "47868d70669a5a078f8bc4e40dc07cab".to_string(),
+                category_group_id: "65564675a0de5a5fa6a69272df260fcc".to_string(),
+                category_id: "f962e619ab90479894c9dcc291a7f103".to_string(),
+            }),
+        };
+
+        let operation_list = build_add_item_operation(params);
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
+
+        // Should match webapp exactly
         insta::assert_snapshot!(hex::encode(&buf));
     }
 }
