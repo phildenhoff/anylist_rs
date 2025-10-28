@@ -43,3 +43,18 @@ cargo test <your-new-test-file>
 
 If it matches, you're good to go.
 If it fails, see the diff with `cargo insta review`.
+
+### Debugging failing snapshot tests
+
+If the base64-encoded snapshot doesn't match the output from your function,
+you'll want to compare the two outputs. Thankfully, there's already a tool for
+decoding base64-stored protobuf messages in `tools/decode_snapshot.py`. That can
+be used to turn the stored snapshot into bin files that you can pass into protoc
+to view the intended protobuf message.
+
+#### Naming rules for webapp-derived "golden" snapshots
+
+If you pull a protobuf message from the webapp, prepend the test name with
+`webapp_` (after the appropriate `insta` naming, likely
+`anylist_rs__operations__tests__`) and include the date it was saved at the end
+in the format `_YYYY_MM_DD`.
