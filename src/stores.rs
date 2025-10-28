@@ -1,8 +1,8 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
+use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbListOperation, PbListOperationList,
-    PbOperationMetadata, PbStore, PbStoreFilter,
+    PbListOperation, PbListOperationList, PbOperationMetadata, PbStore,
 };
 use crate::utils::generate_id;
 use prost::Message;
@@ -200,22 +200,18 @@ impl AnyListClient {
     async fn remove_store_from_shopping_list_items(&self, list_id: &str, store_id: &str) -> Result<()> {
         let operation_id = generate_id();
 
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-store-id-from-all-items".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_value: Some(store_id.to_string()),
-            ..Default::default()
+        // Imperative shell: gather runtime values
+        let params = crate::operations::RemoveStoreFromItemsParams {
+            list_id: list_id.to_string(),
+            store_id: store_id.to_string(),
+            operation_id,
+            user_id: self.user_id(),
         };
 
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
+        // Functional core: pure operation building
+        let operation_list = crate::operations::build_remove_store_from_items_operation(params);
 
+        // Imperative shell: side effects
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
@@ -234,22 +230,18 @@ impl AnyListClient {
     async fn remove_store_from_starter_list_items(&self, list_id: &str, store_id: &str) -> Result<()> {
         let operation_id = generate_id();
 
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-store-id-from-all-items".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_value: Some(store_id.to_string()),
-            ..Default::default()
+        // Imperative shell: gather runtime values
+        let params = crate::operations::RemoveStoreFromItemsParams {
+            list_id: list_id.to_string(),
+            store_id: store_id.to_string(),
+            operation_id,
+            user_id: self.user_id(),
         };
 
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
+        // Functional core: pure operation building
+        let operation_list = crate::operations::build_remove_store_from_items_operation(params);
 
+        // Imperative shell: side effects
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
@@ -293,33 +285,15 @@ impl AnyListClient {
             // Decide whether to UPDATE or DELETE based on remaining stores
             if updated_store_ids.is_empty() {
                 // DELETE: Filter has no stores left
-                let pb_filter = PbStoreFilter {
-                    identifier: filter.id.clone(),
-                    logical_timestamp: None,
-                    list_id: Some(list_id.to_string()),
-                    name: Some(filter.name.clone()),
-                    store_ids: vec![],
-                    includes_unassigned_items: None,
-                    sort_index: None,
-                    list_category_group_id: None,
-                    shows_all_items: None,
+                let params = crate::operations::DeleteStoreFilterParams {
+                    filter_id: filter.id.clone(),
+                    list_id: list_id.to_string(),
+                    filter_name: filter.name.clone(),
+                    operation_id,
+                    user_id: self.user_id(),
                 };
 
-                let operation = PbListOperation {
-                    metadata: Some(PbOperationMetadata {
-                        operation_id: Some(operation_id),
-                        handler_id: Some("delete-store-filter".to_string()),
-                        user_id: Some(self.user_id()),
-                        operation_class: Some(OperationClass::StoreFilter as i32),
-                    }),
-                    list_id: Some(list_id.to_string()),
-                    updated_store_filter: Some(pb_filter),
-                    ..Default::default()
-                };
-
-                let operation_list = PbListOperationList {
-                    operations: vec![operation],
-                };
+                let operation_list = crate::operations::build_delete_store_filter_operation(params);
 
                 let mut buf = Vec::new();
                 operation_list.encode(&mut buf).map_err(|e| {
@@ -329,33 +303,16 @@ impl AnyListClient {
                 self.post("data/shopping-lists/update-v2", buf).await?;
             } else {
                 // UPDATE: Filter still has other stores
-                let pb_filter = PbStoreFilter {
-                    identifier: filter.id.clone(),
-                    logical_timestamp: None,
-                    list_id: Some(list_id.to_string()),
-                    name: Some(filter.name.clone()),
+                let params = crate::operations::UpdateStoreFilterParams {
+                    filter_id: filter.id.clone(),
+                    list_id: list_id.to_string(),
+                    filter_name: filter.name.clone(),
                     store_ids: updated_store_ids,
-                    includes_unassigned_items: None,
-                    sort_index: None,
-                    list_category_group_id: None,
-                    shows_all_items: None,
+                    operation_id,
+                    user_id: self.user_id(),
                 };
 
-                let operation = PbListOperation {
-                    metadata: Some(PbOperationMetadata {
-                        operation_id: Some(operation_id),
-                        handler_id: Some("update-store-filter".to_string()),
-                        user_id: Some(self.user_id()),
-                        operation_class: Some(OperationClass::StoreFilter as i32),
-                    }),
-                    list_id: Some(list_id.to_string()),
-                    updated_store_filter: Some(pb_filter),
-                    ..Default::default()
-                };
-
-                let operation_list = PbListOperationList {
-                    operations: vec![operation],
-                };
+                let operation_list = crate::operations::build_update_store_filter_operation(params);
 
                 let mut buf = Vec::new();
                 operation_list.encode(&mut buf).map_err(|e| {
@@ -398,31 +355,19 @@ impl AnyListClient {
         // Step 5: Delete the store itself
         let operation_id = generate_id();
 
-        // Create PbStore object with minimal required fields
-        let pb_store = PbStore {
-            identifier: store_id.to_string(),
-            logical_timestamp: None,
-            list_id: Some(list_id.to_string()),
-            name: None,
-            sort_index: None,
+        // Imperative shell: gather runtime values
+        let params = crate::operations::DeleteStoreParams {
+            store_id: store_id.to_string(),
+            store_name: None,
+            list_id: list_id.to_string(),
+            operation_id,
+            user_id: self.user_id(),
         };
 
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("delete-store".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Store as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_store: Some(pb_store),
-            ..Default::default()
-        };
+        // Functional core: pure operation building
+        let operation_list = crate::operations::build_delete_store_operation(params);
 
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
+        // Imperative shell: side effects
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))

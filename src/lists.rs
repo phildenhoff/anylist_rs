@@ -1,10 +1,6 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
-use crate::protobuf::anylist::{
-    PbListItem, PbListOperation, PbListOperationList, PbOperationMetadata, PbShoppingList,
-    PbShoppingListsResponse, PbUserDataResponse,
-};
+use crate::protobuf::anylist::{PbListItem, PbShoppingListsResponse, PbUserDataResponse};
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
 
@@ -106,39 +102,19 @@ impl AnyListClient {
         let list_id = generate_id();
         let operation_id = generate_id();
 
-        let new_list = PbShoppingList {
-            identifier: list_id.clone(),
-            timestamp: Some(current_timestamp()),
-            name: Some(name.to_string()),
-            items: vec![],
-            creator: Some(self.user_id()),
-            unusedattribute: vec![],
-            shared_users: vec![],
-            password: None,
-            notification_locations: vec![],
-            logical_clock_time: Some(1),
-            built_in_alexa_list_type: None,
-            allows_multiple_list_category_groups: Some(true),
-            list_item_sort_order: Some(0),   // Manual
-            new_list_item_position: Some(0), // Bottom
+        // Imperative shell: gather runtime values
+        let params = crate::operations::CreateListParams {
+            list_id: list_id.clone(),
+            operation_id,
+            user_id: self.user_id(),
+            timestamp: current_timestamp(),
+            name: name.to_string(),
         };
 
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("new-shopping-list".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            list_id: Some(list_id.clone()),
-            list: Some(new_list),
-            ..Default::default()
-        };
+        // Functional core: pure operation building
+        let operation_list = crate::operations::build_create_list_operation(params);
 
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
+        // Imperative shell: side effects
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
@@ -161,21 +137,17 @@ impl AnyListClient {
     pub async fn delete_list(&self, list_id: &str) -> Result<()> {
         let operation_id = generate_id();
 
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("delete-list".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            ..Default::default()
+        // Imperative shell: gather runtime values
+        let params = crate::operations::DeleteListParams {
+            list_id: list_id.to_string(),
+            operation_id,
+            user_id: self.user_id(),
         };
 
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
+        // Functional core: pure operation building
+        let operation_list = crate::operations::build_delete_list_operation(params);
 
+        // Imperative shell: side effects
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
@@ -197,41 +169,20 @@ impl AnyListClient {
         // Get the current list to preserve other fields
         let current_list = self.get_list_by_id(list_id).await?;
 
-        let updated_list = PbShoppingList {
-            identifier: list_id.to_string(),
-            timestamp: Some(current_timestamp()),
-            name: Some(new_name.to_string()),
-            items: vec![],
-            creator: Some(self.user_id()),
-            unusedattribute: vec![],
-            shared_users: vec![],
-            password: None,
-            notification_locations: vec![],
-            logical_clock_time: Some(1),
-            built_in_alexa_list_type: None,
-            allows_multiple_list_category_groups: Some(true),
-            list_item_sort_order: Some(0),
-            new_list_item_position: Some(0),
+        // Imperative shell: gather runtime values
+        let params = crate::operations::RenameListParams {
+            list_id: list_id.to_string(),
+            operation_id,
+            user_id: self.user_id(),
+            timestamp: current_timestamp(),
+            old_name: current_list.name,
+            new_name: new_name.to_string(),
         };
 
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("rename-list".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_value: Some(new_name.to_string()),
-            original_value: Some(current_list.name),
-            list: Some(updated_list),
-            ..Default::default()
-        };
+        // Functional core: pure operation building
+        let operation_list = crate::operations::build_rename_list_operation(params);
 
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
+        // Imperative shell: side effects
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))

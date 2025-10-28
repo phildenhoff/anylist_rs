@@ -41,12 +41,13 @@ pub mod items;
 pub mod lists;
 pub mod login;
 pub mod meal_planning;
+pub mod operations;
 pub mod realtime;
 pub mod recipes;
 pub mod stores;
 mod utils;
 
-mod protobuf {
+pub mod protobuf {
     pub mod anylist {
         include!(concat!(env!("OUT_DIR"), "/anylist.proto.rs"));
     }
