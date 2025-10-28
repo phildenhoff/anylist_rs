@@ -220,6 +220,66 @@ impl AnyListClient {
         Ok(())
     }
 
+    /// Delete multiple items from a list in a single operation
+    ///
+    /// # Arguments
+    ///
+    /// * `list_id` - The ID of the list containing the items
+    /// * `item_ids` - The IDs of the items to delete
+    ///
+    /// # Note
+    ///
+    /// This method requires fetching the list to get full item details,
+    /// but is more efficient than multiple `delete_item()` calls when
+    /// deleting multiple items.
+    pub async fn bulk_delete_items(&self, list_id: &str, item_ids: &[&str]) -> Result<()> {
+        if item_ids.is_empty() {
+            return Ok(());
+        }
+
+        // Fetch the list to get full item details
+        let list = self.get_list_by_id(list_id).await?;
+
+        let items_to_remove: Vec<crate::operations::ItemToRemove> = item_ids
+            .iter()
+            .filter_map(|&item_id| {
+                list.items.iter().find(|i| i.id == item_id).map(|item| {
+                    crate::operations::ItemToRemove {
+                        item_id: item.id.clone(),
+                        list_id: item.list_id.clone(),
+                        name: item.name.clone(),
+                        category: item.category.clone(),
+                        user_id: self.user_id(),
+                        category_match_id: item.category.clone(),
+                        category_assignment: None,
+                    }
+                })
+            })
+            .collect();
+
+        if items_to_remove.is_empty() {
+            return Err(AnyListError::NotFound("No matching items found".to_string()));
+        }
+
+        let operation_id = generate_id();
+        let params = crate::operations::BulkRemoveItemsParams {
+            operation_id,
+            user_id: self.user_id(),
+            list_id: list_id.to_string(),
+            items: items_to_remove,
+        };
+
+        let operation_list = crate::operations::build_bulk_remove_items_operation(params);
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+
+        self.post("data/shopping-lists/update", buf).await?;
+        Ok(())
+    }
+
     /// Cross off (check) an item on a list
     ///
     /// # Arguments
@@ -279,10 +339,40 @@ impl AnyListClient {
         let list = self.get_list_by_id(list_id).await?;
         let checked_items: Vec<&ListItem> = list.items.iter().filter(|i| i.is_checked).collect();
 
-        for item in checked_items {
-            self.delete_item(list_id, &item.id).await?;
+        if checked_items.is_empty() {
+            return Ok(());
         }
 
+        // Use bulk remove operation for all checked items at once
+        let operation_id = generate_id();
+        let items_to_remove: Vec<crate::operations::ItemToRemove> = checked_items
+            .iter()
+            .map(|item| crate::operations::ItemToRemove {
+                item_id: item.id.clone(),
+                list_id: item.list_id.clone(),
+                name: item.name.clone(),
+                category: item.category.clone(),
+                user_id: self.user_id(),
+                category_match_id: item.category.clone(), // Use same as category for now
+                category_assignment: None, // TODO: Store and use actual category assignment
+            })
+            .collect();
+
+        let params = crate::operations::BulkRemoveItemsParams {
+            operation_id,
+            user_id: self.user_id(),
+            list_id: list_id.to_string(),
+            items: items_to_remove,
+        };
+
+        let operation_list = crate::operations::build_bulk_remove_items_operation(params);
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+
+        self.post("data/shopping-lists/update", buf).await?;
         Ok(())
     }
 }
