@@ -368,6 +368,100 @@ pub fn build_add_item_operation(params: AddItemParams) -> PbListOperationList {
     }
 }
 
+/// Parameters for bulk removing items from a list
+pub struct BulkRemoveItemsParams {
+    pub operation_id: String,
+    pub user_id: String,
+    pub list_id: String,
+    pub items: Vec<ItemToRemove>,
+}
+
+/// Item to be removed with its full details
+pub struct ItemToRemove {
+    pub item_id: String,
+    pub list_id: String,
+    pub name: String,
+    pub category: Option<String>,
+    pub user_id: String,
+    pub category_match_id: Option<String>,
+    pub category_assignment: Option<CategoryAssignment>,
+}
+
+/// Build a bulk-remove-list-items operation (pure function)
+pub fn build_bulk_remove_items_operation(params: BulkRemoveItemsParams) -> PbListOperationList {
+    let pb_items: Vec<PbListItem> = params
+        .items
+        .into_iter()
+        .map(|item| {
+            let category_assignments = if let Some(assignment) = item.category_assignment {
+                vec![PbListItemCategoryAssignment {
+                    identifier: Some(assignment.identifier),
+                    category_group_id: Some(assignment.category_group_id),
+                    category_id: Some(assignment.category_id),
+                }]
+            } else {
+                vec![]
+            };
+
+            PbListItem {
+                identifier: item.item_id,
+                server_mod_time: None,
+                list_id: Some(item.list_id),
+                name: Some(item.name),
+                quantity: None,
+                details: None,
+                checked: None,
+                category: item.category,
+                user_id: Some(item.user_id),
+                recipe_id: None,
+                category_match_id: item.category_match_id,
+                raw_ingredient: None,
+                price_matchup_tag: None,
+                price_id: None,
+                photo_ids: vec![],
+                event_id: None,
+                store_ids: vec![],
+                manual_sort_index: None,
+                prices: vec![],
+                category_assignments,
+            }
+        })
+        .collect();
+
+    let pb_list = PbShoppingList {
+        identifier: params.list_id.clone(),
+        timestamp: None,
+        name: None,
+        items: pb_items,
+        creator: None,
+        unusedattribute: vec![],
+        shared_users: vec![],
+        password: None,
+        notification_locations: vec![],
+        logical_clock_time: None,
+        built_in_alexa_list_type: None,
+        allows_multiple_list_category_groups: None,
+        list_item_sort_order: None,
+        new_list_item_position: None,
+    };
+
+    let operation = PbListOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(params.operation_id),
+            handler_id: Some("bulk-remove-list-items".to_string()),
+            user_id: Some(params.user_id),
+            operation_class: None,
+        }),
+        list_id: Some(params.list_id),
+        list: Some(pb_list),
+        ..Default::default()
+    };
+
+    PbListOperationList {
+        operations: vec![operation],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -556,6 +650,35 @@ mod tests {
         };
 
         let operation_list = build_add_item_operation(params);
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
+
+        // Should match webapp exactly
+        insta::assert_snapshot!(hex::encode(&buf));
+    }
+
+    #[test]
+    fn test_webapp_bulk_remove_list_items_2025_10_28() {
+        let params = BulkRemoveItemsParams {
+            operation_id: "e26f61f101a94a81b395b4db8b870071".to_string(),
+            user_id: "cda21b0078644a01b640c84d3d74187e".to_string(),
+            list_id: "58ec2be417b247d7a9edc2d9d66889ab".to_string(),
+            items: vec![ItemToRemove {
+                item_id: "2eb63311646048568db569a50116cae8".to_string(),
+                list_id: "58ec2be417b247d7a9edc2d9d66889ab".to_string(),
+                name: "deleted item".to_string(),
+                category: Some("other".to_string()),
+                user_id: "cda21b0078644a01b640c84d3d74187e".to_string(),
+                category_match_id: Some("other".to_string()),
+                category_assignment: Some(CategoryAssignment {
+                    identifier: "47868d70669a5a078f8bc4e40dc07cab".to_string(),
+                    category_group_id: "65564675a0de5a5fa6a69272df260fcc".to_string(),
+                    category_id: "f962e619ab90479894c9dcc291a7f103".to_string(),
+                }),
+            }],
+        };
+
+        let operation_list = build_bulk_remove_items_operation(params);
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).unwrap();
 
