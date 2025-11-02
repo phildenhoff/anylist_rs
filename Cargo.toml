@@ -2,7 +2,7 @@
 name = "anylist_rs"
 version = "0.2.0"
 authors = ["Phil Denhoff <phil@denhoff.ca>"]
-edition = "2024"
+edition = "2021"
 include = ["src/"]
 
 [lib]
