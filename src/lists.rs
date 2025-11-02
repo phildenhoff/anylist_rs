@@ -1,8 +1,16 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::protobuf::anylist::{PbListItem, PbShoppingListsResponse, PbUserDataResponse};
+use crate::protobuf::anylist::{PbEmailUserIdPair, PbListItem, PbShoppingListsResponse, PbUserDataResponse};
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
+
+/// User information for list collaborators
+#[derive(Debug, Clone)]
+pub struct UserInfo {
+    pub user_id: String,
+    pub email: Option<String>,
+    pub full_name: Option<String>,
+}
 
 /// Represents a shopping list item
 #[derive(Debug, Clone)]
@@ -14,6 +22,7 @@ pub struct ListItem {
     pub is_checked: bool,
     pub quantity: Option<String>,
     pub category: Option<String>,
+    pub user_id: Option<String>,
 }
 
 /// Represents a shopping list
@@ -22,6 +31,7 @@ pub struct List {
     pub id: String,
     pub name: String,
     pub items: Vec<ListItem>,
+    pub shared_users: Vec<UserInfo>,
 }
 
 impl AnyListClient {
@@ -126,6 +136,7 @@ impl AnyListClient {
             id: list_id,
             name: name.to_string(),
             items: vec![],
+            shared_users: vec![],
         })
     }
 
@@ -212,11 +223,20 @@ fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
                 is_checked: item.checked.unwrap_or(false),
                 quantity: item.quantity,
                 category: item.category,
+                user_id: item.user_id,
             };
             result.push(item);
         }
     }
     result
+}
+
+fn transform_shared_users(users: Vec<PbEmailUserIdPair>) -> Vec<UserInfo> {
+    users.into_iter().map(|user| UserInfo {
+        user_id: user.user_id.unwrap_or_default(),
+        email: user.email,
+        full_name: user.full_name,
+    }).collect()
 }
 
 fn lists_from_response(response: PbShoppingListsResponse) -> Vec<List> {
@@ -227,9 +247,77 @@ fn lists_from_response(response: PbShoppingListsResponse) -> Vec<List> {
                 id: list.identifier,
                 name,
                 items: transform_api_list_item(list.items),
+                shared_users: transform_shared_users(list.shared_users),
             };
             lists.push(list);
         }
     }
     lists
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prost::Message;
+
+    #[test]
+    fn test_parse_list_with_shared_users() {
+        // Response from webapp: POST /data/user-data/get with shared list
+        let snapshot_content = include_str!("snapshots/webapp_captures__parse_list_with_shared_users.snap");
+
+        // Find the hex data (after the "---\n" separator)
+        let response_hex = snapshot_content
+            .split("---")
+            .nth(2) // Third section after two "---" markers
+            .unwrap()
+            .trim();
+
+        let bytes = hex::decode(response_hex).unwrap();
+        let user_data = PbUserDataResponse::decode(bytes.as_ref()).unwrap();
+
+        let lists = lists_from_response(
+            user_data.shopping_lists_response.unwrap()
+        );
+
+        // Verify lists were parsed
+        assert!(lists.len() > 0, "Should have at least one list");
+
+        // Find list with shared users
+        let list_with_users = lists.iter().find(|l| !l.shared_users.is_empty());
+
+        assert!(
+            list_with_users.is_some(),
+            "Expected at least one list with shared users"
+        );
+
+        let list = list_with_users.unwrap();
+
+        // Verify shared_users structure
+        assert!(!list.shared_users.is_empty(), "shared_users should not be empty");
+
+        let user = &list.shared_users[0];
+        assert!(
+            user.user_id.len() > 0,
+            "user_id should be populated"
+        );
+
+        // Verify optional fields exist
+        assert!(
+            user.email.is_some() || user.full_name.is_some(),
+            "Either email or full_name should be populated"
+        );
+
+        // Debug output for inspection
+        println!("✓ Found {} lists", lists.len());
+        println!("✓ List '{}' has {} shared users", list.name, list.shared_users.len());
+        for shared_user in &list.shared_users {
+            println!("  - user_id: {}", shared_user.user_id);
+            if let Some(email) = &shared_user.email {
+                println!("    email: {}", email);
+            }
+            if let Some(name) = &shared_user.full_name {
+                println!("    name: {}", name);
+            }
+        }
+    }
 }

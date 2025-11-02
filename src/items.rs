@@ -111,6 +111,7 @@ impl AnyListClient {
             is_checked: false,
             quantity: quantity.map(|q| q.to_string()),
             category: category.map(|c| c.to_string()),
+            user_id: Some(self.user_id()),
         })
     }
 
