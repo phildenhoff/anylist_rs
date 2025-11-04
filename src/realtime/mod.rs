@@ -82,9 +82,9 @@
 //! The connection is managed automatically:
 //! - **Heartbeats**: Sent every 5 seconds to keep the connection alive
 //! - **Auto-reconnect**: If the connection drops, it will automatically
-//! reconnect with exponential backoff
+//!   reconnect with exponential backoff
 //! - **Token refresh**: If the access token expires (close code 4010), it will
-//! refresh and reconnect
+//!   refresh and reconnect
 //!
 //! # Event Types
 //!

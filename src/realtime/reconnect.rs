@@ -29,7 +29,7 @@ impl ReconnectionStrategy {
             self.current_delay = self.initial_delay;
         } else {
             // Exponential backoff: double the delay
-            self.current_delay = self.current_delay * 2;
+            self.current_delay *= 2;
 
             // Cap at max delay
             if self.current_delay > self.max_delay {

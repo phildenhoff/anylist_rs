@@ -542,7 +542,7 @@ impl RealtimeSync {
 
                             let mut stream_guard = ws_stream.lock().await;
                             if let Some(stream) = stream_guard.as_mut() {
-                                if let Err(_) = stream.send(Message::Text("--heartbeat--".to_string())).await {
+                                if (stream.send(Message::Text("--heartbeat--".to_string())).await).is_err() {
                                     drop(stream_guard);
                                     let mut state_guard = state.lock().await;
                                     *state_guard = ConnectionState::Reconnecting;

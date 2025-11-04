@@ -280,7 +280,7 @@ mod tests {
         );
 
         // Verify lists were parsed
-        assert!(lists.len() > 0, "Should have at least one list");
+        assert!(!lists.is_empty(), "Should have at least one list");
 
         // Find list with shared users
         let list_with_users = lists.iter().find(|l| !l.shared_users.is_empty());
@@ -297,7 +297,7 @@ mod tests {
 
         let user = &list.shared_users[0];
         assert!(
-            user.user_id.len() > 0,
+            !user.user_id.is_empty(),
             "user_id should be populated"
         );
 

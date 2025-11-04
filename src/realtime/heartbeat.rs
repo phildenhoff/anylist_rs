@@ -14,6 +14,12 @@ pub struct HeartbeatManager {
     interval: Duration,
 }
 
+impl Default for HeartbeatManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HeartbeatManager {
     /// Create a new heartbeat manager
     pub fn new() -> Self {
