@@ -77,6 +77,7 @@ impl AnyListClient {
             prices: vec![],
             category_assignments: vec![],
             manual_sort_index: Some(0),
+            product_upc: None,
         };
 
         let operation = PbListOperation {
@@ -112,6 +113,7 @@ impl AnyListClient {
             quantity: quantity.map(|q| q.to_string()),
             category: category.map(|c| c.to_string()),
             user_id: Some(self.user_id()),
+            product_upc: None,
         })
     }
 
@@ -157,6 +159,7 @@ impl AnyListClient {
             prices: vec![],
             category_assignments: vec![],
             manual_sort_index: Some(0),
+            product_upc: None,
         };
 
         let operation = PbListOperation {

@@ -39,6 +39,7 @@ pub struct ListItem {
     pub(crate) quantity: Option<String>,
     pub(crate) category: Option<String>,
     pub(crate) user_id: Option<String>,
+    pub(crate) product_upc: Option<String>,
 }
 
 impl ListItem {
@@ -74,6 +75,10 @@ impl ListItem {
     /// Get the user ID who created/owns this item
     pub fn user_id(&self) -> Option<&str> {
         self.user_id.as_deref()
+    }
+
+    pub fn product_upc(&self) -> Option<&str> {
+        self.product_upc.as_deref()
     }
 }
 
@@ -293,6 +298,7 @@ fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
                 quantity: item.quantity,
                 category: item.category,
                 user_id: item.user_id,
+                product_upc: item.product_upc,
             };
             result.push(item);
         }
