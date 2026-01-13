@@ -412,11 +412,28 @@ impl AnyListClient {
     /// Automatically handles token refresh on 401 errors if auto_refresh is enabled.
     /// Sends the protobuf data as multipart/form-data with field name "operations".
     pub(crate) async fn post(&self, endpoint: &str, body: Vec<u8>) -> Result<Vec<u8>> {
-        let url = format!("https://www.anylist.com/{}", endpoint);
+        // Delegate to post_multipart with standard "operations" field name
+        // Note: endpoint here doesn't have leading slash, so we add one
+        self.post_multipart(&format!("/{}", endpoint), "operations", body).await
+    }
 
-        // Create multipart form with "operations" field containing the protobuf data
+    /// Make a POST request with custom multipart field name.
+    ///
+    /// Automatically handles token refresh on 401 errors if auto_refresh is enabled.
+    /// The endpoint should include a leading slash (e.g., "/data/endpoint").
+    pub(crate) async fn post_multipart(
+        &self,
+        endpoint: &str,
+        field_name: &str,
+        body: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        let url = format!("https://www.anylist.com{}", endpoint);
+        // Convert to owned String since we need it for both initial request and potential retry
+        let field_name_owned = field_name.to_string();
+
+        // Create multipart form with the specified field name containing the protobuf data
         let form = reqwest::multipart::Form::new()
-            .part("operations", reqwest::multipart::Part::bytes(body.clone()));
+            .part(field_name_owned.clone(), reqwest::multipart::Part::bytes(body.clone()));
 
         let response = self
             .client
@@ -439,7 +456,7 @@ impl AnyListClient {
 
                 // Retry the request with new token
                 let retry_form = reqwest::multipart::Form::new()
-                    .part("operations", reqwest::multipart::Part::bytes(body));
+                    .part(field_name_owned, reqwest::multipart::Part::bytes(body));
 
                 let retry_response = self
                     .client
@@ -473,7 +490,6 @@ impl AnyListClient {
         }
 
         let bytes = response.bytes().await?;
-
         Ok(bytes.to_vec())
     }
 }
