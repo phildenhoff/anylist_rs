@@ -80,6 +80,7 @@ message PBListItem {
     repeated PBItemPrice prices = 19;
     repeated PBListItemCategoryAssignment categoryAssignments = 20;
     optional int32 manualSortIndex = 17;
+    optional string productUpc = 30;
 }
 
 message PBItemPrice {

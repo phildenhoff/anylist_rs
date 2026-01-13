@@ -35,6 +35,7 @@ uuid = { version = "1.18.1", features = ["rng-getrandom", "v4"] }
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 futures-util = "0.3"
 urlencoding = "2.1"
+regex = "1.0"
 
 [build-dependencies]
 prost-build = "0.11.0"
