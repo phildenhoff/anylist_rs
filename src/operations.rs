@@ -344,6 +344,7 @@ pub fn build_add_item_operation(params: AddItemParams) -> PbListOperationList {
         manual_sort_index: None,
         prices: vec![],
         category_assignments,
+        product_upc: None,
     };
 
     let operation = PbListOperation {
@@ -420,6 +421,7 @@ pub fn build_bulk_remove_items_operation(params: BulkRemoveItemsParams) -> PbLis
                 manual_sort_index: None,
                 prices: vec![],
                 category_assignments,
+                product_upc: None,
             }
         })
         .collect();
@@ -454,6 +456,97 @@ pub fn build_bulk_remove_items_operation(params: BulkRemoveItemsParams) -> PbLis
     };
 
     PbListOperationList {
+        operations: vec![operation],
+    }
+}
+
+// ============================================================================
+// Favourite Operations
+// ============================================================================
+
+use crate::protobuf::anylist::{PbStarterListOperation, PbStarterListOperationList};
+
+/// Parameters for adding a favourite item
+pub struct AddFavouriteParams {
+    pub item_id: String,
+    pub list_id: String,
+    pub operation_id: String,
+    pub user_id: String,
+    pub name: String,
+    pub category: Option<String>,
+}
+
+/// Build an add-favourite operation (pure function)
+///
+/// Adds an item to a starter list (favourites list).
+pub fn build_add_favourite_operation(params: AddFavouriteParams) -> PbStarterListOperationList {
+    let pb_item = PbListItem {
+        identifier: params.item_id.clone(),
+        server_mod_time: None,
+        list_id: Some(params.list_id.clone()),
+        name: Some(params.name),
+        quantity: None,
+        details: None,
+        checked: None,
+        recipe_id: None,
+        raw_ingredient: None,
+        price_matchup_tag: None,
+        price_id: None,
+        category: params.category,
+        user_id: Some(params.user_id.clone()),
+        category_match_id: None,
+        photo_ids: vec![],
+        event_id: None,
+        store_ids: vec![],
+        manual_sort_index: None,
+        prices: vec![],
+        category_assignments: vec![],
+        product_upc: None,
+    };
+
+    let operation = PbStarterListOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(params.operation_id),
+            handler_id: Some("add-starter-list-item".to_string()),
+            user_id: Some(params.user_id),
+            operation_class: None,
+        }),
+        list_id: Some(params.list_id),
+        list_item_id: Some(params.item_id),
+        list_item: Some(pb_item),
+        ..Default::default()
+    };
+
+    PbStarterListOperationList {
+        operations: vec![operation],
+    }
+}
+
+/// Parameters for removing a favourite item
+pub struct RemoveFavouriteParams {
+    pub item_id: String,
+    pub list_id: String,
+    pub operation_id: String,
+    pub user_id: String,
+}
+
+/// Build a remove-favourite operation (pure function)
+///
+/// Removes an item from a starter list (favourites list).
+pub fn build_remove_favourite_operation(params: RemoveFavouriteParams) -> PbStarterListOperationList {
+    let operation = PbStarterListOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(params.operation_id),
+            handler_id: Some("remove-starter-list-item".to_string()),
+            user_id: Some(params.user_id),
+            operation_class: None,
+        }),
+        list_id: Some(params.list_id),
+        list_item_id: Some(params.item_id),
+        ..Default::default()
+    };
+
+    PbStarterListOperationList {
         operations: vec![operation],
     }
 }
@@ -679,6 +772,80 @@ mod tests {
         operation_list.encode(&mut buf).unwrap();
 
         // Should match webapp exactly
+        insta::assert_snapshot!(hex::encode(&buf));
+    }
+
+    // ========================================================================
+    // Favourite Operation Tests
+    // ========================================================================
+
+    #[test]
+    fn test_add_favourite_operation_snapshot() {
+        let params = AddFavouriteParams {
+            item_id: "fav-item-123".to_string(),
+            list_id: "fav-list-456".to_string(),
+            operation_id: "op-add-fav-1".to_string(),
+            user_id: "user-789".to_string(),
+            name: "Organic Milk".to_string(),
+            category: Some("Dairy".to_string()),
+        };
+
+        let operation_list = build_add_favourite_operation(params);
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
+
+        insta::assert_snapshot!(hex::encode(&buf));
+    }
+
+    #[test]
+    fn test_add_favourite_operation_without_category() {
+        let params = AddFavouriteParams {
+            item_id: "fav-item-abc".to_string(),
+            list_id: "fav-list-def".to_string(),
+            operation_id: "op-add-fav-2".to_string(),
+            user_id: "user-xyz".to_string(),
+            name: "Bananas".to_string(),
+            category: None,
+        };
+
+        let operation_list = build_add_favourite_operation(params);
+        let op = &operation_list.operations[0];
+
+        // Verify handler ID
+        assert_eq!(
+            op.metadata.as_ref().unwrap().handler_id,
+            Some("add-starter-list-item".to_string())
+        );
+
+        // Verify item has no category
+        let item = op.list_item.as_ref().unwrap();
+        assert_eq!(item.category, None);
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
+        insta::assert_snapshot!(hex::encode(&buf));
+    }
+
+    #[test]
+    fn test_remove_favourite_operation_snapshot() {
+        let params = RemoveFavouriteParams {
+            item_id: "fav-item-to-remove".to_string(),
+            list_id: "fav-list-789".to_string(),
+            operation_id: "op-remove-fav-1".to_string(),
+            user_id: "user-abc".to_string(),
+        };
+
+        let operation_list = build_remove_favourite_operation(params);
+        let op = &operation_list.operations[0];
+
+        // Verify handler ID
+        assert_eq!(
+            op.metadata.as_ref().unwrap().handler_id,
+            Some("remove-starter-list-item".to_string())
+        );
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
         insta::assert_snapshot!(hex::encode(&buf));
     }
 }

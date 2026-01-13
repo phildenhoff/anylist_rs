@@ -36,6 +36,7 @@ dependencies = [
  "insta",
  "prost 0.12.6",
  "prost-build",
+ "regex",
  "reqwest",
  "serde",
  "serde_derive",
