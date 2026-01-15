@@ -1,6 +1,8 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::protobuf::anylist::{PbEmailUserIdPair, PbListItem, PbShoppingListsResponse, PbUserDataResponse};
+use crate::protobuf::anylist::{
+    PbEmailUserIdPair, PbListItem, PbShoppingListsResponse, PbUserDataResponse,
+};
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
@@ -14,23 +16,19 @@ pub struct UserInfo {
 }
 
 impl UserInfo {
-    /// Get the user ID
     pub fn user_id(&self) -> &str {
         &self.user_id
     }
 
-    /// Get the email address
     pub fn email(&self) -> Option<&str> {
         self.email.as_deref()
     }
 
-    /// Get the full name
     pub fn full_name(&self) -> Option<&str> {
         self.full_name.as_deref()
     }
 }
 
-/// Represents a shopping list item
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListItem {
     pub(crate) id: String,
@@ -44,7 +42,6 @@ pub struct ListItem {
 }
 
 impl ListItem {
-    /// Get the item ID
     pub fn id(&self) -> &str {
         &self.id
     }
@@ -54,27 +51,22 @@ impl ListItem {
         &self.list_id
     }
 
-    /// Get the item name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the item details
     pub fn details(&self) -> &str {
         &self.details
     }
 
-    /// Check if the item is checked off
     pub fn is_checked(&self) -> bool {
         self.is_checked
     }
 
-    /// Get the quantity
     pub fn quantity(&self) -> Option<&str> {
         self.quantity.as_deref()
     }
 
-    /// Get the category
     pub fn category(&self) -> Option<&str> {
         self.category.as_deref()
     }
@@ -85,7 +77,6 @@ impl ListItem {
     }
 }
 
-/// Represents a shopping list
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct List {
     pub(crate) id: String,
@@ -95,22 +86,18 @@ pub struct List {
 }
 
 impl List {
-    /// Get the list ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the list name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the list items
     pub fn items(&self) -> &[ListItem] {
         &self.items
     }
 
-    /// Get the shared users
     pub fn shared_users(&self) -> &[UserInfo] {
         &self.shared_users
     }
@@ -314,11 +301,14 @@ fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
 }
 
 fn transform_shared_users(users: Vec<PbEmailUserIdPair>) -> Vec<UserInfo> {
-    users.into_iter().map(|user| UserInfo {
-        user_id: user.user_id.unwrap_or_default(),
-        email: user.email,
-        full_name: user.full_name,
-    }).collect()
+    users
+        .into_iter()
+        .map(|user| UserInfo {
+            user_id: user.user_id.unwrap_or_default(),
+            email: user.email,
+            full_name: user.full_name,
+        })
+        .collect()
 }
 
 fn lists_from_response(response: PbShoppingListsResponse) -> Vec<List> {
@@ -345,7 +335,8 @@ mod tests {
     #[test]
     fn test_parse_list_with_shared_users() {
         // Response from webapp: POST /data/user-data/get with shared list
-        let snapshot_content = include_str!("snapshots/webapp_captures__parse_list_with_shared_users.snap");
+        let snapshot_content =
+            include_str!("snapshots/webapp_captures__parse_list_with_shared_users.snap");
 
         // Find the hex data (after the "---\n" separator)
         let response_hex = snapshot_content
@@ -357,9 +348,7 @@ mod tests {
         let bytes = hex::decode(response_hex).unwrap();
         let user_data = PbUserDataResponse::decode(bytes.as_ref()).unwrap();
 
-        let lists = lists_from_response(
-            user_data.shopping_lists_response.unwrap()
-        );
+        let lists = lists_from_response(user_data.shopping_lists_response.unwrap());
 
         // Verify lists were parsed
         assert!(!lists.is_empty(), "Should have at least one list");
@@ -375,13 +364,13 @@ mod tests {
         let list = list_with_users.unwrap();
 
         // Verify shared_users structure
-        assert!(!list.shared_users.is_empty(), "shared_users should not be empty");
+        assert!(
+            !list.shared_users.is_empty(),
+            "shared_users should not be empty"
+        );
 
         let user = &list.shared_users[0];
-        assert!(
-            !user.user_id.is_empty(),
-            "user_id should be populated"
-        );
+        assert!(!user.user_id.is_empty(), "user_id should be populated");
 
         // Verify optional fields exist
         assert!(
@@ -391,7 +380,11 @@ mod tests {
 
         // Debug output for inspection
         println!("✓ Found {} lists", lists.len());
-        println!("✓ List '{}' has {} shared users", list.name, list.shared_users.len());
+        println!(
+            "✓ List '{}' has {} shared users",
+            list.name,
+            list.shared_users.len()
+        );
         for shared_user in &list.shared_users {
             println!("  - user_id: {}", shared_user.user_id);
             if let Some(email) = &shared_user.email {

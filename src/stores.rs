@@ -8,7 +8,6 @@ use crate::utils::generate_id;
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
-/// Represents a store location
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Store {
     id: String,
@@ -17,23 +16,19 @@ pub struct Store {
 }
 
 impl Store {
-    /// Get the store ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the store name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the sort index
     pub fn sort_index(&self) -> i32 {
         self.sort_index
     }
 }
 
-/// Represents a store filter that groups multiple stores
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoreFilter {
     id: String,
@@ -42,17 +37,14 @@ pub struct StoreFilter {
 }
 
 impl StoreFilter {
-    /// Get the filter ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the filter name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the store IDs in this filter
     pub fn store_ids(&self) -> &[String] {
         &self.store_ids
     }
@@ -234,7 +226,11 @@ impl AnyListClient {
     ///
     /// * `list_id` - The ID of the list
     /// * `store_id` - The ID of the store to remove from items
-    async fn remove_store_from_shopping_list_items(&self, list_id: &str, store_id: &str) -> Result<()> {
+    async fn remove_store_from_shopping_list_items(
+        &self,
+        list_id: &str,
+        store_id: &str,
+    ) -> Result<()> {
         let operation_id = generate_id();
 
         // Imperative shell: gather runtime values
@@ -264,7 +260,11 @@ impl AnyListClient {
     ///
     /// * `list_id` - The ID of the list
     /// * `store_id` - The ID of the store to remove from items
-    async fn remove_store_from_starter_list_items(&self, list_id: &str, store_id: &str) -> Result<()> {
+    async fn remove_store_from_starter_list_items(
+        &self,
+        list_id: &str,
+        store_id: &str,
+    ) -> Result<()> {
         let operation_id = generate_id();
 
         // Imperative shell: gather runtime values
@@ -378,16 +378,20 @@ impl AnyListClient {
     /// * `store_id` - The ID of the store to delete
     pub async fn delete_store(&self, list_id: &str, store_id: &str) -> Result<()> {
         // Step 1: Remove store from all items in shopping lists
-        self.remove_store_from_shopping_list_items(list_id, store_id).await?;
+        self.remove_store_from_shopping_list_items(list_id, store_id)
+            .await?;
 
         // Step 2: Remove store from all items in starter lists
-        self.remove_store_from_starter_list_items(list_id, store_id).await?;
+        self.remove_store_from_starter_list_items(list_id, store_id)
+            .await?;
 
         // Step 3: Delete store filters containing this store
-        self.delete_store_filters_with_store(list_id, store_id).await?;
+        self.delete_store_filters_with_store(list_id, store_id)
+            .await?;
 
         // Step 4: Remove store from starter list items again
-        self.remove_store_from_starter_list_items(list_id, store_id).await?;
+        self.remove_store_from_starter_list_items(list_id, store_id)
+            .await?;
 
         // Step 5: Delete the store itself
         let operation_id = generate_id();

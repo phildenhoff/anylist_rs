@@ -21,32 +21,27 @@ pub struct MealPlanEvent {
 }
 
 impl MealPlanEvent {
-    /// Get the event ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the date (YYYY-MM-DD format)
+    /// Get the date in YYYY-MM-DD format
     pub fn date(&self) -> &str {
         &self.date
     }
 
-    /// Get the event title
     pub fn title(&self) -> Option<&str> {
         self.title.as_deref()
     }
 
-    /// Get the recipe ID
     pub fn recipe_id(&self) -> Option<&str> {
         self.recipe_id.as_deref()
     }
 
-    /// Get the label ID (Breakfast, Lunch, Dinner, etc.)
     pub fn label_id(&self) -> Option<&str> {
         self.label_id.as_deref()
     }
 
-    /// Get the event details
     pub fn details(&self) -> Option<&str> {
         self.details.as_deref()
     }

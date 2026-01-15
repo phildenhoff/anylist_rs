@@ -8,7 +8,6 @@ use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
-/// Represents a collection of recipes
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecipeCollection {
     id: String,
@@ -17,17 +16,14 @@ pub struct RecipeCollection {
 }
 
 impl RecipeCollection {
-    /// Get the collection ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the collection name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the recipe IDs in this collection
     pub fn recipe_ids(&self) -> &[String] {
         &self.recipe_ids
     }

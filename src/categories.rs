@@ -18,22 +18,18 @@ pub struct Category {
 }
 
 impl Category {
-    /// Get the category ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the category name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the category icon
     pub fn icon(&self) -> Option<&str> {
         self.icon.as_deref()
     }
 
-    /// Get the sort index
     pub fn sort_index(&self) -> i32 {
         self.sort_index
     }
@@ -48,17 +44,14 @@ pub struct CategoryGroup {
 }
 
 impl CategoryGroup {
-    /// Get the category group ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the category group name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the categories in this group
     pub fn categories(&self) -> &[Category] {
         &self.categories
     }

@@ -8,7 +8,6 @@ use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
-/// Represents an ingredient in a recipe
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ingredient {
     name: String,
@@ -18,28 +17,23 @@ pub struct Ingredient {
 }
 
 impl Ingredient {
-    /// Get the ingredient name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the quantity
     pub fn quantity(&self) -> Option<&str> {
         self.quantity.as_deref()
     }
 
-    /// Get the note
     pub fn note(&self) -> Option<&str> {
         self.note.as_deref()
     }
 
-    /// Get the raw ingredient string
     pub fn raw_ingredient(&self) -> Option<&str> {
         self.raw_ingredient.as_deref()
     }
 }
 
-/// Represents a recipe
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recipe {
     id: String,
@@ -57,62 +51,50 @@ pub struct Recipe {
 }
 
 impl Recipe {
-    /// Get the recipe ID
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Get the recipe name
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Get the ingredients
     pub fn ingredients(&self) -> &[Ingredient] {
         &self.ingredients
     }
 
-    /// Get the preparation steps
     pub fn preparation_steps(&self) -> &[String] {
         &self.preparation_steps
     }
 
-    /// Get the note
     pub fn note(&self) -> Option<&str> {
         self.note.as_deref()
     }
 
-    /// Get the source name
     pub fn source_name(&self) -> Option<&str> {
         self.source_name.as_deref()
     }
 
-    /// Get the source URL
     pub fn source_url(&self) -> Option<&str> {
         self.source_url.as_deref()
     }
 
-    /// Get the servings
     pub fn servings(&self) -> Option<&str> {
         self.servings.as_deref()
     }
 
-    /// Get the prep time in minutes
     pub fn prep_time(&self) -> Option<i32> {
         self.prep_time
     }
 
-    /// Get the cook time in minutes
     pub fn cook_time(&self) -> Option<i32> {
         self.cook_time
     }
 
-    /// Get the rating
     pub fn rating(&self) -> Option<i32> {
         self.rating
     }
 
-    /// Get the photo URLs
     pub fn photo_urls(&self) -> &[String] {
         &self.photo_urls
     }
@@ -146,11 +128,6 @@ impl AnyListClient {
         Ok(recipes)
     }
 
-    /// Get a specific recipe by ID
-    ///
-    /// # Arguments
-    ///
-    /// * `recipe_id` - The ID of the recipe to retrieve
     pub async fn get_recipe_by_id(&self, recipe_id: &str) -> Result<Recipe> {
         let recipes = self.get_recipes().await?;
         recipes
