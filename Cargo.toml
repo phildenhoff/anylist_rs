@@ -6,6 +6,7 @@ edition = "2021"
 description = "Interact with the grocery list management app AnyList's undocumented API. Unofficial."
 license = "MIT"
 repository = "https://github.com/phildenhoff/anylist_rs"
+homepage = "https://github.com/phildenhoff/anylist_rs"
 readme = "README.md"
 keywords = ["anylist", "grocery", "shopping", "api", "list"]
 categories = ["api-bindings"]
