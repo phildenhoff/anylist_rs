@@ -259,7 +259,9 @@ impl AnyListClient {
             .collect();
 
         if items_to_remove.is_empty() {
-            return Err(AnyListError::NotFound("No matching items found".to_string()));
+            return Err(AnyListError::NotFound(
+                "No matching items found".to_string(),
+            ));
         }
 
         let operation_id = generate_id();
@@ -338,7 +340,8 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list to clear crossed-off items from
     pub async fn delete_all_crossed_off_items(&self, list_id: &str) -> Result<()> {
         let list = self.get_list_by_id(list_id).await?;
-        let checked_items: Vec<&ListItem> = list.items().iter().filter(|i| i.is_checked()).collect();
+        let checked_items: Vec<&ListItem> =
+            list.items().iter().filter(|i| i.is_checked()).collect();
 
         if checked_items.is_empty() {
             return Ok(());

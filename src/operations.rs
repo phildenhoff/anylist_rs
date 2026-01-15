@@ -180,9 +180,7 @@ pub struct UpdateStoreFilterParams {
 }
 
 /// Build an update-store-filter operation (pure function)
-pub fn build_update_store_filter_operation(
-    params: UpdateStoreFilterParams,
-) -> PbListOperationList {
+pub fn build_update_store_filter_operation(params: UpdateStoreFilterParams) -> PbListOperationList {
     let pb_filter = PbStoreFilter {
         identifier: params.filter_id,
         logical_timestamp: None,
@@ -222,9 +220,7 @@ pub struct DeleteStoreFilterParams {
 }
 
 /// Build a delete-store-filter operation (pure function)
-pub fn build_delete_store_filter_operation(
-    params: DeleteStoreFilterParams,
-) -> PbListOperationList {
+pub fn build_delete_store_filter_operation(params: DeleteStoreFilterParams) -> PbListOperationList {
     let pb_filter = PbStoreFilter {
         identifier: params.filter_id,
         logical_timestamp: None,

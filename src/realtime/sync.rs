@@ -10,11 +10,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::Message,
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 /// Connection state for real-time sync
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,7 +165,9 @@ impl RealtimeSync {
     }
 
     /// Receive next message from WebSocket stream
-    async fn recv_message(ws_stream: &Arc<Mutex<Option<WsStream>>>) -> Option<std::result::Result<Message, tokio_tungstenite::tungstenite::Error>> {
+    async fn recv_message(
+        ws_stream: &Arc<Mutex<Option<WsStream>>>,
+    ) -> Option<std::result::Result<Message, tokio_tungstenite::tungstenite::Error>> {
         let mut stream_guard = ws_stream.lock().await;
         if let Some(stream) = stream_guard.as_mut() {
             stream.next().await
@@ -308,7 +306,10 @@ impl RealtimeSync {
         let mut stream_guard = ws_stream.lock().await;
 
         if let Some(stream) = stream_guard.as_mut() {
-            if let Err(_e) = stream.send(Message::Text("--heartbeat--".to_string())).await {
+            if let Err(_e) = stream
+                .send(Message::Text("--heartbeat--".to_string()))
+                .await
+            {
                 drop(stream_guard);
                 let mut state_guard = state.lock().await;
                 *state_guard = ConnectionState::Reconnecting;

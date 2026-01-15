@@ -135,7 +135,10 @@ mod tests {
                 SyncEvent::MealPlanCalendarChanged,
             ),
             ("refresh-account-info", SyncEvent::AccountInfoChanged),
-            ("refresh-subscription-info", SyncEvent::SubscriptionInfoChanged),
+            (
+                "refresh-subscription-info",
+                SyncEvent::SubscriptionInfoChanged,
+            ),
             ("did-delete-account", SyncEvent::AccountDeleted),
         ];
 
