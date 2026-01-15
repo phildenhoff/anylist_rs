@@ -10,7 +10,12 @@ homepage = "https://github.com/phildenhoff/anylist_rs"
 readme = "README.md"
 keywords = ["anylist", "grocery", "shopping", "api", "list"]
 categories = ["api-bindings"]
-exclude = ["src/snapshots/"]
+exclude = [
+    "src/snapshots/",
+    "tools/",
+    "docs/",
+]
+
 
 [lib]
 name = "anylist_rs"
