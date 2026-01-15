@@ -3,7 +3,7 @@ name = "anylist_rs"
 version = "0.2.0"
 authors = ["Phil Denhoff <phil@denhoff.ca>"]
 edition = "2021"
-include = ["src/"]
+exclude = ["src/snapshots/"]
 
 [lib]
 name = "anylist_rs"
