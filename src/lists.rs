@@ -3,35 +3,117 @@ use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{PbEmailUserIdPair, PbListItem, PbShoppingListsResponse, PbUserDataResponse};
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
+use serde_derive::{Deserialize, Serialize};
 
 /// User information for list collaborators
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserInfo {
-    pub user_id: String,
-    pub email: Option<String>,
-    pub full_name: Option<String>,
+    pub(crate) user_id: String,
+    pub(crate) email: Option<String>,
+    pub(crate) full_name: Option<String>,
+}
+
+impl UserInfo {
+    /// Get the user ID
+    pub fn user_id(&self) -> &str {
+        &self.user_id
+    }
+
+    /// Get the email address
+    pub fn email(&self) -> Option<&str> {
+        self.email.as_deref()
+    }
+
+    /// Get the full name
+    pub fn full_name(&self) -> Option<&str> {
+        self.full_name.as_deref()
+    }
 }
 
 /// Represents a shopping list item
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListItem {
-    pub id: String,
-    pub list_id: String,
-    pub name: String,
-    pub details: String,
-    pub is_checked: bool,
-    pub quantity: Option<String>,
-    pub category: Option<String>,
-    pub user_id: Option<String>,
+    pub(crate) id: String,
+    pub(crate) list_id: String,
+    pub(crate) name: String,
+    pub(crate) details: String,
+    pub(crate) is_checked: bool,
+    pub(crate) quantity: Option<String>,
+    pub(crate) category: Option<String>,
+    pub(crate) user_id: Option<String>,
+}
+
+impl ListItem {
+    /// Get the item ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the list ID this item belongs to
+    pub fn list_id(&self) -> &str {
+        &self.list_id
+    }
+
+    /// Get the item name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the item details
+    pub fn details(&self) -> &str {
+        &self.details
+    }
+
+    /// Check if the item is checked off
+    pub fn is_checked(&self) -> bool {
+        self.is_checked
+    }
+
+    /// Get the quantity
+    pub fn quantity(&self) -> Option<&str> {
+        self.quantity.as_deref()
+    }
+
+    /// Get the category
+    pub fn category(&self) -> Option<&str> {
+        self.category.as_deref()
+    }
+
+    /// Get the user ID who created/owns this item
+    pub fn user_id(&self) -> Option<&str> {
+        self.user_id.as_deref()
+    }
 }
 
 /// Represents a shopping list
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct List {
-    pub id: String,
-    pub name: String,
-    pub items: Vec<ListItem>,
-    pub shared_users: Vec<UserInfo>,
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) items: Vec<ListItem>,
+    pub(crate) shared_users: Vec<UserInfo>,
+}
+
+impl List {
+    /// Get the list ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the list name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the list items
+    pub fn items(&self) -> &[ListItem] {
+        &self.items
+    }
+
+    /// Get the shared users
+    pub fn shared_users(&self) -> &[UserInfo] {
+        &self.shared_users
+    }
 }
 
 impl AnyListClient {

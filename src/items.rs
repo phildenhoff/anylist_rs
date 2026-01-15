@@ -244,14 +244,14 @@ impl AnyListClient {
         let items_to_remove: Vec<crate::operations::ItemToRemove> = item_ids
             .iter()
             .filter_map(|&item_id| {
-                list.items.iter().find(|i| i.id == item_id).map(|item| {
+                list.items().iter().find(|i| i.id() == item_id).map(|item| {
                     crate::operations::ItemToRemove {
-                        item_id: item.id.clone(),
-                        list_id: item.list_id.clone(),
-                        name: item.name.clone(),
-                        category: item.category.clone(),
+                        item_id: item.id().to_string(),
+                        list_id: item.list_id().to_string(),
+                        name: item.name().to_string(),
+                        category: item.category().map(|s| s.to_string()),
                         user_id: self.user_id(),
-                        category_match_id: item.category.clone(),
+                        category_match_id: item.category().map(|s| s.to_string()),
                         category_assignment: None,
                     }
                 })
@@ -338,7 +338,7 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list to clear crossed-off items from
     pub async fn delete_all_crossed_off_items(&self, list_id: &str) -> Result<()> {
         let list = self.get_list_by_id(list_id).await?;
-        let checked_items: Vec<&ListItem> = list.items.iter().filter(|i| i.is_checked).collect();
+        let checked_items: Vec<&ListItem> = list.items().iter().filter(|i| i.is_checked()).collect();
 
         if checked_items.is_empty() {
             return Ok(());
@@ -349,12 +349,12 @@ impl AnyListClient {
         let items_to_remove: Vec<crate::operations::ItemToRemove> = checked_items
             .iter()
             .map(|item| crate::operations::ItemToRemove {
-                item_id: item.id.clone(),
-                list_id: item.list_id.clone(),
-                name: item.name.clone(),
-                category: item.category.clone(),
+                item_id: item.id().to_string(),
+                list_id: item.list_id().to_string(),
+                name: item.name().to_string(),
+                category: item.category().map(|s| s.to_string()),
                 user_id: self.user_id(),
-                category_match_id: item.category.clone(), // Use same as category for now
+                category_match_id: item.category().map(|s| s.to_string()), // Use same as category for now
                 category_assignment: None, // TODO: Store and use actual category assignment
             })
             .collect();

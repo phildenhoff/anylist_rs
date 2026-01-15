@@ -6,22 +6,62 @@ use crate::protobuf::anylist::{
 };
 use crate::utils::generate_id;
 use prost::Message;
+use serde_derive::{Deserialize, Serialize};
 
 /// Represents a category for organizing list items
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Category {
-    pub id: String,
-    pub name: String,
-    pub icon: Option<String>,
-    pub sort_index: i32,
+    id: String,
+    name: String,
+    icon: Option<String>,
+    sort_index: i32,
+}
+
+impl Category {
+    /// Get the category ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the category name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the category icon
+    pub fn icon(&self) -> Option<&str> {
+        self.icon.as_deref()
+    }
+
+    /// Get the sort index
+    pub fn sort_index(&self) -> i32 {
+        self.sort_index
+    }
 }
 
 /// Represents a category group (category set)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CategoryGroup {
-    pub id: String,
-    pub name: String,
-    pub categories: Vec<Category>,
+    id: String,
+    name: String,
+    categories: Vec<Category>,
+}
+
+impl CategoryGroup {
+    /// Get the category group ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the category group name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the categories in this group
+    pub fn categories(&self) -> &[Category] {
+        &self.categories
+    }
 }
 
 impl AnyListClient {

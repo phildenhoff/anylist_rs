@@ -7,16 +7,49 @@ use crate::protobuf::anylist::{
 use crate::utils::generate_id;
 use chrono::NaiveDate;
 use prost::Message;
+use serde_derive::{Deserialize, Serialize};
 
 /// Represents a meal planning calendar event
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MealPlanEvent {
-    pub id: String,
-    pub date: String,
-    pub title: Option<String>,
-    pub recipe_id: Option<String>,
-    pub label_id: Option<String>,
-    pub details: Option<String>,
+    id: String,
+    date: String,
+    title: Option<String>,
+    recipe_id: Option<String>,
+    label_id: Option<String>,
+    details: Option<String>,
+}
+
+impl MealPlanEvent {
+    /// Get the event ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the date (YYYY-MM-DD format)
+    pub fn date(&self) -> &str {
+        &self.date
+    }
+
+    /// Get the event title
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+
+    /// Get the recipe ID
+    pub fn recipe_id(&self) -> Option<&str> {
+        self.recipe_id.as_deref()
+    }
+
+    /// Get the label ID (Breakfast, Lunch, Dinner, etc.)
+    pub fn label_id(&self) -> Option<&str> {
+        self.label_id.as_deref()
+    }
+
+    /// Get the event details
+    pub fn details(&self) -> Option<&str> {
+        self.details.as_deref()
+    }
 }
 
 impl AnyListClient {

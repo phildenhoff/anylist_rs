@@ -6,29 +6,116 @@ use crate::protobuf::anylist::{
 };
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+/// Represents an ingredient in a recipe
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ingredient {
-    pub name: String,
-    pub quantity: Option<String>,
-    pub note: Option<String>,
-    pub raw_ingredient: Option<String>,
+    name: String,
+    quantity: Option<String>,
+    note: Option<String>,
+    raw_ingredient: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+impl Ingredient {
+    /// Get the ingredient name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the quantity
+    pub fn quantity(&self) -> Option<&str> {
+        self.quantity.as_deref()
+    }
+
+    /// Get the note
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
+
+    /// Get the raw ingredient string
+    pub fn raw_ingredient(&self) -> Option<&str> {
+        self.raw_ingredient.as_deref()
+    }
+}
+
+/// Represents a recipe
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recipe {
-    pub id: String,
-    pub name: String,
-    pub ingredients: Vec<Ingredient>,
-    pub preparation_steps: Vec<String>,
-    pub note: Option<String>,
-    pub source_name: Option<String>,
-    pub source_url: Option<String>,
-    pub servings: Option<String>,
-    pub prep_time: Option<i32>,
-    pub cook_time: Option<i32>,
-    pub rating: Option<i32>,
-    pub photo_urls: Vec<String>,
+    id: String,
+    name: String,
+    ingredients: Vec<Ingredient>,
+    preparation_steps: Vec<String>,
+    note: Option<String>,
+    source_name: Option<String>,
+    source_url: Option<String>,
+    servings: Option<String>,
+    prep_time: Option<i32>,
+    cook_time: Option<i32>,
+    rating: Option<i32>,
+    photo_urls: Vec<String>,
+}
+
+impl Recipe {
+    /// Get the recipe ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the recipe name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the ingredients
+    pub fn ingredients(&self) -> &[Ingredient] {
+        &self.ingredients
+    }
+
+    /// Get the preparation steps
+    pub fn preparation_steps(&self) -> &[String] {
+        &self.preparation_steps
+    }
+
+    /// Get the note
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
+
+    /// Get the source name
+    pub fn source_name(&self) -> Option<&str> {
+        self.source_name.as_deref()
+    }
+
+    /// Get the source URL
+    pub fn source_url(&self) -> Option<&str> {
+        self.source_url.as_deref()
+    }
+
+    /// Get the servings
+    pub fn servings(&self) -> Option<&str> {
+        self.servings.as_deref()
+    }
+
+    /// Get the prep time in minutes
+    pub fn prep_time(&self) -> Option<i32> {
+        self.prep_time
+    }
+
+    /// Get the cook time in minutes
+    pub fn cook_time(&self) -> Option<i32> {
+        self.cook_time
+    }
+
+    /// Get the rating
+    pub fn rating(&self) -> Option<i32> {
+        self.rating
+    }
+
+    /// Get the photo URLs
+    pub fn photo_urls(&self) -> &[String] {
+        &self.photo_urls
+    }
 }
 
 impl AnyListClient {

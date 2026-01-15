@@ -6,12 +6,31 @@ use crate::protobuf::anylist::{
 };
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+/// Represents a collection of recipes
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecipeCollection {
-    pub id: String,
-    pub name: String,
-    pub recipe_ids: Vec<String>,
+    id: String,
+    name: String,
+    recipe_ids: Vec<String>,
+}
+
+impl RecipeCollection {
+    /// Get the collection ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the collection name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the recipe IDs in this collection
+    pub fn recipe_ids(&self) -> &[String] {
+        &self.recipe_ids
+    }
 }
 
 impl AnyListClient {

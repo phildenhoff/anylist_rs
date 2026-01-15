@@ -6,19 +6,56 @@ use crate::protobuf::anylist::{
 };
 use crate::utils::generate_id;
 use prost::Message;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+/// Represents a store location
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Store {
-    pub id: String,
-    pub name: String,
-    pub sort_index: i32,
+    id: String,
+    name: String,
+    sort_index: i32,
 }
 
-#[derive(Debug, Clone)]
+impl Store {
+    /// Get the store ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the store name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the sort index
+    pub fn sort_index(&self) -> i32 {
+        self.sort_index
+    }
+}
+
+/// Represents a store filter that groups multiple stores
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoreFilter {
-    pub id: String,
-    pub name: String,
-    pub store_ids: Vec<String>,
+    id: String,
+    name: String,
+    store_ids: Vec<String>,
+}
+
+impl StoreFilter {
+    /// Get the filter ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the filter name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the store IDs in this filter
+    pub fn store_ids(&self) -> &[String] {
+        &self.store_ids
+    }
 }
 
 impl AnyListClient {
