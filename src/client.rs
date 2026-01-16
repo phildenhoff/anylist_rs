@@ -414,7 +414,8 @@ impl AnyListClient {
     pub(crate) async fn post(&self, endpoint: &str, body: Vec<u8>) -> Result<Vec<u8>> {
         // Delegate to post_multipart with standard "operations" field name
         // Note: endpoint here doesn't have leading slash, so we add one
-        self.post_multipart(&format!("/{}", endpoint), "operations", body).await
+        self.post_multipart(&format!("/{}", endpoint), "operations", body)
+            .await
     }
 
     /// Make a POST request with custom multipart field name.
@@ -432,8 +433,10 @@ impl AnyListClient {
         let field_name_owned = field_name.to_string();
 
         // Create multipart form with the specified field name containing the protobuf data
-        let form = reqwest::multipart::Form::new()
-            .part(field_name_owned.clone(), reqwest::multipart::Part::bytes(body.clone()));
+        let form = reqwest::multipart::Form::new().part(
+            field_name_owned.clone(),
+            reqwest::multipart::Part::bytes(body.clone()),
+        );
 
         let response = self
             .client

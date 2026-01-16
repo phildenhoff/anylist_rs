@@ -17,6 +17,34 @@ pub struct Ingredient {
 }
 
 impl Ingredient {
+    /// Create a new ingredient
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            quantity: None,
+            note: None,
+            raw_ingredient: None,
+        }
+    }
+
+    /// Create a new ingredient with quantity
+    pub fn with_quantity(mut self, quantity: impl Into<String>) -> Self {
+        self.quantity = Some(quantity.into());
+        self
+    }
+
+    /// Create a new ingredient with a note
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+
+    /// Create a new ingredient with raw ingredient text
+    pub fn with_raw_ingredient(mut self, raw: impl Into<String>) -> Self {
+        self.raw_ingredient = Some(raw.into());
+        self
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -115,7 +143,7 @@ impl AnyListClient {
     ///
     /// let recipes = client.get_recipes().await.expect("Failed to get recipes");
     /// for recipe in recipes {
-    ///     println!("Recipe: {}", recipe.name);
+    ///     println!("Recipe: {}", recipe.name());
     /// }
     /// # }
     /// ```
@@ -162,7 +190,7 @@ impl AnyListClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use anylist_rs::{AnyListClient, recipes::Ingredient};
+    /// # use anylist_rs::{AnyListClient, Ingredient};
     /// # #[tokio::main]
     /// # async fn main() {
     /// let client = AnyListClient::login("user@example.com", "password")
@@ -170,12 +198,7 @@ impl AnyListClient {
     ///     .expect("Failed to authenticate");
     ///
     /// let ingredients = vec![
-    ///     Ingredient {
-    ///         name: "Flour".to_string(),
-    ///         quantity: Some("2 cups".to_string()),
-    ///         note: None,
-    ///         raw_ingredient: None,
-    ///     },
+    ///     Ingredient::new("Flour").with_quantity("2 cups"),
     /// ];
     ///
     /// let steps = vec!["Mix ingredients".to_string(), "Bake for 30 minutes".to_string()];

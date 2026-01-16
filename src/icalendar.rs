@@ -63,7 +63,9 @@ impl AnyListClient {
 
         Ok(ICalendarInfo {
             enabled: true,
-            url: token.as_ref().map(|t| format!("https://icalendar.anylist.com/{}.ics", t)),
+            url: token
+                .as_ref()
+                .map(|t| format!("https://icalendar.anylist.com/{}.ics", t)),
             token,
         })
     }

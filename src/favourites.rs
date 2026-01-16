@@ -44,10 +44,7 @@ impl AnyListClient {
     /// ```
     pub async fn get_favourites(&self) -> Result<Vec<FavouriteItem>> {
         let lists = self.get_favourites_lists().await?;
-        let items: Vec<FavouriteItem> = lists
-            .into_iter()
-            .flat_map(|list| list.items)
-            .collect();
+        let items: Vec<FavouriteItem> = lists.into_iter().flat_map(|list| list.items).collect();
         Ok(items)
     }
 
@@ -58,12 +55,10 @@ impl AnyListClient {
         let data = self.get_user_data().await?;
 
         let lists = match data.starter_lists_response {
-            Some(ref res) => {
-                match &res.favorite_item_lists_response {
-                    Some(batch) => favourites_lists_from_batch_response(batch),
-                    None => Vec::new(),
-                }
-            }
+            Some(ref res) => match &res.favorite_item_lists_response {
+                Some(batch) => favourites_lists_from_batch_response(batch),
+                None => Vec::new(),
+            },
             None => Vec::new(),
         };
 
@@ -224,13 +219,11 @@ fn favourites_lists_from_batch_response(
         .list_responses
         .iter()
         .filter_map(|response| {
-            response.starter_list.as_ref().map(|list| {
-                FavouritesList {
-                    id: list.identifier.clone(),
-                    name: list.name.clone().unwrap_or_default(),
-                    items: transform_favourite_items(&list.items, &list.identifier),
-                    shopping_list_id: list.list_id.clone(),
-                }
+            response.starter_list.as_ref().map(|list| FavouritesList {
+                id: list.identifier.clone(),
+                name: list.name.clone().unwrap_or_default(),
+                items: transform_favourite_items(&list.items, &list.identifier),
+                shopping_list_id: list.list_id.clone(),
             })
         })
         .collect()
