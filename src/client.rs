@@ -10,16 +10,48 @@ use std::sync::{Arc, Mutex};
 // ============================================================================
 
 /// Tokens that can be saved and restored for persistent sessions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavedTokens {
-    pub access_token: String,
-    pub refresh_token: String,
-    pub user_id: String,
-    pub is_premium_user: bool,
+    pub(crate) access_token: String,
+    pub(crate) refresh_token: String,
+    pub(crate) user_id: String,
+    pub(crate) is_premium_user: bool,
+}
+
+impl SavedTokens {
+    pub fn new(
+        access_token: impl Into<String>,
+        refresh_token: impl Into<String>,
+        user_id: impl Into<String>,
+        is_premium_user: bool,
+    ) -> Self {
+        Self {
+            access_token: access_token.into(),
+            refresh_token: refresh_token.into(),
+            user_id: user_id.into(),
+            is_premium_user,
+        }
+    }
+
+    pub fn access_token(&self) -> &str {
+        &self.access_token
+    }
+
+    pub fn refresh_token(&self) -> &str {
+        &self.refresh_token
+    }
+
+    pub fn user_id(&self) -> &str {
+        &self.user_id
+    }
+
+    pub fn is_premium_user(&self) -> bool {
+        self.is_premium_user
+    }
 }
 
 /// Authentication events that can be monitored
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthEvent {
     /// Tokens were successfully refreshed
     TokensRefreshed,
