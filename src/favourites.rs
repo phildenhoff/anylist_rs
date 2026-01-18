@@ -9,22 +9,67 @@ use serde_derive::{Deserialize, Serialize};
 /// Represents a favourite item that can be quickly added to shopping lists
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FavouriteItem {
-    pub id: String,
-    pub list_id: String,
-    pub name: String,
-    pub quantity: Option<String>,
-    pub details: Option<String>,
-    pub category: Option<String>,
+    pub(crate) id: String,
+    pub(crate) list_id: String,
+    pub(crate) name: String,
+    pub(crate) quantity: Option<String>,
+    pub(crate) details: Option<String>,
+    pub(crate) category: Option<String>,
+}
+
+impl FavouriteItem {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn list_id(&self) -> &str {
+        &self.list_id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn quantity(&self) -> Option<&str> {
+        self.quantity.as_deref()
+    }
+
+    pub fn details(&self) -> Option<&str> {
+        self.details.as_deref()
+    }
+
+    pub fn category(&self) -> Option<&str> {
+        self.category.as_deref()
+    }
 }
 
 /// Represents a favourites list (starter list)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FavouritesList {
-    pub id: String,
-    pub name: String,
-    pub items: Vec<FavouriteItem>,
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) items: Vec<FavouriteItem>,
     /// Associated shopping list ID (if linked to a specific list)
-    pub shopping_list_id: Option<String>,
+    pub(crate) shopping_list_id: Option<String>,
+}
+
+impl FavouritesList {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn items(&self) -> &[FavouriteItem] {
+        &self.items
+    }
+
+    /// Get the associated shopping list ID (if linked)
+    pub fn shopping_list_id(&self) -> Option<&str> {
+        self.shopping_list_id.as_deref()
+    }
 }
 
 impl AnyListClient {
