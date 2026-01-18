@@ -118,7 +118,7 @@ impl AnyListClient {
     ///
     /// let lists = client.get_lists().await.expect("Failed to get lists");
     /// for list in lists {
-    ///     println!("List: {} ({} items)", list.name, list.items.len());
+    ///     println!("List: {} ({} items)", list.name(), list.items().len());
     /// }
     /// # }
     /// ```
@@ -174,7 +174,7 @@ impl AnyListClient {
     ///     .expect("Failed to authenticate");
     ///
     /// let list = client.create_list("Groceries").await.expect("Failed to create list");
-    /// println!("Created list: {}", list.name);
+    /// println!("Created list: {}", list.name());
     /// # }
     /// ```
     pub async fn create_list(&self, name: &str) -> Result<List> {

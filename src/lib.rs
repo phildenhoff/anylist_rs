@@ -12,17 +12,17 @@
 //!    // Get all lists
 //!    let lists = client.get_lists().await?;
 //!    for list in &lists {
-//!        println!("List: {} ({} items)", list.name, list.items.len());
+//!        println!("List: {} ({} items)", list.name(), list.items().len());
 //!    }
 //!
 //!    // Create a new list
 //!    let grocery_list = client.create_list("Weekly Groceries").await?;
-//!    println!("Created list: {}", grocery_list.name);
+//!    println!("Created list: {}", grocery_list.name());
 //!
 //!    // Add items to the list
-//!    client.add_item(&grocery_list.id, "Milk").await?;
+//!    client.add_item(grocery_list.id(), "Milk").await?;
 //!    client.add_item_with_details(
-//!        &grocery_list.id,
+//!        grocery_list.id(),
 //!        "Apples",
 //!        Some("2 lbs"),
 //!        Some("Organic if possible"),

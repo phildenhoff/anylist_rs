@@ -10,13 +10,33 @@ use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ingredient {
-    name: String,
-    quantity: Option<String>,
-    note: Option<String>,
-    raw_ingredient: Option<String>,
+    pub(crate) name: String,
+    pub(crate) quantity: Option<String>,
+    pub(crate) note: Option<String>,
+    pub(crate) raw_ingredient: Option<String>,
 }
 
 impl Ingredient {
+    /// Create a new ingredient with the given name
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            quantity: None,
+            note: None,
+            raw_ingredient: None,
+        }
+    }
+
+    /// Create a new ingredient with name and quantity
+    pub fn with_quantity(name: impl Into<String>, quantity: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            quantity: Some(quantity.into()),
+            note: None,
+            raw_ingredient: None,
+        }
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -115,7 +135,7 @@ impl AnyListClient {
     ///
     /// let recipes = client.get_recipes().await.expect("Failed to get recipes");
     /// for recipe in recipes {
-    ///     println!("Recipe: {}", recipe.name);
+    ///     println!("Recipe: {}", recipe.name());
     /// }
     /// # }
     /// ```
@@ -162,7 +182,7 @@ impl AnyListClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use anylist_rs::{AnyListClient, recipes::Ingredient};
+    /// # use anylist_rs::{AnyListClient, Ingredient};
     /// # #[tokio::main]
     /// # async fn main() {
     /// let client = AnyListClient::login("user@example.com", "password")
@@ -170,12 +190,7 @@ impl AnyListClient {
     ///     .expect("Failed to authenticate");
     ///
     /// let ingredients = vec![
-    ///     Ingredient {
-    ///         name: "Flour".to_string(),
-    ///         quantity: Some("2 cups".to_string()),
-    ///         note: None,
-    ///         raw_ingredient: None,
-    ///     },
+    ///     Ingredient::with_quantity("Flour", "2 cups"),
     /// ];
     ///
     /// let steps = vec!["Mix ingredients".to_string(), "Bake for 30 minutes".to_string()];
