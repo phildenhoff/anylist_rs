@@ -7,9 +7,26 @@ use serde_derive::{Deserialize, Serialize};
 /// iCalendar export info for meal planning calendar
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ICalendarInfo {
-    pub enabled: bool,
-    pub url: Option<String>,
-    pub token: Option<String>,
+    pub(crate) enabled: bool,
+    pub(crate) url: Option<String>,
+    pub(crate) token: Option<String>,
+}
+
+impl ICalendarInfo {
+    /// Whether iCalendar export is enabled
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// The iCalendar URL for subscribing to the meal planning calendar
+    pub fn url(&self) -> Option<&str> {
+        self.url.as_deref()
+    }
+
+    /// The iCalendar token (used to construct the URL)
+    pub fn token(&self) -> Option<&str> {
+        self.token.as_deref()
+    }
 }
 
 /// Request message for enabling iCalendar
@@ -36,7 +53,7 @@ impl AnyListClient {
     ///     .expect("Failed to authenticate");
     ///
     /// let info = client.enable_icalendar().await.expect("Failed to enable");
-    /// if let Some(url) = info.url {
+    /// if let Some(url) = info.url() {
     ///     println!("iCalendar URL: {}", url);
     /// }
     /// # }
