@@ -68,7 +68,10 @@ tokio = { version = "1", features = ["full"] }
 - [Categories](./docs/examples/categories.rs)
 - [Stores](./docs/examples/stores.rs)
 
-... or you can see my [anylist_cli](https://github.com/phildenhoff/anylist_cli)
+### Projects using `anylist_rs`
+
+- [anylist_cli](https://github.com/phildenhoff/anylist_cli)
+- [ha-anylist](https://github.com/ozonejunkieau/ha-anylist) (via [pyanylist](https://github.com/ozonejunkieau/pyanylist) Python bindings)
 
 ## Token Management
 
