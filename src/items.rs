@@ -197,31 +197,7 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list containing the item
     /// * `item_id` - The ID of the item to delete
     pub async fn delete_item(&self, list_id: &str, item_id: &str) -> Result<()> {
-        let operation_id = generate_id();
-
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-shopping-list-item".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            list_item_id: Some(item_id.to_string()),
-            ..Default::default()
-        };
-
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update", buf).await?;
-        Ok(())
+      self.bulk_delete_items(list_id, &[item_id]).await
     }
 
     /// Delete multiple items from a list in a single operation
