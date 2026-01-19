@@ -9,7 +9,10 @@ use anylist_rs::{AnyListClient, Ingredient, Result};
 #[tokio::main]
 async fn main() -> Result<()> {
     // Authenticate with email and password
-    let client = AnyListClient::login("your-email@example.com", "your-password").await?;
+    let client = AnyListClient::login(
+        "your-email@example.com",
+        "your-password"
+    ).await?;
 
     // Get all lists
     let lists = client.get_lists().await?;
@@ -55,22 +58,6 @@ Add this to your `Cargo.toml`:
 anylist_rs = "0.1.0"
 tokio = { version = "1", features = ["full"] }
 ```
-
-### TLS Backend
-
-By default, anylist_rs uses the system's native TLS implementation (`native-tls`), which relies on OpenSSL on Linux, Secure Transport on macOS, and SChannel on Windows.
-
-For environments where OpenSSL is unavailable or undesirable (such as musl-based Linux distributions, static builds, or cross-compilation), you can use `rustls` instead:
-
-```toml
-[dependencies]
-anylist_rs = { version = "0.1.0", default-features = false, features = ["rustls-tls"] }
-```
-
-| Feature | TLS Implementation | Use Case |
-|---------|-------------------|----------|
-| `native-tls` (default) | System TLS (OpenSSL/SecureTransport/SChannel) | Standard deployments, system certificate store integration |
-| `rustls-tls` | rustls (pure Rust) | Static builds, musl/Alpine Linux, cross-compilation, no OpenSSL dependency |
 
 ## Examples
 
@@ -132,6 +119,18 @@ let client = AnyListClient::login("email@example.com", "password")
     .disable_auto_refresh();
 
 // Now 401 errors will be returned instead of automatically refreshing
+```
+
+## Features
+
+### TLS Backend
+
+By default, anylist_rs uses [native-tls](https://docs.rs/native-tls/latest/native_tls/) to use the operating system's native TLS implementation.
+However, if native TLS is unavailable (e.g. cros-compliation), you can use [rustls](https://github.com/rustls/rustls) instead via the `rustls-tls` feature.
+
+```toml
+[dependencies]
+anylist_rs = { version = "0.1.0", default-features = false, features = ["rustls-tls"] }
 ```
 
 ## Possible future features
