@@ -37,6 +37,24 @@ impl Ingredient {
         }
     }
 
+    /// Set the quantity (builder pattern)
+    pub fn quantity_of(mut self, quantity: impl Into<String>) -> Self {
+        self.quantity = Some(quantity.into());
+        self
+    }
+
+    /// Set the note (builder pattern)
+    pub fn note_of(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+
+    /// Set the raw ingredient text (builder pattern)
+    pub fn raw_ingredient_of(mut self, raw: impl Into<String>) -> Self {
+        self.raw_ingredient = Some(raw.into());
+        self
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
