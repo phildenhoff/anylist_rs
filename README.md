@@ -56,6 +56,22 @@ anylist_rs = "0.1.0"
 tokio = { version = "1", features = ["full"] }
 ```
 
+### TLS Backend
+
+By default, anylist_rs uses the system's native TLS implementation (`native-tls`), which relies on OpenSSL on Linux, Secure Transport on macOS, and SChannel on Windows.
+
+For environments where OpenSSL is unavailable or undesirable (such as musl-based Linux distributions, static builds, or cross-compilation), you can use `rustls` instead:
+
+```toml
+[dependencies]
+anylist_rs = { version = "0.1.0", default-features = false, features = ["rustls-tls"] }
+```
+
+| Feature | TLS Implementation | Use Case |
+|---------|-------------------|----------|
+| `native-tls` (default) | System TLS (OpenSSL/SecureTransport/SChannel) | Standard deployments, system certificate store integration |
+| `rustls-tls` | rustls (pure Rust) | Static builds, musl/Alpine Linux, cross-compilation, no OpenSSL dependency |
+
 ## Examples
 
 - [Lists](./docs/examples/lists.rs)
