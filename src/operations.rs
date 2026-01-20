@@ -11,8 +11,9 @@
 
 use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
 use crate::protobuf::anylist::{
-    PbListOperation, PbListOperationList, PbOperationMetadata, PbShoppingList, PbStore,
-    PbStoreFilter,
+    PbListFolderItem, PbListFolderOperation, PbListFolderOperationList, PbListOperation,
+    PbListOperationList, PbListSettings, PbListSettingsOperation, PbListSettingsOperationList,
+    PbOperationMetadata, PbShoppingList, PbStore, PbStoreFilter,
 };
 
 // ============================================================================
@@ -64,27 +65,94 @@ pub fn build_create_list_operation(params: CreateListParams) -> PbListOperationL
     }
 }
 
-/// Parameters for deleting a list
-pub struct DeleteListParams {
+pub struct DeleteFolderItemsParams {
+    pub list_id: String,
+    pub list_data_id: String,
+    pub operation_id: String,
+    pub user_id: String,
+}
+
+pub fn build_delete_folder_items_operation(
+    params: DeleteFolderItemsParams,
+) -> PbListFolderOperationList {
+    let folder_item = PbListFolderItem {
+        identifier: params.list_id,
+        item_type: Some(0),
+    };
+
+    let operation = PbListFolderOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(params.operation_id),
+            handler_id: Some("delete-folder-items".to_string()),
+            user_id: Some(params.user_id),
+            operation_class: Some(OperationClass::Undefined as i32),
+        }),
+        list_data_id: Some(params.list_data_id),
+        list_folder: None,
+        folder_items: vec![folder_item],
+        original_parent_folder_id: None,
+        updated_parent_folder_id: None,
+    };
+
+    PbListFolderOperationList {
+        operations: vec![operation],
+    }
+}
+
+pub struct RemoveListSettingsParams {
+    pub settings_id: String,
     pub list_id: String,
     pub operation_id: String,
     pub user_id: String,
 }
 
-/// Build a delete-list operation (pure function)
-pub fn build_delete_list_operation(params: DeleteListParams) -> PbListOperationList {
-    let operation = PbListOperation {
+pub fn build_remove_list_settings_operation(
+    params: RemoveListSettingsParams,
+) -> PbListSettingsOperationList {
+    let settings = PbListSettings {
+        identifier: params.settings_id,
+        user_id: Some(params.user_id.clone()),
+        list_id: Some(params.list_id),
+        timestamp: None,
+        should_hide_categories: None,
+        selected_category_ordering: None,
+        category_orderings: vec![],
+        generic_grocery_autocomplete_enabled: None,
+        list_item_sort_order: None,
+        category_grouping_id: None,
+        should_remember_item_categories: None,
+        favorites_autocomplete_enabled: None,
+        recent_items_autocomplete_enabled: None,
+        should_hide_completed_items: None,
+        list_color_type: None,
+        list_theme_id: None,
+        custom_theme: None,
+        badge_mode: None,
+        location_notifications_enabled: None,
+        store_filter_id: None,
+        should_hide_store_names: None,
+        should_hide_running_totals: None,
+        should_hide_prices: None,
+        left_running_total_type: None,
+        right_running_total_type: None,
+        linked_alexa_list_id: None,
+        list_category_group_id: None,
+        migration_list_category_group_id_for_new_list: None,
+        should_show_shared_list_category_order_hint_banner: None,
+        linked_google_assistant_list_id: None,
+    };
+
+    let operation = PbListSettingsOperation {
         metadata: Some(PbOperationMetadata {
             operation_id: Some(params.operation_id),
-            handler_id: Some("delete-list".to_string()),
+            handler_id: Some("remove-list-settings".to_string()),
             user_id: Some(params.user_id),
             operation_class: Some(OperationClass::Undefined as i32),
         }),
-        list_id: Some(params.list_id),
-        ..Default::default()
+        updated_settings: Some(settings),
     };
 
-    PbListOperationList {
+    PbListSettingsOperationList {
         operations: vec![operation],
     }
 }
@@ -573,14 +641,31 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_list_operation_snapshot() {
-        let params = DeleteListParams {
+    fn test_delete_folder_items_operation_snapshot() {
+        let params = DeleteFolderItemsParams {
             list_id: "test-list-abc123".to_string(),
+            list_data_id: "test-list-data-id".to_string(),
             operation_id: "test-op-delete-1".to_string(),
             user_id: "test-user-456".to_string(),
         };
 
-        let operation_list = build_delete_list_operation(params);
+        let operation_list = build_delete_folder_items_operation(params);
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
+
+        insta::assert_snapshot!(hex::encode(&buf));
+    }
+
+    #[test]
+    fn test_remove_list_settings_operation_snapshot() {
+        let params = RemoveListSettingsParams {
+            settings_id: "test-settings-id".to_string(),
+            list_id: "test-list-abc123".to_string(),
+            operation_id: "test-op-remove-settings-1".to_string(),
+            user_id: "test-user-456".to_string(),
+        };
+
+        let operation_list = build_remove_list_settings_operation(params);
         let mut buf = Vec::new();
         operation_list.encode(&mut buf).unwrap();
 

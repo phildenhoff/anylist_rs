@@ -215,30 +215,56 @@ impl AnyListClient {
     }
 
     /// Delete a shopping list
-    ///
-    /// # Arguments
-    ///
-    /// * `list_id` - The ID of the list to delete
     pub async fn delete_list(&self, list_id: &str) -> Result<()> {
-        let operation_id = generate_id();
+        let user_data = self.get_user_data().await?;
 
-        // Imperative shell: gather runtime values
-        let params = crate::operations::DeleteListParams {
+        let list_data_id = user_data
+            .list_folders_response
+            .as_ref()
+            .and_then(|r| r.list_data_id.clone())
+            .ok_or_else(|| {
+                AnyListError::NotFound("Could not find list_data_id for folder operations".into())
+            })?;
+
+        let settings_id = user_data
+            .list_settings_response
+            .as_ref()
+            .and_then(|r| {
+                r.settings
+                    .iter()
+                    .find(|s| s.list_id.as_deref() == Some(list_id))
+                    .map(|s| s.identifier.clone())
+            })
+            .ok_or_else(|| {
+                AnyListError::NotFound(format!("Could not find settings for list {}", list_id))
+            })?;
+
+        let folder_params = crate::operations::DeleteFolderItemsParams {
             list_id: list_id.to_string(),
-            operation_id,
+            list_data_id,
+            operation_id: generate_id(),
             user_id: self.user_id(),
         };
-
-        // Functional core: pure operation building
-        let operation_list = crate::operations::build_delete_list_operation(params);
-
-        // Imperative shell: side effects
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        let folder_operation_list = crate::operations::build_delete_folder_items_operation(folder_params);
+        let mut folder_buf = Vec::new();
+        folder_operation_list.encode(&mut folder_buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode folder operation: {}", e))
         })?;
+        self.post("data/list-folders/update", folder_buf).await?;
 
-        self.post("data/shopping-lists/update", buf).await?;
+        let settings_params = crate::operations::RemoveListSettingsParams {
+            settings_id,
+            list_id: list_id.to_string(),
+            operation_id: generate_id(),
+            user_id: self.user_id(),
+        };
+        let settings_operation_list = crate::operations::build_remove_list_settings_operation(settings_params);
+        let mut settings_buf = Vec::new();
+        settings_operation_list.encode(&mut settings_buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode settings operation: {}", e))
+        })?;
+        self.post("data/list-settings/update", settings_buf).await?;
+
         Ok(())
     }
 
