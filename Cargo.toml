@@ -1,6 +1,6 @@
 [package]
 name = "anylist_rs"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Phil Denhoff <phil@denhoff.ca>"]
 edition = "2021"
 description = "Interact with the grocery list management app AnyList's undocumented API. Unofficial."
