@@ -72,6 +72,8 @@ pub struct Recipe {
     prep_time: Option<i32>,
     cook_time: Option<i32>,
     rating: Option<i32>,
+    nutritional_info: Option<String>,
+    photo_id: Option<String>,
     photo_urls: Vec<String>,
 }
 
@@ -120,8 +122,360 @@ impl Recipe {
         self.rating
     }
 
+    pub fn nutritional_info(&self) -> Option<&str> {
+        self.nutritional_info.as_deref()
+    }
+
+    pub fn photo_id(&self) -> Option<&str> {
+        self.photo_id.as_deref()
+    }
+
     pub fn photo_urls(&self) -> &[String] {
         &self.photo_urls
+    }
+}
+
+/// Builder for creating or updating recipes with all available fields.
+///
+/// Use `RecipeBuilder::new(name)` to create a new recipe, or
+/// `RecipeBuilder::from(&existing_recipe)` to update an existing one.
+///
+/// # Example
+///
+/// ```no_run
+/// # use anylist_rs::{AnyListClient, Ingredient, RecipeBuilder};
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let client = AnyListClient::login("user@example.com", "password").await?;
+/// // Create a new recipe
+/// let recipe = RecipeBuilder::new("Pasta Carbonara")
+///     .add_ingredient(Ingredient::new("Spaghetti").quantity_of("400g"))
+///     .add_ingredient(Ingredient::new("Eggs").quantity_of("4"))
+///     .add_step("Boil pasta in salted water")
+///     .add_step("Mix eggs with cheese")
+///     .prep_time(10)
+///     .cook_time(20)
+///     .servings("4")
+///     .rating(5)
+///     .save(&client)
+///     .await?;
+///
+/// // Update an existing recipe
+/// let updated = RecipeBuilder::from(&recipe)
+///     .note("Family favorite!")
+///     .save(&client)
+///     .await?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone)]
+pub struct RecipeBuilder {
+    /// Recipe ID - None for new recipes, Some for updates
+    id: Option<String>,
+    /// Recipe name (required)
+    name: String,
+    /// List of ingredients
+    ingredients: Vec<Ingredient>,
+    /// Preparation steps (each step can be multiline, supports markdown headers/bold/italic)
+    preparation_steps: Vec<String>,
+    /// Recipe notes/description
+    note: Option<String>,
+    /// Source name (e.g., "Web", "Cookbook")
+    source_name: Option<String>,
+    /// Source URL
+    source_url: Option<String>,
+    /// Serving size (e.g., "4 servings")
+    servings: Option<String>,
+    /// Prep time in minutes
+    prep_time: Option<i32>,
+    /// Cook time in minutes
+    cook_time: Option<i32>,
+    /// Rating from 1-5
+    rating: Option<i32>,
+    /// Nutritional information (freeform text, can be multiline)
+    nutritional_info: Option<String>,
+    /// Cover photo ID (from upload_photo)
+    photo_id: Option<String>,
+}
+
+impl RecipeBuilder {
+    /// Create a new recipe builder for a new recipe
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            id: None,
+            name: name.into(),
+            ingredients: Vec::new(),
+            preparation_steps: Vec::new(),
+            note: None,
+            source_name: None,
+            source_url: None,
+            servings: None,
+            prep_time: None,
+            cook_time: None,
+            rating: None,
+            nutritional_info: None,
+            photo_id: None,
+        }
+    }
+
+    /// Create a builder from an existing recipe for updates
+    pub fn from(recipe: &Recipe) -> Self {
+        Self {
+            id: Some(recipe.id.clone()),
+            name: recipe.name.clone(),
+            ingredients: recipe.ingredients.clone(),
+            preparation_steps: recipe.preparation_steps.clone(),
+            note: recipe.note.clone(),
+            source_name: recipe.source_name.clone(),
+            source_url: recipe.source_url.clone(),
+            servings: recipe.servings.clone(),
+            prep_time: recipe.prep_time,
+            cook_time: recipe.cook_time,
+            rating: recipe.rating,
+            nutritional_info: recipe.nutritional_info.clone(),
+            photo_id: recipe.photo_id.clone(),
+        }
+    }
+
+    /// Set all ingredients at once (replaces any existing)
+    pub fn ingredients(mut self, ingredients: Vec<Ingredient>) -> Self {
+        self.ingredients = ingredients;
+        self
+    }
+
+    /// Add a single ingredient
+    pub fn add_ingredient(mut self, ingredient: Ingredient) -> Self {
+        self.ingredients.push(ingredient);
+        self
+    }
+
+    /// Set all preparation steps at once (replaces any existing)
+    pub fn preparation_steps(mut self, steps: Vec<String>) -> Self {
+        self.preparation_steps = steps;
+        self
+    }
+
+    /// Add a single preparation step
+    ///
+    /// Steps can be multiline and support markdown-like formatting:
+    /// - `# Header` for section headers
+    /// - `**bold**` for bold text
+    /// - `_italic_` for italic text
+    pub fn add_step(mut self, step: impl Into<String>) -> Self {
+        self.preparation_steps.push(step.into());
+        self
+    }
+
+    /// Set the recipe note/description
+    pub fn note(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+
+    /// Set the source name (e.g., "Web", "Cookbook", "Grandma")
+    pub fn source_name(mut self, name: impl Into<String>) -> Self {
+        self.source_name = Some(name.into());
+        self
+    }
+
+    /// Set the source URL
+    pub fn source_url(mut self, url: impl Into<String>) -> Self {
+        self.source_url = Some(url.into());
+        self
+    }
+
+    /// Set the serving size (e.g., "4 servings", "6-8 portions")
+    pub fn servings(mut self, servings: impl Into<String>) -> Self {
+        self.servings = Some(servings.into());
+        self
+    }
+
+    /// Set prep time in minutes
+    pub fn prep_time(mut self, minutes: i32) -> Self {
+        self.prep_time = Some(minutes);
+        self
+    }
+
+    /// Set cook time in minutes
+    pub fn cook_time(mut self, minutes: i32) -> Self {
+        self.cook_time = Some(minutes);
+        self
+    }
+
+    /// Set rating (1-5, will be clamped to valid range)
+    pub fn rating(mut self, rating: i32) -> Self {
+        self.rating = Some(rating.clamp(1, 5));
+        self
+    }
+
+    /// Set nutritional information (freeform text, can be multiline)
+    ///
+    /// Example: "350 cals\n15mg Vitamin D"
+    pub fn nutritional_info(mut self, info: impl Into<String>) -> Self {
+        self.nutritional_info = Some(info.into());
+        self
+    }
+
+    /// Set the cover photo ID (from upload_photo)
+    pub fn photo_id(mut self, id: impl Into<String>) -> Self {
+        self.photo_id = Some(id.into());
+        self
+    }
+
+    /// Convert to protobuf recipe
+    fn to_pb_recipe(&self, recipe_id: &str, timestamp: f64) -> PbRecipe {
+        let pb_ingredients: Vec<PbIngredient> = self
+            .ingredients
+            .iter()
+            .map(|i| PbIngredient {
+                raw_ingredient: i.raw_ingredient.clone(),
+                name: Some(i.name.clone()),
+                quantity: i.quantity.clone(),
+                note: i.note.clone(),
+            })
+            .collect();
+
+        let photo_ids = self.photo_id.clone().into_iter().collect();
+
+        PbRecipe {
+            identifier: recipe_id.to_string(),
+            timestamp: Some(timestamp),
+            name: Some(self.name.clone()),
+            icon: None,
+            note: self.note.clone(),
+            source_name: self.source_name.clone(),
+            source_url: self.source_url.clone(),
+            ingredients: pb_ingredients,
+            preparation_steps: self.preparation_steps.clone(),
+            photo_ids,
+            ad_campaign_id: None,
+            photo_urls: vec![],
+            scale_factor: Some(1.0),
+            rating: self.rating,
+            creation_timestamp: Some(timestamp),
+            nutritional_info: self.nutritional_info.clone(),
+            cook_time: self.cook_time,
+            prep_time: self.prep_time,
+            servings: self.servings.clone(),
+            paprika_identifier: None,
+        }
+    }
+
+    /// Save the recipe (creates if new, updates if existing)
+    pub async fn save(self, client: &AnyListClient) -> Result<Recipe> {
+        if self.id.is_some() {
+            self.update(client).await
+        } else {
+            self.create(client).await
+        }
+    }
+
+    /// Create a new recipe
+    async fn create(self, client: &AnyListClient) -> Result<Recipe> {
+        let recipe_id = generate_id();
+        let operation_id = generate_id();
+        let timestamp = current_timestamp();
+
+        let pb_recipe = self.to_pb_recipe(&recipe_id, timestamp);
+
+        let operation = PbRecipeOperation {
+            metadata: Some(PbOperationMetadata {
+                operation_id: Some(operation_id),
+                handler_id: Some("save-recipe".to_string()),
+                user_id: Some(client.user_id()),
+                operation_class: Some(OperationClass::Undefined as i32),
+            }),
+            recipe_data_id: None,
+            recipe: Some(pb_recipe),
+            recipe_collection: None,
+            recipe_link_request: None,
+            recipe_collection_ids: vec![],
+            recipes: vec![],
+            is_new_recipe_from_web_import: Some(false),
+            recipe_ids: vec![],
+        };
+
+        let operation_list = PbRecipeOperationList {
+            operations: vec![operation],
+        };
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+
+        client.post("data/user-recipe-data/update", buf).await?;
+
+        Ok(Recipe {
+            id: recipe_id,
+            name: self.name,
+            ingredients: self.ingredients,
+            preparation_steps: self.preparation_steps,
+            note: self.note,
+            source_name: self.source_name,
+            source_url: self.source_url,
+            servings: self.servings,
+            prep_time: self.prep_time,
+            cook_time: self.cook_time,
+            rating: self.rating,
+            nutritional_info: self.nutritional_info,
+            photo_id: self.photo_id,
+            photo_urls: vec![],
+        })
+    }
+
+    /// Update an existing recipe
+    async fn update(self, client: &AnyListClient) -> Result<Recipe> {
+        let recipe_id = self.id.clone().expect("update called without recipe ID");
+        let operation_id = generate_id();
+        let timestamp = current_timestamp();
+
+        let pb_recipe = self.to_pb_recipe(&recipe_id, timestamp);
+
+        let operation = PbRecipeOperation {
+            metadata: Some(PbOperationMetadata {
+                operation_id: Some(operation_id),
+                handler_id: Some("save-recipe".to_string()),
+                user_id: Some(client.user_id()),
+                operation_class: Some(OperationClass::Undefined as i32),
+            }),
+            recipe_data_id: None,
+            recipe: Some(pb_recipe),
+            recipe_collection: None,
+            recipe_link_request: None,
+            recipe_collection_ids: vec![],
+            recipes: vec![],
+            is_new_recipe_from_web_import: Some(false),
+            recipe_ids: vec![],
+        };
+
+        let operation_list = PbRecipeOperationList {
+            operations: vec![operation],
+        };
+
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+
+        client.post("data/user-recipe-data/update", buf).await?;
+
+        Ok(Recipe {
+            id: recipe_id,
+            name: self.name,
+            ingredients: self.ingredients,
+            preparation_steps: self.preparation_steps,
+            note: self.note,
+            source_name: self.source_name,
+            source_url: self.source_url,
+            servings: self.servings,
+            prep_time: self.prep_time,
+            cook_time: self.cook_time,
+            rating: self.rating,
+            nutritional_info: self.nutritional_info,
+            photo_id: self.photo_id,
+            photo_urls: vec![],
+        })
     }
 }
 
@@ -287,6 +641,8 @@ impl AnyListClient {
             prep_time: None,
             cook_time: None,
             rating: None,
+            nutritional_info: None,
+            photo_id: None,
             photo_urls: vec![],
         })
     }
@@ -460,6 +816,51 @@ impl AnyListClient {
 
         Ok(())
     }
+
+    /// Upload a photo for use as a recipe cover image.
+    ///
+    /// Returns the photo ID which can be used with `RecipeBuilder::photo_id()`.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The image bytes (JPEG recommended)
+    /// * `filename` - Original filename (e.g., "pasta.jpg")
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use anylist_rs::{AnyListClient, RecipeBuilder};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let client = AnyListClient::login("user@example.com", "password").await?;
+    ///
+    /// // Upload a photo
+    /// let photo_data = std::fs::read("pasta.jpg")?;
+    /// let photo_id = client.upload_photo(photo_data, "pasta.jpg").await?;
+    ///
+    /// // Use in a recipe
+    /// let recipe = RecipeBuilder::new("Pasta")
+    ///     .photo_id(photo_id)
+    ///     .save(&client)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn upload_photo(&self, data: Vec<u8>, filename: &str) -> Result<String> {
+        let photo_id = generate_id();
+        let server_filename = format!("{}.jpg", photo_id);
+
+        let photo_part = reqwest::multipart::Part::bytes(data)
+            .file_name(filename.to_string());
+
+        let form = reqwest::multipart::Form::new()
+            .text("filename", server_filename)
+            .part("photo", photo_part);
+
+        self.post_multipart_form("/data/photos/upload", form).await?;
+
+        Ok(photo_id)
+    }
 }
 
 fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
@@ -479,6 +880,8 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
                 })
                 .collect();
 
+            let photo_id = recipe.photo_ids.first().cloned();
+
             let recipe = Recipe {
                 id: recipe.identifier,
                 name,
@@ -491,6 +894,8 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
                 prep_time: recipe.prep_time,
                 cook_time: recipe.cook_time,
                 rating: recipe.rating,
+                nutritional_info: recipe.nutritional_info,
+                photo_id,
                 photo_urls: recipe.photo_urls,
             };
             recipes.push(recipe);

@@ -524,4 +524,44 @@ impl AnyListClient {
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
     }
+
+    /// Make a POST request with a pre-built multipart form.
+    ///
+    /// Used for complex multipart requests like photo uploads where
+    /// we need more control over the form parts.
+    ///
+    /// Note: This method cannot automatically retry on 401 because
+    /// `reqwest::multipart::Form` is not `Clone`. If authentication
+    /// fails, the caller should retry the request.
+    pub(crate) async fn post_multipart_form(
+        &self,
+        endpoint: &str,
+        form: reqwest::multipart::Form,
+    ) -> Result<Vec<u8>> {
+        let url = format!("https://www.anylist.com{}", endpoint);
+
+        let response = self
+            .client
+            .post(&url)
+            .headers(self.get_headers())
+            .multipart(form)
+            .send()
+            .await?;
+
+        if response.status() == 401 {
+            return Err(AnyListError::AuthenticationFailed(
+                "Unauthorized - please refresh tokens and retry".to_string(),
+            ));
+        }
+
+        if !response.status().is_success() {
+            return Err(AnyListError::NetworkError(format!(
+                "Request failed with status: {}",
+                response.status()
+            )));
+        }
+
+        let bytes = response.bytes().await?;
+        Ok(bytes.to_vec())
+    }
 }

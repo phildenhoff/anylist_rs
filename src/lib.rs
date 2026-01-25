@@ -67,5 +67,5 @@ pub use lists::{List, ListItem};
 pub use meal_planning::MealPlanEvent;
 pub use icalendar::ICalendarInfo;
 pub use realtime::{ConnectionState, RealtimeSync, SyncEvent};
-pub use recipes::{Ingredient, Recipe};
+pub use recipes::{Ingredient, Recipe, RecipeBuilder};
 pub use stores::{Store, StoreFilter};
