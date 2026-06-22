@@ -846,12 +846,13 @@ impl AnyListClient {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn upload_photo(&self, data: Vec<u8>, filename: &str) -> Result<String> {
+    pub async fn upload_photo(&self, data: Vec<u8>, _filename: &str) -> Result<String> {
         let photo_id = generate_id();
         let server_filename = format!("{}.jpg", photo_id);
 
         let photo_part = reqwest::multipart::Part::bytes(data)
-            .file_name(filename.to_string());
+            .file_name(server_filename.clone())
+            .mime_str("image/jpeg")?;
 
         let form = reqwest::multipart::Form::new()
             .text("filename", server_filename)
@@ -860,6 +861,25 @@ impl AnyListClient {
         self.post_multipart_form("/data/photos/upload", form).await?;
 
         Ok(photo_id)
+    }
+
+    /// Download an existing recipe photo by photo ID.
+    pub async fn download_photo(&self, photo_id: &str) -> Result<Vec<u8>> {
+        let url = format!("https://photos.anylist.com/{photo_id}.jpg");
+        let resp = reqwest::get(&url)
+            .await
+            .map_err(|e| crate::AnyListError::NetworkError(e.to_string()))?;
+        if !resp.status().is_success() {
+            return Err(crate::AnyListError::NetworkError(format!(
+                "Photo download failed: HTTP {}",
+                resp.status()
+            )));
+        }
+        let bytes = resp
+            .bytes()
+            .await
+            .map_err(|e| crate::AnyListError::NetworkError(e.to_string()))?;
+        Ok(bytes.to_vec())
     }
 }
 
