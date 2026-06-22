@@ -59,11 +59,31 @@ impl Ingredient {
     }
 }
 
+/// A single entry in a recipe's ingredient list: either a section heading
+/// or an ingredient. Lets a recipe group its ingredients under headings
+/// (e.g. "Sauce", "Topping") the way the AnyList apps display them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecipeIngredientEntry {
+    Section(String),
+    Ingredient(Ingredient),
+}
+
+impl RecipeIngredientEntry {
+    pub fn section(name: impl Into<String>) -> Self {
+        Self::Section(name.into())
+    }
+
+    pub fn ingredient(ingredient: Ingredient) -> Self {
+        Self::Ingredient(ingredient)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recipe {
     id: String,
     name: String,
     ingredients: Vec<Ingredient>,
+    ingredient_entries: Vec<RecipeIngredientEntry>,
     preparation_steps: Vec<String>,
     note: Option<String>,
     source_name: Option<String>,
@@ -88,6 +108,10 @@ impl Recipe {
 
     pub fn ingredients(&self) -> &[Ingredient] {
         &self.ingredients
+    }
+
+    pub fn ingredient_entries(&self) -> &[RecipeIngredientEntry] {
+        &self.ingredient_entries
     }
 
     pub fn preparation_steps(&self) -> &[String] {
@@ -176,6 +200,8 @@ pub struct RecipeBuilder {
     name: String,
     /// List of ingredients
     ingredients: Vec<Ingredient>,
+    /// Section headings and ingredients in display order.
+    ingredient_entries: Vec<RecipeIngredientEntry>,
     /// Preparation steps (each step can be multiline, supports markdown headers/bold/italic)
     preparation_steps: Vec<String>,
     /// Recipe notes/description
@@ -205,6 +231,7 @@ impl RecipeBuilder {
             id: None,
             name: name.into(),
             ingredients: Vec::new(),
+            ingredient_entries: Vec::new(),
             preparation_steps: Vec::new(),
             note: None,
             source_name: None,
@@ -224,6 +251,7 @@ impl RecipeBuilder {
             id: Some(recipe.id.clone()),
             name: recipe.name.clone(),
             ingredients: recipe.ingredients.clone(),
+            ingredient_entries: recipe.ingredient_entries.clone(),
             preparation_steps: recipe.preparation_steps.clone(),
             note: recipe.note.clone(),
             source_name: recipe.source_name.clone(),
@@ -237,15 +265,49 @@ impl RecipeBuilder {
         }
     }
 
+    /// Set the recipe name.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
+    }
+
     /// Set all ingredients at once (replaces any existing)
     pub fn ingredients(mut self, ingredients: Vec<Ingredient>) -> Self {
+        self.ingredient_entries = ingredients
+            .iter()
+            .cloned()
+            .map(RecipeIngredientEntry::Ingredient)
+            .collect();
         self.ingredients = ingredients;
+        self
+    }
+
+    /// Set the full ingredient list, including section headings, at once
+    /// (replaces any existing ingredients and section headings).
+    pub fn ingredient_entries(mut self, entries: Vec<RecipeIngredientEntry>) -> Self {
+        self.ingredients = entries
+            .iter()
+            .filter_map(|entry| match entry {
+                RecipeIngredientEntry::Section(_) => None,
+                RecipeIngredientEntry::Ingredient(ingredient) => Some(ingredient.clone()),
+            })
+            .collect();
+        self.ingredient_entries = entries;
         self
     }
 
     /// Add a single ingredient
     pub fn add_ingredient(mut self, ingredient: Ingredient) -> Self {
+        self.ingredient_entries
+            .push(RecipeIngredientEntry::Ingredient(ingredient.clone()));
         self.ingredients.push(ingredient);
+        self
+    }
+
+    /// Add a section heading to the ingredient list.
+    pub fn add_ingredient_section(mut self, section: impl Into<String>) -> Self {
+        self.ingredient_entries
+            .push(RecipeIngredientEntry::Section(section.into()));
         self
     }
 
@@ -324,14 +386,34 @@ impl RecipeBuilder {
 
     /// Convert to protobuf recipe
     fn to_pb_recipe(&self, recipe_id: &str, timestamp: f64) -> PbRecipe {
-        let pb_ingredients: Vec<PbIngredient> = self
-            .ingredients
+        let entries = if self.ingredient_entries.is_empty() && !self.ingredients.is_empty() {
+            self.ingredients
+                .iter()
+                .cloned()
+                .map(RecipeIngredientEntry::Ingredient)
+                .collect()
+        } else {
+            self.ingredient_entries.clone()
+        };
+        let pb_ingredients: Vec<PbIngredient> = entries
             .iter()
-            .map(|i| PbIngredient {
-                raw_ingredient: i.raw_ingredient.clone(),
-                name: Some(i.name.clone()),
-                quantity: i.quantity.clone(),
-                note: i.note.clone(),
+            .map(|entry| match entry {
+                RecipeIngredientEntry::Section(section) => PbIngredient {
+                    raw_ingredient: None,
+                    name: Some(section.clone()),
+                    quantity: None,
+                    note: None,
+                    identifier: Some(generate_id()),
+                    is_heading: Some(true),
+                },
+                RecipeIngredientEntry::Ingredient(i) => PbIngredient {
+                    raw_ingredient: i.raw_ingredient.clone(),
+                    name: Some(i.name.clone()),
+                    quantity: i.quantity.clone(),
+                    note: i.note.clone(),
+                    identifier: None,
+                    is_heading: None,
+                },
             })
             .collect();
 
@@ -410,6 +492,7 @@ impl RecipeBuilder {
             id: recipe_id,
             name: self.name,
             ingredients: self.ingredients,
+            ingredient_entries: self.ingredient_entries,
             preparation_steps: self.preparation_steps,
             note: self.note,
             source_name: self.source_name,
@@ -464,6 +547,7 @@ impl RecipeBuilder {
             id: recipe_id,
             name: self.name,
             ingredients: self.ingredients,
+            ingredient_entries: self.ingredient_entries,
             preparation_steps: self.preparation_steps,
             note: self.note,
             source_name: self.source_name,
@@ -575,6 +659,8 @@ impl AnyListClient {
                 name: Some(i.name.clone()),
                 quantity: i.quantity.clone(),
                 note: i.note.clone(),
+                identifier: None,
+                is_heading: None,
             })
             .collect();
 
@@ -632,7 +718,11 @@ impl AnyListClient {
         Ok(Recipe {
             id: recipe_id,
             name: name.to_string(),
-            ingredients,
+            ingredients: ingredients.clone(),
+            ingredient_entries: ingredients
+                .into_iter()
+                .map(RecipeIngredientEntry::Ingredient)
+                .collect(),
             preparation_steps,
             note: None,
             source_name: None,
@@ -671,6 +761,8 @@ impl AnyListClient {
                 name: Some(i.name.clone()),
                 quantity: i.quantity.clone(),
                 note: i.note.clone(),
+                identifier: None,
+                is_heading: None,
             })
             .collect();
 
@@ -867,18 +959,24 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
     let mut recipes: Vec<Recipe> = Vec::new();
     for recipe in response.recipes {
         if let Some(name) = recipe.name {
-            let ingredients: Vec<Ingredient> = recipe
-                .ingredients
-                .iter()
-                .filter_map(|i| {
-                    i.name.as_ref().map(|name| Ingredient {
+            let mut ingredients: Vec<Ingredient> = Vec::new();
+            let mut ingredient_entries: Vec<RecipeIngredientEntry> = Vec::new();
+            for i in &recipe.ingredients {
+                if i.is_heading == Some(true) {
+                    if let Some(name) = &i.name {
+                        ingredient_entries.push(RecipeIngredientEntry::Section(name.clone()));
+                    }
+                } else if let Some(name) = &i.name {
+                    let ingredient = Ingredient {
                         name: name.clone(),
                         quantity: i.quantity.clone(),
                         note: i.note.clone(),
                         raw_ingredient: i.raw_ingredient.clone(),
-                    })
-                })
-                .collect();
+                    };
+                    ingredients.push(ingredient.clone());
+                    ingredient_entries.push(RecipeIngredientEntry::Ingredient(ingredient));
+                }
+            }
 
             let photo_id = recipe.photo_ids.first().cloned();
 
@@ -886,6 +984,7 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
                 id: recipe.identifier,
                 name,
                 ingredients,
+                ingredient_entries,
                 preparation_steps: recipe.preparation_steps,
                 note: recipe.note,
                 source_name: recipe.source_name,

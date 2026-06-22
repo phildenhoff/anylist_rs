@@ -302,6 +302,8 @@ message PBIngredient {
     optional string name = 2;
     optional string quantity = 3;
     optional string note = 4;
+    optional string identifier = 6;
+    optional bool isHeading = 7;
 }
 
 message PBAndroidEditableIngredient {
