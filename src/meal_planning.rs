@@ -13,6 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MealPlanEvent {
     id: String,
+    calendar_id: Option<String>,
     date: String,
     title: Option<String>,
     recipe_id: Option<String>,
@@ -23,6 +24,10 @@ pub struct MealPlanEvent {
 impl MealPlanEvent {
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    pub fn calendar_id(&self) -> Option<&str> {
+        self.calendar_id.as_deref()
     }
 
     /// Get the date in YYYY-MM-DD format
@@ -83,6 +88,7 @@ impl AnyListClient {
                 })
                 .map(|e| MealPlanEvent {
                     id: e.identifier.clone(),
+                    calendar_id: e.calendar_id.clone(),
                     date: e.date.clone().unwrap_or_default(),
                     title: e.title.clone(),
                     recipe_id: e.recipe_id.clone(),
@@ -159,6 +165,7 @@ impl AnyListClient {
 
         Ok(MealPlanEvent {
             id: event_id,
+            calendar_id: Some(calendar_id.to_string()),
             date: date.to_string(),
             title: title.map(|t| t.to_string()),
             recipe_id: recipe_id.map(|r| r.to_string()),
