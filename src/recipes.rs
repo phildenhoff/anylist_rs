@@ -8,6 +8,40 @@ use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
+fn build_delete_recipe_operation_list(
+    operation_id: &str,
+    user_id: &str,
+    recipe: PbRecipe,
+) -> Result<Vec<u8>> {
+    let recipe_id = recipe.identifier.clone();
+    let operation = PbRecipeOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(operation_id.to_string()),
+            handler_id: Some("remove-recipe".to_string()),
+            user_id: Some(user_id.to_string()),
+            operation_class: Some(OperationClass::Undefined as i32),
+        }),
+        recipe_data_id: None,
+        recipe: Some(recipe),
+        recipe_collection: None,
+        recipe_link_request: None,
+        recipe_collection_ids: vec![],
+        recipes: vec![],
+        is_new_recipe_from_web_import: None,
+        recipe_ids: vec![recipe_id],
+    };
+
+    let operation_list = PbRecipeOperationList {
+        operations: vec![operation],
+    };
+
+    let mut buf = Vec::new();
+    operation_list
+        .encode(&mut buf)
+        .map_err(|e| AnyListError::ProtobufError(format!("Failed to encode operation: {}", e)))?;
+    Ok(buf)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ingredient {
     pub(crate) name: String,
@@ -734,32 +768,10 @@ impl AnyListClient {
     /// * `recipe_id` - The ID of the recipe to delete
     pub async fn delete_recipe(&self, recipe_id: &str) -> Result<()> {
         let operation_id = generate_id();
+        let recipe = self.get_recipe_by_id(recipe_id).await?;
+        let pb_recipe = RecipeBuilder::from(&recipe).to_pb_recipe(recipe_id, current_timestamp());
 
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-recipe".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: None,
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![recipe_id.to_string()],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = build_delete_recipe_operation_list(&operation_id, &self.user_id(), pb_recipe)?;
 
         self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
@@ -1065,5 +1077,30 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.to_string().contains("HEIC"));
+    }
+
+    #[test]
+    fn delete_recipe_operation_includes_full_recipe_payload() {
+        let recipe = PbRecipe {
+            identifier: "recipe-id".to_string(),
+            name: Some("Probe Recipe".to_string()),
+            ..Default::default()
+        };
+
+        let encoded = build_delete_recipe_operation_list("operation-id", "user-id", recipe)
+            .expect("delete operation should encode");
+        let decoded = PbRecipeOperationList::decode(encoded.as_slice())
+            .expect("delete operation should decode");
+
+        assert_eq!(decoded.operations.len(), 1);
+        let operation = &decoded.operations[0];
+        let metadata = operation.metadata.as_ref().expect("metadata");
+        assert_eq!(metadata.operation_id.as_deref(), Some("operation-id"));
+        assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
+        assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
+
+        let recipe = operation.recipe.as_ref().expect("recipe payload");
+        assert_eq!(recipe.identifier, "recipe-id");
+        assert_eq!(recipe.name.as_deref(), Some("Probe Recipe"));
     }
 }
