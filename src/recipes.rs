@@ -4,7 +4,7 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbIngredient, PbOperationMetadata, PbRecipe,
     PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
 };
-use crate::utils::{current_timestamp, generate_id};
+use crate::utils::{current_timestamp, encode_operation_list, generate_id};
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
@@ -433,10 +433,7 @@ impl RecipeBuilder {
             operations: vec![operation],
         };
 
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = encode_operation_list(&operation_list)?;
 
         client.post("data/user-recipe-data/update", buf).await?;
 
@@ -487,10 +484,7 @@ impl RecipeBuilder {
             operations: vec![operation],
         };
 
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = encode_operation_list(&operation_list)?;
 
         client.post("data/user-recipe-data/update", buf).await?;
 
@@ -656,10 +650,7 @@ impl AnyListClient {
             operations: vec![operation],
         };
 
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = encode_operation_list(&operation_list)?;
 
         self.post("data/user-recipe-data/update", buf).await?;
 
@@ -752,10 +743,7 @@ impl AnyListClient {
             operations: vec![operation],
         };
 
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = encode_operation_list(&operation_list)?;
 
         self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
