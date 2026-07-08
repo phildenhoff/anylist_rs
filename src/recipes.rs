@@ -771,9 +771,10 @@ impl AnyListClient {
     /// rating, photo, servings, times) are preserved. Section headings in
     /// the ingredient list are preserved — with stable identifiers — as long
     /// as `ingredients` matches the recipe's current flat ingredient list
-    /// (the common case of editing only the name or steps). If `ingredients`
-    /// differs, it replaces the whole ingredient list and any section
-    /// headings are removed; use [`RecipeBuilder::from`] with
+    /// exactly (same ingredients, same order, same quantities and notes) —
+    /// the common case of editing only the name or steps. Any difference,
+    /// including reordering, replaces the whole ingredient list and removes
+    /// the section headings; use [`RecipeBuilder::from`] with
     /// [`RecipeBuilder::ingredient_entries`] to edit ingredients while
     /// keeping headings.
     ///
@@ -1395,6 +1396,26 @@ mod tests {
             RecipeIngredientEntry::Section(section) => assert_eq!(section.identifier(), "sec-1"),
             other => panic!("expected section, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn ingredient_update_with_reordered_list_replaces_entries() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+            ingredient_pb("Basil"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        // The comparison is exact: a reordered list counts as changed, so
+        // the headings are replaced (documented on update_recipe).
+        let mut reordered = recipe.ingredients().to_vec();
+        reordered.reverse();
+        let entries = entries_for_ingredient_update(&recipe, reordered);
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .all(|e| matches!(e, RecipeIngredientEntry::Ingredient(_))));
     }
 
     #[test]
