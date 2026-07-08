@@ -1183,10 +1183,12 @@ mod tests {
             name: Some("Probe Recipe".to_string()),
             icon: Some("icon-name".to_string()),
             ingredients: vec![PbIngredient {
+                identifier: Some("ingredient-1".to_string()),
                 raw_ingredient: Some("2 cups flour, sifted".to_string()),
                 name: Some("flour".to_string()),
                 quantity: Some("2 cups".to_string()),
                 note: Some("sifted".to_string()),
+                is_heading: Some(false),
             }],
             photo_ids: vec!["photo-1".to_string(), "photo-2".to_string()],
             photo_urls: vec!["https://example.com/photo-1.jpg".to_string()],
