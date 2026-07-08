@@ -143,7 +143,6 @@ anylist_rs = { version = "0.1.0", default-features = false, features = ["rustls-
   - Heartbeat protocol for connection health
   - Handle "refresh-shopping-lists" messages for collaborative updates
 - Logical timestamps for conflict resolution
-- Photo upload/download support (S3 presigned URLs)
 - List folders and organization
 - Recipe web import from URLs
 - iCalendar feed export for meal planning
