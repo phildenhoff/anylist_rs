@@ -5,15 +5,14 @@ use crate::protobuf::anylist::{
     PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
 };
 use crate::utils::{current_timestamp, encode_operation_list, generate_id};
-use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
-fn build_delete_recipe_operation_list(
+fn build_delete_recipe_operation(
     operation_id: &str,
     user_id: &str,
-    recipe: PbRecipe,
-) -> Result<Vec<u8>> {
-    let recipe_id = recipe.identifier.clone();
+    recipe_id: &str,
+    recipe: Option<PbRecipe>,
+) -> PbRecipeOperationList {
     let operation = PbRecipeOperation {
         metadata: Some(PbOperationMetadata {
             operation_id: Some(operation_id.to_string()),
@@ -22,24 +21,18 @@ fn build_delete_recipe_operation_list(
             operation_class: Some(OperationClass::Undefined as i32),
         }),
         recipe_data_id: None,
-        recipe: Some(recipe),
+        recipe,
         recipe_collection: None,
         recipe_link_request: None,
         recipe_collection_ids: vec![],
         recipes: vec![],
         is_new_recipe_from_web_import: None,
-        recipe_ids: vec![recipe_id],
+        recipe_ids: vec![recipe_id.to_string()],
     };
 
-    let operation_list = PbRecipeOperationList {
+    PbRecipeOperationList {
         operations: vec![operation],
-    };
-
-    let mut buf = Vec::new();
-    operation_list
-        .encode(&mut buf)
-        .map_err(|e| AnyListError::ProtobufError(format!("Failed to encode operation: {}", e)))?;
-    Ok(buf)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -751,15 +744,31 @@ impl AnyListClient {
 
     /// Delete a recipe
     ///
+    /// Sends the recipe exactly as stored on the server alongside its ID,
+    /// matching the delete operation of the official web client. If the
+    /// recipe is not present in the user's data (e.g. it was already deleted
+    /// from another device), the operation is still sent with just the recipe
+    /// ID, so deleting an already-deleted recipe succeeds.
+    ///
     /// # Arguments
     ///
     /// * `recipe_id` - The ID of the recipe to delete
     pub async fn delete_recipe(&self, recipe_id: &str) -> Result<()> {
         let operation_id = generate_id();
-        let recipe = self.get_recipe_by_id(recipe_id).await?;
-        let pb_recipe = RecipeBuilder::from(&recipe).to_pb_recipe(recipe_id, current_timestamp());
+        let recipe = self
+            .get_user_data()
+            .await?
+            .recipe_data_response
+            .and_then(|response| {
+                response
+                    .recipes
+                    .into_iter()
+                    .find(|recipe| recipe.identifier == recipe_id)
+            });
 
-        let buf = build_delete_recipe_operation_list(&operation_id, &self.user_id(), pb_recipe)?;
+        let operation_list =
+            build_delete_recipe_operation(&operation_id, &self.user_id(), recipe_id, recipe);
+        let buf = encode_operation_list(&operation_list)?;
 
         self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
@@ -1012,6 +1021,7 @@ fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
 mod tests {
     use super::*;
     use crate::client::SavedTokens;
+    use prost::Message;
 
     #[test]
     fn test_sniff_image_mime() {
@@ -1068,15 +1078,34 @@ mod tests {
     }
 
     #[test]
-    fn delete_recipe_operation_includes_full_recipe_payload() {
+    fn delete_recipe_operation_preserves_stored_recipe_payload() {
         let recipe = PbRecipe {
             identifier: "recipe-id".to_string(),
+            timestamp: Some(1111.25),
             name: Some("Probe Recipe".to_string()),
+            icon: Some("icon-name".to_string()),
+            ingredients: vec![PbIngredient {
+                raw_ingredient: Some("2 cups flour, sifted".to_string()),
+                name: Some("flour".to_string()),
+                quantity: Some("2 cups".to_string()),
+                note: Some("sifted".to_string()),
+            }],
+            photo_ids: vec!["photo-1".to_string(), "photo-2".to_string()],
+            photo_urls: vec!["https://example.com/photo-1.jpg".to_string()],
+            scale_factor: Some(2.5),
+            creation_timestamp: Some(42.5),
+            paprika_identifier: Some("paprika-id".to_string()),
             ..Default::default()
         };
 
-        let encoded = build_delete_recipe_operation_list("operation-id", "user-id", recipe)
-            .expect("delete operation should encode");
+        let operation_list = build_delete_recipe_operation(
+            "operation-id",
+            "user-id",
+            "recipe-id",
+            Some(recipe.clone()),
+        );
+        let encoded =
+            encode_operation_list(&operation_list).expect("delete operation should encode");
         let decoded = PbRecipeOperationList::decode(encoded.as_slice())
             .expect("delete operation should decode");
 
@@ -1085,10 +1114,27 @@ mod tests {
         let metadata = operation.metadata.as_ref().expect("metadata");
         assert_eq!(metadata.operation_id.as_deref(), Some("operation-id"));
         assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
+        assert_eq!(metadata.user_id.as_deref(), Some("user-id"));
         assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
+        assert_eq!(operation.is_new_recipe_from_web_import, None);
+        assert_eq!(operation.recipe.as_ref(), Some(&recipe));
+    }
 
-        let recipe = operation.recipe.as_ref().expect("recipe payload");
-        assert_eq!(recipe.identifier, "recipe-id");
-        assert_eq!(recipe.name.as_deref(), Some("Probe Recipe"));
+    #[test]
+    fn delete_recipe_operation_falls_back_to_id_only_payload() {
+        let operation_list =
+            build_delete_recipe_operation("operation-id", "user-id", "recipe-id", None);
+        let encoded =
+            encode_operation_list(&operation_list).expect("delete operation should encode");
+        let decoded = PbRecipeOperationList::decode(encoded.as_slice())
+            .expect("delete operation should decode");
+
+        assert_eq!(decoded.operations.len(), 1);
+        let operation = &decoded.operations[0];
+        let metadata = operation.metadata.as_ref().expect("metadata");
+        assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
+        assert_eq!(operation.recipe, None);
+        assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
+        assert_eq!(operation.is_new_recipe_from_web_import, None);
     }
 }
