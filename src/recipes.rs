@@ -891,7 +891,9 @@ impl AnyListClient {
     ///
     /// # Arguments
     ///
-    /// * `photo_id` - The photo ID (from `upload_photo` or `Recipe::photo_id`)
+    /// * `photo_id` - The bare photo ID (32 hex characters, from
+    ///   `upload_photo` or `Recipe::photo_id`) — not a URL or a filename
+    ///   with extension
     ///
     /// # Example
     ///
@@ -997,7 +999,9 @@ fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
         return Some("image/webp");
     }
     if data.len() >= 12 && &data[4..8] == b"ftyp" {
-        if let b"heic" | b"heix" | b"heif" | b"mif1" = &data[8..12] {
+        if let b"heic" | b"heix" | b"heim" | b"heis" | b"hevc" | b"hevx" | b"heif" | b"mif1"
+        | b"msf1" = &data[8..12]
+        {
             return Some("image/heic");
         }
     }
@@ -1030,6 +1034,9 @@ mod tests {
         );
         assert_eq!(sniff_image_mime(b"not an image"), None);
         assert_eq!(sniff_image_mime(&[]), None);
+        // Truncated multi-byte signatures must not panic on the length guards
+        assert_eq!(sniff_image_mime(b"RIFF"), None);
+        assert_eq!(sniff_image_mime(b"\x00\x00\x00\x18ftyp"), None);
     }
 
     #[tokio::test]
