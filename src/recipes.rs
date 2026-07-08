@@ -823,8 +823,15 @@ impl AnyListClient {
     ///
     /// # Arguments
     ///
-    /// * `data` - The image bytes (JPEG recommended)
-    /// * `filename` - Original filename (e.g., "pasta.jpg")
+    /// * `data` - The image bytes; the MIME type is detected from the bytes.
+    ///   JPEG, PNG, GIF, and WebP are all verified to work against the live
+    ///   API: AnyList re-encodes uploads to JPEG server-side and serves the
+    ///   photo at `https://photos.anylist.com/{photo_id}.jpg`. HEIC is
+    ///   rejected — AnyList's own clients convert HEIC to JPEG before
+    ///   uploading, so convert it first. Unrecognized data is also rejected.
+    /// * `filename` - Original filename (e.g., "pasta.jpg"), sent as the
+    ///   multipart part's filename. The server stores the photo under a
+    ///   generated ID regardless.
     ///
     /// # Example
     ///
@@ -846,13 +853,26 @@ impl AnyListClient {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn upload_photo(&self, data: Vec<u8>, _filename: &str) -> Result<String> {
+    pub async fn upload_photo(&self, data: Vec<u8>, filename: &str) -> Result<String> {
+        let mime = sniff_image_mime(&data).ok_or_else(|| {
+            AnyListError::Other(
+                "unrecognized image format: expected JPEG, PNG, GIF, or WebP".to_string(),
+            )
+        })?;
+        if mime == "image/heic" {
+            return Err(AnyListError::Other(
+                "HEIC is not supported: AnyList's own clients convert HEIC to JPEG \
+                 before uploading; convert the image to JPEG first"
+                    .to_string(),
+            ));
+        }
+
         let photo_id = generate_id();
         let server_filename = format!("{}.jpg", photo_id);
 
         let photo_part = reqwest::multipart::Part::bytes(data)
-            .file_name(server_filename.clone())
-            .mime_str("image/jpeg")?;
+            .file_name(filename.to_string())
+            .mime_str(mime)?;
 
         let form = reqwest::multipart::Form::new()
             .text("filename", server_filename)
@@ -864,22 +884,31 @@ impl AnyListClient {
     }
 
     /// Download an existing recipe photo by photo ID.
+    ///
+    /// Fetches the JPEG bytes from `https://photos.anylist.com/{photo_id}.jpg`,
+    /// the public CDN where AnyList serves recipe photos (no authentication
+    /// required).
+    ///
+    /// # Arguments
+    ///
+    /// * `photo_id` - The photo ID (from `upload_photo` or `Recipe::photo_id`)
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use anylist_rs::AnyListClient;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let client = AnyListClient::login("user@example.com", "password").await?;
+    ///
+    /// let photo = client.download_photo("6694e8edc84744a496ea1feadeb8f177").await?;
+    /// std::fs::write("photo.jpg", photo)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn download_photo(&self, photo_id: &str) -> Result<Vec<u8>> {
         let url = format!("https://photos.anylist.com/{photo_id}.jpg");
-        let resp = reqwest::get(&url)
-            .await
-            .map_err(|e| crate::AnyListError::NetworkError(e.to_string()))?;
-        if !resp.status().is_success() {
-            return Err(crate::AnyListError::NetworkError(format!(
-                "Photo download failed: HTTP {}",
-                resp.status()
-            )));
-        }
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| crate::AnyListError::NetworkError(e.to_string()))?;
-        Ok(bytes.to_vec())
+        self.get_bytes(&url).await
     }
 }
 
@@ -943,5 +972,91 @@ fn scale_quantity(quantity: &str, scale: f64) -> String {
         }
     } else {
         quantity.to_string()
+    }
+}
+
+/// Detect an image's MIME type from its magic bytes.
+///
+/// AnyList re-encodes uploads to JPEG server-side, so the upload just needs
+/// to label the part with the actual format (matching the official web
+/// client, which sends the browser-reported MIME type). HEIC is detected
+/// only so `upload_photo` can reject it with a targeted error: official
+/// clients convert HEIC to JPEG before uploading, so the server never sees
+/// it and its support is unverified.
+fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
+    if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        return Some("image/jpeg");
+    }
+    if data.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Some("image/png");
+    }
+    if data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a") {
+        return Some("image/gif");
+    }
+    if data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        return Some("image/webp");
+    }
+    if data.len() >= 12 && &data[4..8] == b"ftyp" {
+        if let b"heic" | b"heix" | b"heif" | b"mif1" = &data[8..12] {
+            return Some("image/heic");
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client::SavedTokens;
+
+    #[test]
+    fn test_sniff_image_mime() {
+        assert_eq!(
+            sniff_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]),
+            Some("image/jpeg")
+        );
+        assert_eq!(
+            sniff_image_mime(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+            Some("image/png")
+        );
+        assert_eq!(sniff_image_mime(b"GIF89a\x01\x00"), Some("image/gif"));
+        assert_eq!(
+            sniff_image_mime(b"RIFF\x24\x00\x00\x00WEBPVP8 "),
+            Some("image/webp")
+        );
+        assert_eq!(
+            sniff_image_mime(b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00"),
+            Some("image/heic")
+        );
+        assert_eq!(sniff_image_mime(b"not an image"), None);
+        assert_eq!(sniff_image_mime(&[]), None);
+    }
+
+    #[tokio::test]
+    async fn test_upload_photo_rejects_unrecognized_data() {
+        let client =
+            AnyListClient::from_tokens(SavedTokens::new("access", "refresh", "user", false))
+                .unwrap();
+
+        // Must fail with a clear error before any network request is made
+        let err = client
+            .upload_photo(b"definitely not an image".to_vec(), "notes.txt")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("unrecognized image format"));
+    }
+
+    #[tokio::test]
+    async fn test_upload_photo_rejects_heic() {
+        let client =
+            AnyListClient::from_tokens(SavedTokens::new("access", "refresh", "user", false))
+                .unwrap();
+
+        let heic_data = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00".to_vec();
+        let err = client
+            .upload_photo(heic_data, "photo.heic")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("HEIC"));
     }
 }
