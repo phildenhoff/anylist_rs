@@ -84,6 +84,17 @@ impl Ingredient {
     pub fn raw_ingredient(&self) -> Option<&str> {
         self.raw_ingredient.as_deref()
     }
+
+    fn to_pb(&self) -> PbIngredient {
+        PbIngredient {
+            raw_ingredient: self.raw_ingredient.clone(),
+            name: Some(self.name.clone()),
+            quantity: self.quantity.clone(),
+            note: self.note.clone(),
+            identifier: None,
+            is_heading: None,
+        }
+    }
 }
 
 /// A single entry in a recipe's ingredient list: either a section heading
@@ -413,15 +424,22 @@ impl RecipeBuilder {
 
     /// Convert to protobuf recipe
     fn to_pb_recipe(&self, recipe_id: &str, timestamp: f64) -> PbRecipe {
-        let entries = if self.ingredient_entries.is_empty() && !self.ingredients.is_empty() {
-            self.ingredients
-                .iter()
-                .cloned()
-                .map(RecipeIngredientEntry::Ingredient)
-                .collect()
-        } else {
-            self.ingredient_entries.clone()
-        };
+        // Defensive fallback: a Recipe can reach a builder with an empty entry
+        // list but a populated flat list (e.g. deserialized from JSON written
+        // before ingredient_entries existed).
+        let fallback_entries: Vec<RecipeIngredientEntry>;
+        let entries: &[RecipeIngredientEntry] =
+            if self.ingredient_entries.is_empty() && !self.ingredients.is_empty() {
+                fallback_entries = self
+                    .ingredients
+                    .iter()
+                    .cloned()
+                    .map(RecipeIngredientEntry::Ingredient)
+                    .collect();
+                &fallback_entries
+            } else {
+                &self.ingredient_entries
+            };
         let pb_ingredients: Vec<PbIngredient> = entries
             .iter()
             .map(|entry| match entry {
@@ -433,14 +451,7 @@ impl RecipeBuilder {
                     identifier: Some(generate_id()),
                     is_heading: Some(true),
                 },
-                RecipeIngredientEntry::Ingredient(i) => PbIngredient {
-                    raw_ingredient: i.raw_ingredient.clone(),
-                    name: Some(i.name.clone()),
-                    quantity: i.quantity.clone(),
-                    note: i.note.clone(),
-                    identifier: None,
-                    is_heading: None,
-                },
+                RecipeIngredientEntry::Ingredient(i) => i.to_pb(),
             })
             .collect();
 
@@ -673,17 +684,7 @@ impl AnyListClient {
         let recipe_id = generate_id();
         let operation_id = generate_id();
 
-        let pb_ingredients: Vec<PbIngredient> = ingredients
-            .iter()
-            .map(|i| PbIngredient {
-                raw_ingredient: i.raw_ingredient.clone(),
-                name: Some(i.name.clone()),
-                quantity: i.quantity.clone(),
-                note: i.note.clone(),
-                identifier: None,
-                is_heading: None,
-            })
-            .collect();
+        let pb_ingredients: Vec<PbIngredient> = ingredients.iter().map(Ingredient::to_pb).collect();
 
         let new_recipe = PbRecipe {
             identifier: recipe_id.clone(),
@@ -733,14 +734,17 @@ impl AnyListClient {
 
         self.post("data/user-recipe-data/update", buf).await?;
 
+        let ingredient_entries = ingredients
+            .iter()
+            .cloned()
+            .map(RecipeIngredientEntry::Ingredient)
+            .collect();
+
         Ok(Recipe {
             id: recipe_id,
             name: name.to_string(),
-            ingredients: ingredients.clone(),
-            ingredient_entries: ingredients
-                .into_iter()
-                .map(RecipeIngredientEntry::Ingredient)
-                .collect(),
+            ingredients,
+            ingredient_entries,
             preparation_steps,
             note: None,
             source_name: None,
@@ -772,17 +776,7 @@ impl AnyListClient {
     ) -> Result<()> {
         let operation_id = generate_id();
 
-        let pb_ingredients: Vec<PbIngredient> = ingredients
-            .iter()
-            .map(|i| PbIngredient {
-                raw_ingredient: i.raw_ingredient.clone(),
-                name: Some(i.name.clone()),
-                quantity: i.quantity.clone(),
-                note: i.note.clone(),
-                identifier: None,
-                is_heading: None,
-            })
-            .collect();
+        let pb_ingredients: Vec<PbIngredient> = ingredients.iter().map(Ingredient::to_pb).collect();
 
         let updated_recipe = PbRecipe {
             identifier: recipe_id.to_string(),
