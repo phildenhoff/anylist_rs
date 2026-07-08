@@ -97,22 +97,81 @@ impl Ingredient {
     }
 }
 
+/// A section heading in a recipe's ingredient list (e.g. "Sauce").
+///
+/// The AnyList protocol gives every heading a stable identifier; it is
+/// preserved when a recipe is fetched and reused on save, so editing a
+/// recipe does not rewrite its heading identifiers. `new` generates an
+/// identifier for a genuinely new section.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecipeIngredientSection {
+    identifier: String,
+    name: String,
+}
+
+impl RecipeIngredientSection {
+    /// Create a new section heading with a freshly generated identifier.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            identifier: generate_id(),
+            name: name.into(),
+        }
+    }
+
+    /// Create a section heading with a known identifier (e.g. one the
+    /// server assigned).
+    pub fn with_identifier(identifier: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            identifier: identifier.into(),
+            name: name.into(),
+        }
+    }
+
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn to_pb(&self) -> PbIngredient {
+        PbIngredient {
+            raw_ingredient: None,
+            name: Some(self.name.clone()),
+            quantity: None,
+            note: None,
+            identifier: Some(self.identifier.clone()),
+            is_heading: Some(true),
+        }
+    }
+}
+
 /// A single entry in a recipe's ingredient list: either a section heading
 /// or an ingredient. Lets a recipe group its ingredients under headings
 /// (e.g. "Sauce", "Topping") the way the AnyList apps display them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecipeIngredientEntry {
-    Section(String),
+    Section(RecipeIngredientSection),
     Ingredient(Ingredient),
 }
 
 impl RecipeIngredientEntry {
+    /// Create a new section heading entry with a freshly generated
+    /// identifier.
     pub fn section(name: impl Into<String>) -> Self {
-        Self::Section(name.into())
+        Self::Section(RecipeIngredientSection::new(name))
     }
 
     pub fn ingredient(ingredient: Ingredient) -> Self {
         Self::Ingredient(ingredient)
+    }
+
+    fn to_pb(&self) -> PbIngredient {
+        match self {
+            Self::Section(section) => section.to_pb(),
+            Self::Ingredient(ingredient) => ingredient.to_pb(),
+        }
     }
 }
 
@@ -364,9 +423,13 @@ impl RecipeBuilder {
     }
 
     /// Add a section heading to the ingredient list.
+    ///
+    /// The heading gets a freshly generated identifier; to reuse a known
+    /// identifier, push a [`RecipeIngredientSection::with_identifier`] entry
+    /// via [`ingredient_entries`](Self::ingredient_entries).
     pub fn add_ingredient_section(mut self, section: impl Into<String>) -> Self {
         self.ingredient_entries
-            .push(RecipeIngredientEntry::Section(section.into()));
+            .push(RecipeIngredientEntry::section(section));
         self
     }
 
@@ -461,20 +524,8 @@ impl RecipeBuilder {
             } else {
                 &self.ingredient_entries
             };
-        let pb_ingredients: Vec<PbIngredient> = entries
-            .iter()
-            .map(|entry| match entry {
-                RecipeIngredientEntry::Section(section) => PbIngredient {
-                    raw_ingredient: None,
-                    name: Some(section.clone()),
-                    quantity: None,
-                    note: None,
-                    identifier: Some(generate_id()),
-                    is_heading: Some(true),
-                },
-                RecipeIngredientEntry::Ingredient(i) => i.to_pb(),
-            })
-            .collect();
+        let pb_ingredients: Vec<PbIngredient> =
+            entries.iter().map(RecipeIngredientEntry::to_pb).collect();
 
         let photo_ids = self.photo_id.clone().into_iter().collect();
 
@@ -994,7 +1045,8 @@ impl AnyListClient {
             .text("filename", server_filename)
             .part("photo", photo_part);
 
-        self.post_multipart_form("/data/photos/upload", form).await?;
+        self.post_multipart_form("/data/photos/upload", form)
+            .await?;
 
         Ok(photo_id)
     }
@@ -1039,7 +1091,15 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
             for i in &recipe.ingredients {
                 if i.is_heading == Some(true) {
                     if let Some(name) = &i.name {
-                        ingredient_entries.push(RecipeIngredientEntry::Section(name.clone()));
+                        // Preserve the server-assigned identifier so saving
+                        // the recipe again keeps headings stable.
+                        let section = match &i.identifier {
+                            Some(id) => {
+                                RecipeIngredientSection::with_identifier(id.clone(), name.clone())
+                            }
+                            None => RecipeIngredientSection::new(name.clone()),
+                        };
+                        ingredient_entries.push(RecipeIngredientEntry::Section(section));
                     }
                 } else if let Some(name) = &i.name {
                     let ingredient = Ingredient {
@@ -1250,5 +1310,181 @@ mod tests {
         assert_eq!(operation.recipe, None);
         assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
         assert_eq!(operation.is_new_recipe_from_web_import, None);
+    }
+
+    fn heading_pb(identifier: Option<&str>, name: &str) -> PbIngredient {
+        PbIngredient {
+            name: Some(name.to_string()),
+            identifier: identifier.map(str::to_string),
+            is_heading: Some(true),
+            ..Default::default()
+        }
+    }
+
+    fn ingredient_pb(name: &str) -> PbIngredient {
+        PbIngredient {
+            name: Some(name.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn response_with_ingredients(ingredients: Vec<PbIngredient>) -> PbRecipeDataResponse {
+        PbRecipeDataResponse {
+            recipes: vec![PbRecipe {
+                identifier: "recipe-1".to_string(),
+                name: Some("Pasta".to_string()),
+                ingredients,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn decode_preserves_heading_identifier_and_order() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+            heading_pb(Some("sec-2"), "Topping"),
+            ingredient_pb("Basil"),
+        ]);
+
+        let recipes = recipes_from_response(response);
+        assert_eq!(recipes.len(), 1);
+        let recipe = &recipes[0];
+
+        // Flat list excludes headings.
+        let names: Vec<&str> = recipe.ingredients().iter().map(Ingredient::name).collect();
+        assert_eq!(names, ["Tomato", "Basil"]);
+
+        // Entries keep display order and server identifiers.
+        let entries = recipe.ingredient_entries();
+        assert_eq!(entries.len(), 4);
+        match &entries[0] {
+            RecipeIngredientEntry::Section(section) => {
+                assert_eq!(section.identifier(), "sec-1");
+                assert_eq!(section.name(), "Sauce");
+            }
+            other => panic!("expected section, got {:?}", other),
+        }
+        match &entries[2] {
+            RecipeIngredientEntry::Section(section) => {
+                assert_eq!(section.identifier(), "sec-2");
+                assert_eq!(section.name(), "Topping");
+            }
+            other => panic!("expected section, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn decode_generates_identifier_when_server_omits_it() {
+        let response = response_with_ingredients(vec![heading_pb(None, "Sauce")]);
+        let recipes = recipes_from_response(response);
+        match &recipes[0].ingredient_entries()[0] {
+            RecipeIngredientEntry::Section(section) => {
+                assert!(!section.identifier().is_empty());
+            }
+            other => panic!("expected section, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn save_round_trip_keeps_heading_identifiers_stable() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        let builder = RecipeBuilder::from(&recipe);
+        let first = builder.to_pb_recipe("recipe-1", 0.0);
+        let second = builder.to_pb_recipe("recipe-1", 0.0);
+
+        assert_eq!(first.ingredients[0].identifier.as_deref(), Some("sec-1"));
+        assert_eq!(first.ingredients[0].is_heading, Some(true));
+        assert_eq!(first.ingredients[0].name.as_deref(), Some("Sauce"));
+        // Encoding is deterministic: no fresh identifiers per save.
+        assert_eq!(first.ingredients, second.ingredients);
+    }
+
+    #[test]
+    fn new_section_gets_one_identifier_stable_across_encodes() {
+        let builder = RecipeBuilder::new("Pasta")
+            .add_ingredient_section("Sauce")
+            .add_ingredient(Ingredient::new("Tomato"));
+
+        let first = builder.to_pb_recipe("recipe-1", 0.0);
+        let second = builder.to_pb_recipe("recipe-1", 0.0);
+
+        let heading = &first.ingredients[0];
+        assert_eq!(heading.is_heading, Some(true));
+        assert!(heading
+            .identifier
+            .as_deref()
+            .is_some_and(|id| !id.is_empty()));
+        assert_eq!(first.ingredients, second.ingredients);
+
+        // The plain ingredient is not marked as a heading.
+        assert_eq!(first.ingredients[1].is_heading, None);
+        assert_eq!(first.ingredients[1].name.as_deref(), Some("Tomato"));
+    }
+
+    #[test]
+    fn ingredients_setter_replaces_sections() {
+        let builder = RecipeBuilder::new("Pasta")
+            .add_ingredient_section("Sauce")
+            .ingredients(vec![Ingredient::new("Tomato")]);
+
+        assert_eq!(builder.ingredient_entries.len(), 1);
+        assert!(matches!(
+            builder.ingredient_entries[0],
+            RecipeIngredientEntry::Ingredient(_)
+        ));
+    }
+
+    #[test]
+    fn ingredient_entries_setter_syncs_flat_list() {
+        let builder = RecipeBuilder::new("Pasta").ingredient_entries(vec![
+            RecipeIngredientEntry::section("Sauce"),
+            RecipeIngredientEntry::ingredient(Ingredient::new("Tomato")),
+            RecipeIngredientEntry::section("Topping"),
+            RecipeIngredientEntry::ingredient(Ingredient::new("Basil")),
+        ]);
+
+        let names: Vec<&str> = builder.ingredients.iter().map(Ingredient::name).collect();
+        assert_eq!(names, ["Tomato", "Basil"]);
+        assert_eq!(builder.ingredient_entries.len(), 4);
+    }
+
+    #[test]
+    fn builder_from_rebuilds_entries_for_pre_entries_recipes() {
+        // A Recipe deserialized from JSON written before ingredient_entries
+        // existed has an empty entry list.
+        let old_json = r#"{
+            "id": "r1",
+            "name": "Bread",
+            "ingredients": [
+                {"name": "Flour", "quantity": null, "note": null, "raw_ingredient": null}
+            ],
+            "preparation_steps": [],
+            "note": null,
+            "source_name": null,
+            "source_url": null,
+            "servings": null,
+            "prep_time": null,
+            "cook_time": null,
+            "rating": null,
+            "nutritional_info": null,
+            "photo_id": null,
+            "photo_urls": []
+        }"#;
+        let recipe: Recipe = serde_json::from_str(old_json).unwrap();
+        assert!(recipe.ingredient_entries().is_empty());
+
+        // Entry-level edits must not lose the flat ingredients.
+        let builder = RecipeBuilder::from(&recipe).add_ingredient_section("Toppings");
+        let pb = builder.to_pb_recipe("r1", 0.0);
+        let names: Vec<Option<&str>> = pb.ingredients.iter().map(|i| i.name.as_deref()).collect();
+        assert_eq!(names, [Some("Flour"), Some("Toppings")]);
     }
 }
