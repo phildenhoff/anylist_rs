@@ -389,7 +389,8 @@ impl RecipeBuilder {
         self
     }
 
-    /// Set all ingredients at once (replaces any existing)
+    /// Set all ingredients at once (replaces any existing ingredients and
+    /// removes any section headings)
     pub fn ingredients(mut self, ingredients: Vec<Ingredient>) -> Self {
         self.ingredient_entries = ingredients
             .iter()
@@ -720,6 +721,10 @@ impl AnyListClient {
 
     /// Create a new recipe
     ///
+    /// The recipe gets a flat ingredient list; to group ingredients under
+    /// section headings, use [`RecipeBuilder::add_ingredient_section`] or
+    /// [`RecipeBuilder::ingredient_entries`] instead.
+    ///
     /// # Arguments
     ///
     /// * `name` - The name of the recipe
@@ -753,85 +758,27 @@ impl AnyListClient {
         ingredients: Vec<Ingredient>,
         preparation_steps: Vec<String>,
     ) -> Result<Recipe> {
-        let recipe_id = generate_id();
-        let operation_id = generate_id();
-
-        let pb_ingredients: Vec<PbIngredient> = ingredients.iter().map(Ingredient::to_pb).collect();
-
-        let new_recipe = PbRecipe {
-            identifier: recipe_id.clone(),
-            timestamp: Some(current_timestamp()),
-            name: Some(name.to_string()),
-            icon: None,
-            note: None,
-            source_name: None,
-            source_url: None,
-            ingredients: pb_ingredients,
-            preparation_steps: preparation_steps.clone(),
-            photo_ids: vec![],
-            ad_campaign_id: None,
-            photo_urls: vec![],
-            scale_factor: Some(1.0),
-            rating: None,
-            creation_timestamp: Some(current_timestamp()),
-            nutritional_info: None,
-            cook_time: None,
-            prep_time: None,
-            servings: None,
-            paprika_identifier: None,
-        };
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("save-recipe".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: Some(new_recipe),
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let buf = encode_operation_list(&operation_list)?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-
-        let ingredient_entries = ingredients
-            .iter()
-            .cloned()
-            .map(RecipeIngredientEntry::Ingredient)
-            .collect();
-
-        Ok(Recipe {
-            id: recipe_id,
-            name: name.to_string(),
-            ingredients,
-            ingredient_entries,
-            preparation_steps,
-            note: None,
-            source_name: None,
-            source_url: None,
-            servings: None,
-            prep_time: None,
-            cook_time: None,
-            rating: None,
-            nutritional_info: None,
-            photo_id: None,
-            photo_urls: vec![],
-        })
+        RecipeBuilder::new(name)
+            .ingredients(ingredients)
+            .preparation_steps(preparation_steps)
+            .save(self)
+            .await
     }
 
-    /// Update an existing recipe
+    /// Update an existing recipe's name, ingredients, and preparation steps
+    ///
+    /// The recipe is fetched first, so its other fields (note, source,
+    /// rating, photo, servings, times) are preserved. Section headings in
+    /// the ingredient list are preserved — with stable identifiers — as long
+    /// as `ingredients` matches the recipe's current flat ingredient list
+    /// (the common case of editing only the name or steps). If `ingredients`
+    /// differs, it replaces the whole ingredient list and any section
+    /// headings are removed; use [`RecipeBuilder::from`] with
+    /// [`RecipeBuilder::ingredient_entries`] to edit ingredients while
+    /// keeping headings.
+    ///
+    /// Returns [`AnyListError::NotFound`] if no recipe with `recipe_id`
+    /// exists.
     ///
     /// # Arguments
     ///
@@ -846,57 +793,15 @@ impl AnyListClient {
         ingredients: Vec<Ingredient>,
         preparation_steps: Vec<String>,
     ) -> Result<()> {
-        let operation_id = generate_id();
+        let existing = self.get_recipe_by_id(recipe_id).await?;
+        let entries = entries_for_ingredient_update(&existing, ingredients);
 
-        let pb_ingredients: Vec<PbIngredient> = ingredients.iter().map(Ingredient::to_pb).collect();
-
-        let updated_recipe = PbRecipe {
-            identifier: recipe_id.to_string(),
-            timestamp: Some(current_timestamp()),
-            name: Some(name.to_string()),
-            icon: None,
-            note: None,
-            source_name: None,
-            source_url: None,
-            ingredients: pb_ingredients,
-            preparation_steps,
-            photo_ids: vec![],
-            ad_campaign_id: None,
-            photo_urls: vec![],
-            scale_factor: Some(1.0),
-            rating: None,
-            creation_timestamp: Some(current_timestamp()),
-            nutritional_info: None,
-            cook_time: None,
-            prep_time: None,
-            servings: None,
-            paprika_identifier: None,
-        };
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("save-recipe".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: Some(updated_recipe),
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let buf = encode_operation_list(&operation_list)?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
+        RecipeBuilder::from(&existing)
+            .name(name)
+            .ingredient_entries(entries)
+            .preparation_steps(preparation_steps)
+            .save(self)
+            .await?;
         Ok(())
     }
 
@@ -1079,6 +984,24 @@ impl AnyListClient {
     pub async fn download_photo(&self, photo_id: &str) -> Result<Vec<u8>> {
         let url = format!("https://photos.anylist.com/{photo_id}.jpg");
         self.get_bytes(&url).await
+    }
+}
+
+/// Entry list for a legacy ingredient update: keep the existing entry
+/// structure (section headings, stable identifiers) when the new flat
+/// ingredient list is unchanged; otherwise the new ingredients replace the
+/// whole list, without headings.
+fn entries_for_ingredient_update(
+    existing: &Recipe,
+    ingredients: Vec<Ingredient>,
+) -> Vec<RecipeIngredientEntry> {
+    if existing.ingredients() == ingredients && !existing.ingredient_entries().is_empty() {
+        existing.ingredient_entries().to_vec()
+    } else {
+        ingredients
+            .into_iter()
+            .map(RecipeIngredientEntry::Ingredient)
+            .collect()
     }
 }
 
@@ -1454,6 +1377,37 @@ mod tests {
         let names: Vec<&str> = builder.ingredients.iter().map(Ingredient::name).collect();
         assert_eq!(names, ["Tomato", "Basil"]);
         assert_eq!(builder.ingredient_entries.len(), 4);
+    }
+
+    #[test]
+    fn ingredient_update_with_unchanged_list_keeps_headings() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+            ingredient_pb("Basil"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        // Same flat list (e.g. the caller only renamed the recipe).
+        let entries = entries_for_ingredient_update(&recipe, recipe.ingredients().to_vec());
+        assert_eq!(entries, recipe.ingredient_entries());
+        match &entries[0] {
+            RecipeIngredientEntry::Section(section) => assert_eq!(section.identifier(), "sec-1"),
+            other => panic!("expected section, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn ingredient_update_with_changed_list_replaces_entries() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        let entries = entries_for_ingredient_update(&recipe, vec![Ingredient::new("Garlic")]);
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(entries[0], RecipeIngredientEntry::Ingredient(_)));
     }
 
     #[test]
