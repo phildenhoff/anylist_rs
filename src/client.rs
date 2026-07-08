@@ -564,4 +564,24 @@ impl AnyListClient {
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
     }
+
+    /// Make an unauthenticated GET request to an absolute URL and return the body bytes.
+    ///
+    /// Used for public CDN fetches (e.g. recipe photos on photos.anylist.com),
+    /// which don't require auth headers but should share this client's
+    /// connection pool.
+    pub(crate) async fn get_bytes(&self, url: &str) -> Result<Vec<u8>> {
+        let response = self.client.get(url).send().await?;
+
+        if !response.status().is_success() {
+            return Err(AnyListError::NetworkError(format!(
+                "GET {} failed with status: {}",
+                url,
+                response.status()
+            )));
+        }
+
+        let bytes = response.bytes().await?;
+        Ok(bytes.to_vec())
+    }
 }
