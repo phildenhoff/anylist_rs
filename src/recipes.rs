@@ -121,6 +121,7 @@ pub struct Recipe {
     id: String,
     name: String,
     ingredients: Vec<Ingredient>,
+    #[serde(default)]
     ingredient_entries: Vec<RecipeIngredientEntry>,
     preparation_steps: Vec<String>,
     note: Option<String>,
@@ -148,6 +149,12 @@ impl Recipe {
         &self.ingredients
     }
 
+    /// The full ingredient list in display order, including section headings.
+    ///
+    /// A `Recipe` deserialized from JSON written before this field existed
+    /// has an empty entry list even when [`ingredients`](Self::ingredients)
+    /// is populated; `RecipeBuilder::from` rebuilds the entries from the flat
+    /// list in that case.
     pub fn ingredient_entries(&self) -> &[RecipeIngredientEntry] {
         &self.ingredient_entries
     }
@@ -285,11 +292,25 @@ impl RecipeBuilder {
 
     /// Create a builder from an existing recipe for updates
     pub fn from(recipe: &Recipe) -> Self {
+        // Recipes deserialized from JSON written before ingredient_entries
+        // existed have an empty entry list; rebuild it from the flat list so
+        // later entry edits (e.g. add_ingredient_section) don't lose them.
+        let ingredient_entries =
+            if recipe.ingredient_entries.is_empty() && !recipe.ingredients.is_empty() {
+                recipe
+                    .ingredients
+                    .iter()
+                    .cloned()
+                    .map(RecipeIngredientEntry::Ingredient)
+                    .collect()
+            } else {
+                recipe.ingredient_entries.clone()
+            };
         Self {
             id: Some(recipe.id.clone()),
             name: recipe.name.clone(),
             ingredients: recipe.ingredients.clone(),
-            ingredient_entries: recipe.ingredient_entries.clone(),
+            ingredient_entries,
             preparation_steps: recipe.preparation_steps.clone(),
             note: recipe.note.clone(),
             source_name: recipe.source_name.clone(),
