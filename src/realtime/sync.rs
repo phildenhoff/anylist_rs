@@ -630,3 +630,97 @@ impl Drop for RealtimeSync {
         let _ = self.shutdown_tx.send(());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Reproductions for issue #24, run against a local WebSocket server.
+    use super::*;
+    use crate::client::SavedTokens;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::tungstenite::protocol::{frame::coding::CloseCode, CloseFrame};
+
+    /// Build a `RealtimeSync` wired to a local server instead of anylist.com.
+    async fn sync_against(addr: std::net::SocketAddr) -> RealtimeSync {
+        let tokens = SavedTokens::new("access", "refresh", "user", false);
+        let client = Arc::new(AnyListClient::from_tokens(tokens).unwrap());
+        let mut sync = RealtimeSync::new(client, |_| {});
+        let (ws, _) = connect_async(format!("ws://{}", addr)).await.unwrap();
+        *sync.ws_stream.lock().await = Some(ws);
+        *sync.state.lock().await = ConnectionState::Connected;
+        sync.start_background_tasks().await;
+        sync
+    }
+
+    /// The client should send `--heartbeat--` every 5s even when the server
+    /// is quiet. With the receiver holding the stream lock across `next()`,
+    /// none are sent.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn heartbeats_are_sent_while_server_is_silent() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let received = Arc::new(AtomicUsize::new(0));
+        let received_srv = Arc::clone(&received);
+        tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+            while let Some(Ok(msg)) = ws.next().await {
+                if msg == Message::Text("--heartbeat--".into()) {
+                    received_srv.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+        });
+
+        let _sync = sync_against(addr).await;
+        tokio::time::sleep(Duration::from_secs(11)).await;
+
+        let n = received.load(Ordering::SeqCst);
+        assert!(
+            n >= 2,
+            "expected at least 2 heartbeats in 11s, server got {n}"
+        );
+    }
+
+    /// A server that stops answering heartbeats (half-open connection) should
+    /// be detected after 3 missed heartbeats (~15s) and move to Reconnecting.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn silent_server_is_detected_as_dead() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+            // Read and discard everything, never reply.
+            while let Some(Ok(_)) = ws.next().await {}
+        });
+
+        let sync = sync_against(addr).await;
+        tokio::time::sleep(Duration::from_secs(17)).await;
+
+        assert_eq!(sync.state().await, ConnectionState::Reconnecting);
+    }
+
+    /// A server-initiated normal close (1000) should be recovered from, since
+    /// the client never asked to disconnect.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn server_normal_close_triggers_reconnect() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+            ws.close(Some(CloseFrame {
+                code: CloseCode::Normal,
+                reason: "".into(),
+            }))
+            .await
+            .unwrap();
+            while let Some(Ok(_)) = ws.next().await {}
+        });
+
+        let sync = sync_against(addr).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        assert_eq!(sync.state().await, ConnectionState::Reconnecting);
+    }
+}
