@@ -1,7 +1,13 @@
 //! Configuration for [`RealtimeSync`](crate::realtime::RealtimeSync).
 
 use crate::error::{AnyListError, Result};
+use std::fmt;
+use std::future::Future;
+use std::io;
+use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 /// Tunable settings for a [`RealtimeSync`](crate::realtime::RealtimeSync)
 /// connection.
@@ -40,6 +46,35 @@ pub struct RealtimeConfig {
     pub close_timeout: Duration,
     /// Bound on each heartbeat or ping write. Default 5 s.
     pub send_timeout: Duration,
+    /// Transport override; see [`RealtimeConfig::with_transport`]. Private,
+    /// so it is not part of the stable API.
+    pub(crate) transport: Option<Transport>,
+}
+
+/// A byte stream a WebSocket can run over. Implemented for every
+/// `AsyncRead + AsyncWrite + Unpin + Send` type.
+///
+/// Test seam only, not part of the stable API: see
+/// [`RealtimeConfig::with_transport`].
+#[doc(hidden)]
+pub trait RealtimeStream: AsyncRead + AsyncWrite + Unpin + Send {}
+
+impl<T: AsyncRead + AsyncWrite + Unpin + Send> RealtimeStream for T {}
+
+/// What a transport returns for one connection attempt.
+#[doc(hidden)]
+pub type TransportFuture =
+    Pin<Box<dyn Future<Output = io::Result<Box<dyn RealtimeStream>>> + Send>>;
+
+/// An injected connector: called with the full listener URL for each
+/// connection attempt.
+#[derive(Clone)]
+pub(crate) struct Transport(pub(crate) Arc<dyn Fn(&str) -> TransportFuture + Send + Sync>);
+
+impl fmt::Debug for Transport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Transport(..)")
+    }
 }
 
 impl Default for RealtimeConfig {
@@ -53,6 +88,7 @@ impl Default for RealtimeConfig {
             connect_timeout: Duration::from_secs(10),
             close_timeout: Duration::from_secs(5),
             send_timeout: Duration::from_secs(5),
+            transport: None,
         }
     }
 }
@@ -98,6 +134,29 @@ impl RealtimeConfig {
     /// Set the per-write send timeout.
     pub fn with_send_timeout(mut self, d: Duration) -> Self {
         self.send_timeout = d;
+        self
+    }
+
+    /// Test seam, not part of the stable API: open each connection's byte
+    /// stream with `connect` instead of TCP (and TLS for `wss://`).
+    ///
+    /// `connect` is called with the full listener URL once per connection
+    /// attempt, inside `connect_timeout`. The WebSocket handshake then runs
+    /// over the returned stream exactly as it would over TCP (the URL's
+    /// path and query are sent in the upgrade request), so everything after
+    /// the byte stream is the production code path. No TLS is added: the
+    /// stream is used as is.
+    ///
+    /// This exists so that the crate's own tests can run the connection
+    /// over in-memory pipes (`tokio::io::duplex`) on tokio's paused clock,
+    /// which real sockets do not allow. It may change or disappear in any
+    /// release.
+    #[doc(hidden)]
+    pub fn with_transport<F>(mut self, connect: F) -> Self
+    where
+        F: Fn(&str) -> TransportFuture + Send + Sync + 'static,
+    {
+        self.transport = Some(Transport(Arc::new(connect)));
         self
     }
 

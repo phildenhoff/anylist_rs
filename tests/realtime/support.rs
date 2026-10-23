@@ -1,5 +1,8 @@
-//! Shared helpers: test configuration, a harness around `RealtimeSync`, an
-//! event recorder and polling helpers.
+//! Shared helpers: test configurations, a harness around `RealtimeSync`, an
+//! event recorder, state pollers and the test guard.
+//!
+//! All times are `tokio::time::Instant`, so they follow the paused clock in
+//! virtual-time tests and the real clock otherwise.
 
 #![allow(dead_code)]
 
@@ -11,63 +14,119 @@ use anylist_rs::{
 use futures_util::FutureExt;
 use std::future::Future;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
+use tokio::time::Instant;
 
-pub const HB: Duration = Duration::from_millis(50);
-pub const LIVENESS: Duration = Duration::from_millis(150);
-pub const INITIAL: Duration = Duration::from_millis(100);
-pub const MAX: Duration = Duration::from_millis(400);
-pub const CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
-pub const CLOSE_TIMEOUT: Duration = Duration::from_millis(500);
-pub const SEND_TIMEOUT: Duration = Duration::from_millis(500);
+// Production defaults (`RealtimeConfig::default()`), used by every
+// virtual-time test. `config()` checks they still match.
+pub const HB: Duration = Duration::from_secs(5);
+pub const LIVENESS: Duration = Duration::from_secs(15);
+pub const INITIAL: Duration = Duration::from_secs(2);
+pub const MAX: Duration = Duration::from_secs(120);
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+pub const CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
+pub const SEND_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Resolution of the state pollers in virtual-time tests.
+pub const TICK: Duration = Duration::from_millis(1);
+
+// Real-time tests (the ones that need the HTTP refresh endpoint, a real
+// blocking callback or real TCP). Sized so that no assertion depends on
+// scheduling latency.
+pub mod real {
+    use std::time::Duration;
+    pub const HB: Duration = Duration::from_millis(500);
+    pub const LIVENESS: Duration = Duration::from_secs(5);
+    pub const INITIAL: Duration = Duration::from_millis(500);
+    pub const MAX: Duration = Duration::from_secs(4);
+    pub const TIMEOUT: Duration = Duration::from_secs(3);
+}
+
+pub const ZERO: Duration = Duration::ZERO;
 
 pub const fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
 }
-
-/// Run a test body under a hard 10 s cap, so a hang is a failure.
-pub async fn guard<F: Future<Output = ()>>(body: F) {
-    tokio::time::timeout(Duration::from_secs(10), body)
-        .await
-        .expect("test body did not finish within 10 s");
+pub const fn secs(n: u64) -> Duration {
+    Duration::from_secs(n)
 }
 
-/// Run independent sub-scenarios concurrently, each in its own task.
-///
-/// Building an `AnyListClient` (a `reqwest::Client`) is synchronous and
-/// CPU-heavy in debug builds; if several runs shared one task with
-/// `join!`, one run's client construction would stall another run's
-/// in-flight handshake.
-pub async fn concurrently<F>(runs: Vec<F>)
-where
-    F: Future<Output = ()> + Send + 'static,
-{
-    let handles: Vec<_> = runs.into_iter().map(tokio::spawn).collect();
-    for h in handles {
-        if let Err(e) = h.await {
-            if e.is_panic() {
-                std::panic::resume_unwind(e.into_panic());
-            }
-            panic!("sub-scenario failed: {e}");
+/// Kill the whole test binary if a test is still running after this much
+/// real time. A thread that blocks (rather than awaits) would otherwise
+/// hang the run: a tokio timeout cannot fire on a blocked thread.
+const WATCHDOG: Duration = Duration::from_secs(60);
+
+fn watchdog() -> std::sync::mpsc::Sender<()> {
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    let name = std::thread::current()
+        .name()
+        .unwrap_or("<unnamed>")
+        .to_string();
+    std::thread::spawn(move || {
+        if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = rx.recv_timeout(WATCHDOG) {
+            eprintln!("{name}: still running after {WATCHDOG:?} of real time, aborting");
+            std::process::abort();
         }
-    }
+    });
+    tx
 }
 
-/// The test configuration from section 3.4 of the behaviour spec.
-pub fn config_for_url(ws_url: &str) -> RealtimeConfig {
-    RealtimeConfig::default()
-        .with_websocket_url(ws_url)
-        .with_heartbeat_interval(HB)
-        .with_liveness_timeout(LIVENESS)
-        .with_reconnect_delays(INITIAL, MAX)
-        .with_connect_timeout(CONNECT_TIMEOUT)
-        .with_close_timeout(CLOSE_TIMEOUT)
-        .with_send_timeout(SEND_TIMEOUT)
+/// Run a virtual-time test body. A logical hang shows up at once (the
+/// paused clock jumps to the cap) and fails the test; a blocked thread is
+/// caught by the real-time watchdog.
+pub async fn guard<F: Future<Output = ()>>(body: F) {
+    let _dog = watchdog();
+    tokio::time::timeout(Duration::from_secs(4 * 3600), body)
+        .await
+        .expect("test body did not finish within 4 h of virtual time");
 }
 
+/// Run a real-time test body under a 30 s cap.
+pub async fn guard_real<F: Future<Output = ()>>(body: F) {
+    let _dog = watchdog();
+    tokio::time::timeout(Duration::from_secs(30), body)
+        .await
+        .expect("test body did not finish within 30 s");
+}
+
+/// Let everything runnable at the current instant run to completion. In a
+/// virtual-time test the paused clock only moves once every task is idle,
+/// so after this returns, everything triggered "now" has happened (the
+/// clock moves on by 1 ms).
+pub async fn settle() {
+    tokio::time::sleep(TICK).await;
+}
+
+/// Sleep until `t`.
+pub async fn until(t: Instant) {
+    tokio::time::sleep_until(t).await;
+}
+
+/// The production configuration, connected to the in-memory fake.
 pub fn config(server: &FakeServer) -> RealtimeConfig {
-    config_for_url(&server.ws_url())
+    let c = RealtimeConfig::default();
+    assert_eq!(c.heartbeat_interval, HB);
+    assert_eq!(c.liveness_timeout, LIVENESS);
+    assert_eq!(c.reconnect_initial_delay, INITIAL);
+    assert_eq!(c.reconnect_max_delay, MAX);
+    assert_eq!(c.connect_timeout, CONNECT_TIMEOUT);
+    assert_eq!(c.close_timeout, CLOSE_TIMEOUT);
+    assert_eq!(c.send_timeout, SEND_TIMEOUT);
+    c.with_transport(server.transport())
+}
+
+/// The real-time configuration (see [`real`]), connected to the in-memory
+/// fake.
+pub fn real_config(server: &FakeServer) -> RealtimeConfig {
+    RealtimeConfig::default()
+        .with_heartbeat_interval(real::HB)
+        .with_liveness_timeout(real::LIVENESS)
+        .with_reconnect_delays(real::INITIAL, real::MAX)
+        .with_connect_timeout(real::TIMEOUT)
+        .with_close_timeout(real::TIMEOUT)
+        .with_send_timeout(real::TIMEOUT)
+        .with_transport(server.transport())
 }
 
 /// A client with tokens ("access-1", "refresh-1") whose HTTP base URL points
@@ -95,6 +154,41 @@ pub fn client_with_auth_log(http_base: &str) -> (Arc<AnyListClient>, Arc<Mutex<V
 pub async fn free_port() -> u16 {
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     l.local_addr().unwrap().port()
+}
+
+/// Give real I/O that is still in flight a moment of real time to land.
+///
+/// Only the refresh endpoint is real I/O (reqwest over TCP). A client that
+/// wrongly starts a refresh in a virtual-time test can be overtaken by the
+/// paused clock, which keeps jumping ahead while the kernel delivers bytes.
+/// Before asserting that something did *not* happen, the clock is resumed
+/// for 50 ms of real time so that such a refresh, and whatever the client
+/// does after it, shows up. This can only make a check stricter: a correct
+/// client has nothing in flight.
+///
+/// Afterwards the clock is moved on to the next whole millisecond, so that
+/// instants stay on the timer wheel's 1 ms grid and later timings remain
+/// exact.
+pub async fn drain_real_io() {
+    let before = Instant::now();
+    tokio::time::resume();
+    tokio::time::sleep(ms(50)).await;
+    tokio::time::pause();
+    let gone = Instant::now() - before;
+    let whole = Duration::from_millis(gone.as_millis() as u64 + 1);
+    tokio::time::advance(whole - gone).await;
+}
+
+/// Assert that the client never tried to refresh its tokens (the refresh
+/// endpoint counts every TCP connection, even one that never sends a
+/// request).
+pub async fn assert_no_refresh(server: &FakeServer) {
+    drain_real_io().await;
+    assert_eq!(
+        server.refresh_connections(),
+        0,
+        "the client tried to refresh its tokens"
+    );
 }
 
 pub fn is_reconnected(e: &SyncEvent) -> bool {
@@ -172,8 +266,14 @@ impl Harness {
         }
     }
 
+    /// Production config over the in-memory fake (virtual-time tests).
     pub fn for_server(server: &FakeServer) -> Self {
         Self::new(client_at(&server.http_url()), config(server))
+    }
+
+    /// Real-time config over the in-memory fake.
+    pub fn real(server: &FakeServer) -> Self {
+        Self::new(client_at(&server.http_url()), real_config(server))
     }
 
     pub async fn connect(&self) -> Result<(), AnyListError> {
@@ -192,7 +292,8 @@ impl Harness {
         self.sync.read().await.is_connected().await
     }
 
-    /// Poll `state()` until it equals `want`; returns when it was first seen.
+    /// Poll `state()` every [`TICK`] until it equals `want`; returns when it
+    /// was first seen.
     pub async fn wait_state(&self, want: ConnectionState, within: Duration) -> Option<Instant> {
         let end = Instant::now() + within;
         loop {
@@ -202,7 +303,7 @@ impl Harness {
             if Instant::now() >= end {
                 return None;
             }
-            tokio::time::sleep(ms(5)).await;
+            tokio::time::sleep(TICK).await;
         }
     }
 
@@ -221,21 +322,17 @@ impl Harness {
         StatePoller { log, task }
     }
 
-    /// Drop the `RealtimeSync` (returns how long `drop` took).
-    pub async fn drop_sync(self) -> Duration {
+    /// Take the `RealtimeSync` out of the harness (waits until no poller or
+    /// callback holds a reference).
+    pub async fn into_sync(self) -> RealtimeSync {
         let Harness { sync, .. } = self;
         let mut sync = sync;
         loop {
             match Arc::try_unwrap(sync) {
-                Ok(lock) => {
-                    let inner = lock.into_inner();
-                    let t = Instant::now();
-                    drop(inner);
-                    return t.elapsed();
-                }
+                Ok(lock) => return lock.into_inner(),
                 Err(s) => {
                     sync = s;
-                    tokio::time::sleep(ms(1)).await;
+                    tokio::time::sleep(TICK).await;
                 }
             }
         }
@@ -281,7 +378,7 @@ impl StatePoller {
     }
 }
 
-/// Poll `f` every 5 ms until it returns true or `within` passes.
+/// Poll `f` every [`TICK`] until it returns true or `within` passes.
 pub async fn eventually<F, Fut>(within: Duration, mut f: F) -> bool
 where
     F: FnMut() -> Fut,
@@ -295,19 +392,14 @@ where
         if Instant::now() >= end {
             return false;
         }
-        tokio::time::sleep(ms(5)).await;
+        tokio::time::sleep(TICK).await;
     }
 }
 
-/// Assert `d` is within `pct` percent of `expected`.
+/// Assert `t` lies in `lo..=hi`.
 #[track_caller]
-pub fn assert_near(d: Duration, expected: Duration, pct: u32, what: &str) {
-    let lo = expected * (100 - pct) / 100;
-    let hi = expected * (100 + pct) / 100;
-    assert!(
-        d >= lo && d <= hi,
-        "{what}: {d:?} not within {pct}% of {expected:?} ({lo:?}..={hi:?})"
-    );
+pub fn assert_within(d: Duration, lo: Duration, hi: Duration, what: &str) {
+    assert!(d >= lo && d <= hi, "{what}: {d:?} not in {lo:?}..={hi:?}");
 }
 
 pub fn gaps(times: &[Instant]) -> Vec<Duration> {

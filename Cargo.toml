@@ -46,5 +46,7 @@ regex = "1.0"
 prost-build = "0.11.0"
 
 [dev-dependencies]
+# test-util: the paused clock (`start_paused`) for the realtime suite.
+tokio = { version = "1", features = ["full", "test-util"] }
 insta = "1.40"
 hex = "0.4"

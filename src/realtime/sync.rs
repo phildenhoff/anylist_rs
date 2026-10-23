@@ -14,7 +14,7 @@ use crate::realtime::config::RealtimeConfig;
 use crate::realtime::events::SyncEvent;
 use crate::realtime::reconnect::ReconnectionStrategy;
 use crate::realtime::SyncCallback;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
@@ -23,7 +23,7 @@ use tokio::time::{timeout, Instant, MissedTickBehavior};
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::{self, Message};
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{client_async, connect_async};
 
 /// Connection state for real-time sync
 ///
@@ -49,7 +49,26 @@ pub enum ConnectionState {
     Closed,
 }
 
-type WsStream = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
+/// An open WebSocket, whatever byte stream it runs over (TCP/TLS by
+/// default, or the stream from the `RealtimeConfig::with_transport` test
+/// seam).
+trait WsConn:
+    Stream<Item = std::result::Result<Message, tungstenite::Error>>
+    + Sink<Message, Error = tungstenite::Error>
+    + Send
+    + Unpin
+{
+}
+
+impl<T> WsConn for T where
+    T: Stream<Item = std::result::Result<Message, tungstenite::Error>>
+        + Sink<Message, Error = tungstenite::Error>
+        + Send
+        + Unpin
+{
+}
+
+type WsStream = Box<dyn WsConn>;
 type StateTx = Arc<watch::Sender<ConnectionState>>;
 
 const HEARTBEAT: &str = "--heartbeat--";
@@ -265,13 +284,32 @@ fn listener_url(client: &AnyListClient, config: &RealtimeConfig) -> Result<Strin
     ))
 }
 
+/// Open the byte stream and run the WebSocket handshake over it: TCP/TLS
+/// through `connect_async`, or the injected transport and `client_async`.
+async fn handshake(
+    url: &str,
+    config: &RealtimeConfig,
+) -> std::result::Result<WsStream, tungstenite::Error> {
+    match &config.transport {
+        None => {
+            let (ws, _) = connect_async(url).await?;
+            Ok(Box::new(ws))
+        }
+        Some(transport) => {
+            let stream = (transport.0)(url).await?;
+            let (ws, _) = client_async(url, stream).await?;
+            Ok(Box::new(ws))
+        }
+    }
+}
+
 /// One WebSocket handshake, bounded by `connect_timeout`.
 async fn open(
     client: &AnyListClient,
     config: &RealtimeConfig,
 ) -> std::result::Result<WsStream, ConnectError> {
     let url = listener_url(client, config).map_err(|e| ConnectError::Failed(e.to_string()))?;
-    match timeout(config.connect_timeout, connect_async(&url)).await {
+    match timeout(config.connect_timeout, handshake(&url, config)).await {
         Err(_) => Err(ConnectError::Failed(format!(
             "WebSocket handshake timed out after {:?}",
             config.connect_timeout
@@ -283,7 +321,7 @@ async fn open(
             "WebSocket connection failed: {}",
             e
         ))),
-        Ok(Ok((ws, _))) => Ok(ws),
+        Ok(Ok(ws)) => Ok(ws),
     }
 }
 
@@ -431,7 +469,8 @@ impl ActorContext {
                             Message::Close(frame) => {
                                 let code = frame.map(|f| u16::from(f.code));
                                 // Flush the close reply tungstenite queued.
-                                let _ = timeout(self.config.send_timeout, ws.close(None)).await;
+                                let reply = ws.send(Message::Close(None));
+                                let _ = timeout(self.config.send_timeout, reply).await;
                                 return SessionEnd::Lost {
                                     refresh: code == Some(4010),
                                 };
@@ -480,14 +519,18 @@ impl ActorContext {
     /// Best-effort close frame, then drop the socket without waiting for the
     /// peer.
     async fn abandon(&self, mut ws: WsStream) {
-        let _ = timeout(self.config.send_timeout, ws.close(normal_close())).await;
+        let _ = timeout(
+            self.config.send_timeout,
+            ws.send(Message::Close(normal_close())),
+        )
+        .await;
     }
 
     /// Close frame, then wait for the peer's reply or EOF, all within
     /// `close_timeout`. Frames that arrive meanwhile are not dispatched.
     async fn close_gracefully(&self, mut ws: WsStream) {
         let _ = timeout(self.config.close_timeout, async {
-            if ws.close(normal_close()).await.is_err() {
+            if ws.send(Message::Close(normal_close())).await.is_err() {
                 return;
             }
             while let Some(Ok(_)) = ws.next().await {}
