@@ -94,11 +94,13 @@
 //!
 //! All types in this module are thread-safe and can be used across async tasks.
 
+pub mod config;
 pub mod events;
 pub mod heartbeat;
 mod reconnect;
 pub mod sync;
 
+pub use config::RealtimeConfig;
 pub use events::SyncEvent;
 pub use sync::{ConnectionState, RealtimeSync};
 

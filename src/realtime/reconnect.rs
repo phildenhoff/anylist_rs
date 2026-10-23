@@ -14,11 +14,21 @@ pub struct ReconnectionStrategy {
 
 impl ReconnectionStrategy {
     /// Create a new reconnection strategy
+    #[cfg(test)]
     pub fn new() -> Self {
         Self {
             current_delay: Duration::from_secs(0),
             initial_delay: Duration::from_secs(2),
             max_delay: Duration::from_secs(120), // 2 minutes
+        }
+    }
+
+    /// Create a strategy with custom delays
+    pub fn with_delays(initial_delay: Duration, max_delay: Duration) -> Self {
+        Self {
+            current_delay: Duration::from_secs(0),
+            initial_delay,
+            max_delay,
         }
     }
 

@@ -30,6 +30,20 @@ impl HeartbeatManager {
         }
     }
 
+    /// Create a heartbeat manager with a custom interval and threshold
+    pub fn with_settings(interval: Duration, max_missed: u8) -> Self {
+        Self {
+            missed_count: Arc::new(Mutex::new(0)),
+            max_missed: max_missed.max(1),
+            interval,
+        }
+    }
+
+    /// Maximum allowed missed heartbeats before reconnect
+    pub fn max_missed(&self) -> u8 {
+        self.max_missed
+    }
+
     /// Reset the missed heartbeat counter (call when heartbeat received)
     pub async fn reset(&self) {
         let mut count = self.missed_count.lock().await;

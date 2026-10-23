@@ -1,5 +1,6 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
+use crate::realtime::config::RealtimeConfig;
 use crate::realtime::events::SyncEvent;
 use crate::realtime::heartbeat::HeartbeatManager;
 use crate::realtime::reconnect::ReconnectionStrategy;
@@ -48,6 +49,9 @@ pub struct RealtimeSync {
 
     /// Shutdown signal
     shutdown_tx: tokio::sync::broadcast::Sender<()>,
+
+    /// Connection settings
+    config: RealtimeConfig,
 }
 
 impl RealtimeSync {
@@ -55,6 +59,19 @@ impl RealtimeSync {
     ///
     /// Call `connect()` to establish the WebSocket connection.
     pub fn new<F>(client: Arc<AnyListClient>, callback: F) -> Self
+    where
+        F: Fn(SyncEvent) + Send + Sync + 'static,
+    {
+        Self::with_config(client, RealtimeConfig::default(), callback)
+    }
+
+    /// Create a new real-time sync instance with custom settings, without
+    /// connecting.
+    ///
+    /// An invalid configuration (zero heartbeat interval or liveness
+    /// timeout, or an initial reconnect delay above the maximum) makes
+    /// `connect()` return `Err(AnyListError::Other)`.
+    pub fn with_config<F>(client: Arc<AnyListClient>, config: RealtimeConfig, callback: F) -> Self
     where
         F: Fn(SyncEvent) + Send + Sync + 'static,
     {
@@ -67,6 +84,7 @@ impl RealtimeSync {
             ws_stream: Arc::new(Mutex::new(None)),
             tasks: Arc::new(Mutex::new(Vec::new())),
             shutdown_tx,
+            config,
         }
     }
 
@@ -75,6 +93,8 @@ impl RealtimeSync {
     /// Idempotent (returns `Ok()`), unless previously closed via
     /// `disconnect()`.
     pub async fn connect(&mut self) -> Result<()> {
+        self.config.validate()?;
+
         // Validate state transition
         {
             let mut state = self.state.lock().await;
@@ -132,7 +152,8 @@ impl RealtimeSync {
         let tokens = self.client.export_tokens()?;
 
         let url = format!(
-            "wss://www.anylist.com/data/add-user-listener?client_id={}&access_token={}",
+            "{}/data/add-user-listener?client_id={}&access_token={}",
+            self.config.resolve_websocket_base(self.client.base_url()),
             urlencoding::encode(self.client.client_identifier()),
             urlencoding::encode(&tokens.access_token)
         );
@@ -152,7 +173,7 @@ impl RealtimeSync {
     async fn start_background_tasks(&mut self) {
         let mut tasks = self.tasks.lock().await;
 
-        let heartbeat_mgr = Arc::new(HeartbeatManager::new());
+        let heartbeat_mgr = Arc::new(Self::heartbeat_manager(&self.config));
 
         let receiver_task = self.spawn_message_receiver(Arc::clone(&heartbeat_mgr));
         tasks.push(receiver_task);
@@ -162,6 +183,16 @@ impl RealtimeSync {
 
         let reconnect_task = self.spawn_reconnection_monitor();
         tasks.push(reconnect_task);
+    }
+
+    /// Heartbeat manager matching the configured interval and liveness timeout
+    fn heartbeat_manager(config: &RealtimeConfig) -> HeartbeatManager {
+        let interval = config.heartbeat_interval.as_nanos().max(1);
+        let max_missed = config.liveness_timeout.as_nanos().div_ceil(interval);
+        HeartbeatManager::with_settings(
+            config.heartbeat_interval,
+            max_missed.clamp(1, u8::MAX as u128) as u8,
+        )
     }
 
     /// Receive next message from WebSocket stream
@@ -287,7 +318,7 @@ impl RealtimeSync {
     ) -> bool {
         let missed = heartbeat_mgr.increment_missed().await;
 
-        if missed >= 3 {
+        if missed >= heartbeat_mgr.max_missed() {
             // Too many missed heartbeats, trigger reconnection
             let mut state_guard = state.lock().await;
             *state_guard = ConnectionState::Reconnecting;
@@ -367,9 +398,13 @@ impl RealtimeSync {
         let shutdown_tx = self.shutdown_tx.clone();
         let tasks = Arc::clone(&self.tasks);
         let mut shutdown_rx = self.shutdown_tx.subscribe();
+        let config = self.config.clone();
 
         tokio::spawn(async move {
-            let mut strategy = ReconnectionStrategy::new();
+            let mut strategy = ReconnectionStrategy::with_delays(
+                config.reconnect_initial_delay,
+                config.reconnect_max_delay,
+            );
 
             loop {
                 tokio::select! {
@@ -391,6 +426,7 @@ impl RealtimeSync {
                                 Arc::clone(&callback),
                                 shutdown_tx.clone(),
                                 Arc::clone(&tasks),
+                                &config,
                             ).await {
                                 Ok(_) => {
                                     strategy.reset();
@@ -422,6 +458,7 @@ impl RealtimeSync {
         callback: SyncCallback,
         shutdown_tx: tokio::sync::broadcast::Sender<()>,
         tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
+        config: &RealtimeConfig,
     ) -> Result<()> {
         // Try to refresh tokens first (in case token expired)
         match client.refresh_tokens().await {
@@ -434,7 +471,8 @@ impl RealtimeSync {
         // Build URL
         let tokens = client.export_tokens()?;
         let url = format!(
-            "wss://www.anylist.com/data/add-user-listener?client_id={}&access_token={}",
+            "{}/data/add-user-listener?client_id={}&access_token={}",
+            config.resolve_websocket_base(client.base_url()),
             urlencoding::encode(client.client_identifier()),
             urlencoding::encode(&tokens.access_token)
         );
@@ -457,7 +495,7 @@ impl RealtimeSync {
         }
 
         // Restart background tasks (heartbeat sender and message receiver)
-        let heartbeat_mgr = Arc::new(HeartbeatManager::new());
+        let heartbeat_mgr = Arc::new(Self::heartbeat_manager(config));
 
         // Spawn new message receiver
         let receiver_task = {
@@ -535,7 +573,7 @@ impl RealtimeSync {
                             }
 
                             let missed = heartbeat_mgr.increment_missed().await;
-                            if missed >= 3 {
+                            if missed >= heartbeat_mgr.max_missed() {
                                 let mut state_guard = state.lock().await;
                                 *state_guard = ConnectionState::Reconnecting;
                                 break;
