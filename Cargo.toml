@@ -1,6 +1,6 @@
 [package]
 name = "anylist_rs"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Phil Denhoff <phil@denhoff.ca>"]
 edition = "2021"
 description = "Interact with the grocery list management app AnyList's undocumented API. Unofficial."
@@ -46,5 +46,7 @@ regex = "1.0"
 prost-build = "0.11.0"
 
 [dev-dependencies]
+# test-util: the paused clock (`start_paused`) for the realtime suite.
+tokio = { version = "1", features = ["full", "test-util"] }
 insta = "1.40"
 hex = "0.4"

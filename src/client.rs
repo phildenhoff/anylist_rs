@@ -109,7 +109,12 @@ pub struct AnyListClient {
     client_identifier: String,
     /// HTTP client for making requests
     client: reqwest::Client,
+    /// Base URL for HTTP endpoints
+    base_url: String,
 }
+
+/// Default base URL for the AnyList HTTP API.
+pub(crate) const DEFAULT_BASE_URL: &str = "https://www.anylist.com";
 
 impl AnyListClient {
     /// Create a new AnyList client by logging in with email and password.
@@ -155,6 +160,7 @@ impl AnyListClient {
             auth_event_callback: None,
             client_identifier,
             client: reqwest::Client::new(),
+            base_url: DEFAULT_BASE_URL.to_string(),
         })
     }
 
@@ -195,6 +201,7 @@ impl AnyListClient {
             auth_event_callback: None,
             client_identifier: generate_id(),
             client: reqwest::Client::new(),
+            base_url: DEFAULT_BASE_URL.to_string(),
         })
     }
 
@@ -253,6 +260,33 @@ impl AnyListClient {
     {
         self.auth_event_callback = Some(Arc::new(callback));
         self
+    }
+
+    /// Set the base URL for HTTP endpoints (token refresh and data requests).
+    ///
+    /// Default `"https://www.anylist.com"`. The real-time WebSocket URL is
+    /// derived from it (`https://` becomes `wss://`, `http://` becomes
+    /// `ws://`) unless [`RealtimeConfig::websocket_url`] overrides it. Useful
+    /// for a local proxy when debugging the protocol, or for tests.
+    ///
+    /// [`RealtimeConfig::websocket_url`]: crate::RealtimeConfig::websocket_url
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use anylist_rs::{AnyListClient, SavedTokens};
+    /// let client = AnyListClient::from_tokens(SavedTokens::new("a", "r", "u", false))
+    ///     .unwrap()
+    ///     .with_base_url("http://127.0.0.1:8080");
+    /// ```
+    pub fn with_base_url(mut self, url: impl Into<String>) -> Self {
+        self.base_url = url.into().trim_end_matches('/').to_string();
+        self
+    }
+
+    /// The base URL for HTTP endpoints.
+    pub(crate) fn base_url(&self) -> &str {
+        &self.base_url
     }
 
     /// Disable automatic token refresh.
@@ -376,7 +410,7 @@ impl AnyListClient {
 
         let response = self
             .client
-            .post("https://www.anylist.com/auth/token/refresh")
+            .post(format!("{}/auth/token/refresh", self.base_url))
             .headers(headers)
             .multipart(form)
             .send()
@@ -459,7 +493,7 @@ impl AnyListClient {
         field_name: &str,
         body: Vec<u8>,
     ) -> Result<Vec<u8>> {
-        let url = format!("https://www.anylist.com{}", endpoint);
+        let url = format!("{}{}", self.base_url, endpoint);
         // Convert to owned String since we need it for both initial request and potential retry
         let field_name_owned = field_name.to_string();
 
@@ -538,7 +572,7 @@ impl AnyListClient {
         endpoint: &str,
         form: reqwest::multipart::Form,
     ) -> Result<Vec<u8>> {
-        let url = format!("https://www.anylist.com{}", endpoint);
+        let url = format!("{}{}", self.base_url, endpoint);
 
         let response = self
             .client

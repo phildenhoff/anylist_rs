@@ -66,7 +66,7 @@ pub use favourites::{FavouriteItem, FavouritesList};
 pub use icalendar::ICalendarInfo;
 pub use lists::{List, ListItem};
 pub use meal_planning::MealPlanEvent;
-pub use realtime::{ConnectionState, RealtimeSync, SyncEvent};
+pub use realtime::{ConnectionState, RealtimeConfig, RealtimeSync, SyncEvent};
 pub use recipes::{
     Ingredient, Recipe, RecipeBuilder, RecipeIngredientEntry, RecipeIngredientSection,
 };
