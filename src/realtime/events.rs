@@ -1,5 +1,6 @@
 /// Events that can be received via real-time sync
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SyncEvent {
     /// Shopping lists have changed - re-fetch with get_lists()
     ShoppingListsChanged,
@@ -43,8 +44,17 @@ pub enum SyncEvent {
     /// User account has been deleted - should logout
     AccountDeleted,
 
-    /// Heartbeat received (internal, usually not exposed to consumers)
+    /// Heartbeat received (internal, never delivered to the callback)
     Heartbeat,
+
+    /// The connection was re-established after an interruption. Changes made
+    /// during the gap were not delivered; refetch anything you cache.
+    ///
+    /// Delivered once per successful reconnect handshake (so several times
+    /// if the server keeps dropping the connection), after the state reads
+    /// `Connected` and before any event from the new connection. Never
+    /// delivered for the first `connect()`.
+    Reconnected,
 }
 
 impl SyncEvent {

@@ -195,8 +195,7 @@ async fn rt_cl_04_other_close_codes_reconnect_with_backoff() {
                 "close {code}: refresh requested"
             );
         });
-        let [a, b, c] = runs;
-        tokio::join!(a, b, c);
+        concurrently(runs.into()).await;
     })
     .await
 }

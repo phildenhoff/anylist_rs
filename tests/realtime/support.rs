@@ -33,6 +33,27 @@ pub async fn guard<F: Future<Output = ()>>(body: F) {
         .expect("test body did not finish within 10 s");
 }
 
+/// Run independent sub-scenarios concurrently, each in its own task.
+///
+/// Building an `AnyListClient` (a `reqwest::Client`) is synchronous and
+/// CPU-heavy in debug builds; if several runs shared one task with
+/// `join!`, one run's client construction would stall another run's
+/// in-flight handshake.
+pub async fn concurrently<F>(runs: Vec<F>)
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    let handles: Vec<_> = runs.into_iter().map(tokio::spawn).collect();
+    for h in handles {
+        if let Err(e) = h.await {
+            if e.is_panic() {
+                std::panic::resume_unwind(e.into_panic());
+            }
+            panic!("sub-scenario failed: {e}");
+        }
+    }
+}
+
 /// The test configuration from section 3.4 of the behaviour spec.
 pub fn config_for_url(ws_url: &str) -> RealtimeConfig {
     RealtimeConfig::default()
@@ -76,10 +97,8 @@ pub async fn free_port() -> u16 {
     l.local_addr().unwrap().port()
 }
 
-/// `SyncEvent::Reconnected`, compared by name so the suite compiles against
-/// releases that do not have the variant yet.
 pub fn is_reconnected(e: &SyncEvent) -> bool {
-    format!("{e:?}") == "Reconnected"
+    matches!(e, SyncEvent::Reconnected)
 }
 
 #[derive(Clone, Debug)]

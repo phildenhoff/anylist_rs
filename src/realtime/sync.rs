@@ -1,57 +1,112 @@
+//! The connection actor behind [`RealtimeSync`].
+//!
+//! One background task owns the WebSocket outright. Its loop is: run a
+//! session (a `select!` over inbound frames, the heartbeat tick and the
+//! command channel), then, unless the consumer closed it, back off and
+//! reconnect. The backoff sleep, token refresh and connection attempts all
+//! run inside a `select!` with the command channel, so `disconnect()` and
+//! `Drop` are always handled promptly. State is published through a
+//! `tokio::sync::watch` channel.
+
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::realtime::config::RealtimeConfig;
 use crate::realtime::events::SyncEvent;
-use crate::realtime::heartbeat::HeartbeatManager;
 use crate::realtime::reconnect::ReconnectionStrategy;
 use crate::realtime::SyncCallback;
 use futures_util::{SinkExt, StreamExt};
+use std::future::Future;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
-use tokio::time::interval;
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio::time::{timeout, Instant, MissedTickBehavior};
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
+use tokio_tungstenite::tungstenite::{self, Message};
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 /// Connection state for real-time sync
+///
+/// Transitions: `Disconnected → Connecting → Connected` on the first
+/// `connect()` (or back to `Disconnected` if it fails);
+/// `Connected ⇄ Reconnecting` while the connection is interrupted and
+/// restored; any state `→ Closed` on `disconnect()` or drop. Once
+/// connected, the state never returns to `Disconnected` or `Connecting`,
+/// and `Closed` is terminal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ConnectionState {
-    /// Not connected
+    /// Never connected, or the first `connect()` failed
     Disconnected,
-    /// Connecting to server
+    /// The first `connect()` is in progress
     Connecting,
     /// Connected and active
     Connected,
-    /// Connection closed, will retry
+    /// The connection was interrupted; backing off, refreshing tokens or
+    /// attempting to reconnect
     Reconnecting,
-    /// Permanently closed
+    /// Permanently closed by `disconnect()` or drop
     Closed,
 }
 
 type WsStream = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
+type StateTx = Arc<watch::Sender<ConnectionState>>;
+
+const HEARTBEAT: &str = "--heartbeat--";
+
+enum Command {
+    /// Close the connection for good.
+    Close,
+    /// End the current session (or skip the backoff delay) and reconnect now.
+    Reconnect,
+}
+
+struct ActorHandle {
+    cmd_tx: mpsc::UnboundedSender<Command>,
+    join: JoinHandle<()>,
+}
 
 /// Real-time sync manager
+///
+/// Callbacks are invoked synchronously on the connection's background
+/// task. A callback that blocks also delays heartbeats and liveness checks,
+/// so do real work elsewhere (for example in a `tokio::spawn`ed task).
 pub struct RealtimeSync {
-    /// Reference to the AnyList client
     client: Arc<AnyListClient>,
-
-    /// Current connection state
-    state: Arc<Mutex<ConnectionState>>,
-
-    /// Callback for sync events
-    callback: SyncCallback,
-
-    /// WebSocket stream (if connected)
-    ws_stream: Arc<Mutex<Option<WsStream>>>,
-
-    /// Background tasks handles
-    tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
-
-    /// Shutdown signal
-    shutdown_tx: tokio::sync::broadcast::Sender<()>,
-
-    /// Connection settings
     config: RealtimeConfig,
+    callback: SyncCallback,
+    state: StateTx,
+    actor: Option<ActorHandle>,
+}
+
+/// Move to `new` unless the state is already `Closed` (terminal).
+fn set_state(tx: &watch::Sender<ConnectionState>, new: ConnectionState) {
+    tx.send_if_modified(|s| {
+        if *s == ConnectionState::Closed || *s == new {
+            false
+        } else {
+            *s = new;
+            true
+        }
+    });
+}
+
+/// Resets `Connecting` to `Disconnected` if `connect()` is cancelled or fails.
+struct ConnectingGuard(Option<StateTx>);
+
+impl Drop for ConnectingGuard {
+    fn drop(&mut self) {
+        if let Some(tx) = self.0.take() {
+            tx.send_if_modified(|s| {
+                if *s == ConnectionState::Connecting {
+                    *s = ConnectionState::Disconnected;
+                    true
+                } else {
+                    false
+                }
+            });
+        }
+    }
 }
 
 impl RealtimeSync {
@@ -75,596 +130,410 @@ impl RealtimeSync {
     where
         F: Fn(SyncEvent) + Send + Sync + 'static,
     {
-        let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
-
+        let (state, _) = watch::channel(ConnectionState::Disconnected);
         Self {
             client,
-            state: Arc::new(Mutex::new(ConnectionState::Disconnected)),
-            callback: Arc::new(callback),
-            ws_stream: Arc::new(Mutex::new(None)),
-            tasks: Arc::new(Mutex::new(Vec::new())),
-            shutdown_tx,
             config,
+            callback: Arc::new(callback),
+            state: Arc::new(state),
+            actor: None,
         }
     }
 
     /// Connect to the WebSocket server.
     ///
-    /// Idempotent (returns `Ok()`), unless previously closed via
-    /// `disconnect()`.
+    /// Waits for the first handshake and returns its result: on `Err` the
+    /// state is `Disconnected` and nothing keeps running. If the handshake is
+    /// rejected with HTTP 401, the tokens are refreshed once and the
+    /// handshake retried (a failed refresh returns
+    /// `Err(AuthenticationFailed)`). Once connected, interruptions are
+    /// handled in the background.
+    ///
+    /// Idempotent (returns `Ok(())`) while connected or reconnecting;
+    /// returns `Err(NetworkError)` after `disconnect()`. Dropping the
+    /// returned future abandons the attempt and leaves `Disconnected`.
     pub async fn connect(&mut self) -> Result<()> {
+        match *self.state.borrow() {
+            ConnectionState::Closed => {
+                return Err(AnyListError::NetworkError(
+                    "Cannot connect after permanent closure".to_string(),
+                ))
+            }
+            ConnectionState::Connected | ConnectionState::Reconnecting => return Ok(()),
+            ConnectionState::Disconnected | ConnectionState::Connecting => {}
+        }
         self.config.validate()?;
 
-        // Validate state transition
-        {
-            let mut state = self.state.lock().await;
-            match *state {
-                ConnectionState::Connected => {
-                    // Already connected, nothing to do
-                    return Ok(());
-                }
-                ConnectionState::Connecting => {
-                    // Already connecting, nothing to do
-                    return Ok(());
-                }
-                ConnectionState::Closed => {
-                    return Err(AnyListError::NetworkError(
-                        "Cannot connect after permanent closure".to_string(),
-                    ));
-                }
-                _ => {
-                    *state = ConnectionState::Connecting;
-                }
-            }
-        }
+        set_state(&self.state, ConnectionState::Connecting);
+        let mut guard = ConnectingGuard(Some(Arc::clone(&self.state)));
 
-        let url = self.build_websocket_url().await?;
+        let ws = first_connect(&self.client, &self.config).await?;
 
-        let (ws_stream, _response) = connect_async(&url).await.map_err(|e| {
-            // Reset state on connection failure
-            let state = self.state.clone();
-            tokio::spawn(async move {
-                let mut s = state.lock().await;
-                *s = ConnectionState::Disconnected;
-            });
-            AnyListError::NetworkError(format!("WebSocket connection failed: {}", e))
-        })?;
+        guard.0 = None;
+        set_state(&self.state, ConnectionState::Connected);
 
-        // Store stream
-        {
-            let mut stream_guard = self.ws_stream.lock().await;
-            *stream_guard = Some(ws_stream);
-        }
-
-        // Update state
-        {
-            let mut state = self.state.lock().await;
-            *state = ConnectionState::Connected;
-        }
-
-        self.start_background_tasks().await;
-
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+        let ctx = ActorContext {
+            client: Arc::clone(&self.client),
+            config: self.config.clone(),
+            callback: Arc::clone(&self.callback),
+            state: Arc::clone(&self.state),
+        };
+        let join = tokio::spawn(ctx.run(ws, cmd_rx));
+        self.actor = Some(ActorHandle { cmd_tx, join });
         Ok(())
     }
 
-    /// Build the WebSocket URL with auth parameters
-    async fn build_websocket_url(&self) -> Result<String> {
-        let tokens = self.client.export_tokens()?;
-
-        let url = format!(
-            "{}/data/add-user-listener?client_id={}&access_token={}",
-            self.config.resolve_websocket_base(self.client.base_url()),
-            urlencoding::encode(self.client.client_identifier()),
-            urlencoding::encode(&tokens.access_token)
-        );
-
-        Ok(url)
-    }
-
+    /// The current connection state.
     pub async fn state(&self) -> ConnectionState {
-        *self.state.lock().await
+        *self.state.borrow()
     }
 
+    /// Whether the state is `Connected`.
     pub async fn is_connected(&self) -> bool {
-        *self.state.lock().await == ConnectionState::Connected
+        *self.state.borrow() == ConnectionState::Connected
     }
 
-    /// Start background tasks (message receiver, heartbeat sender, reconnection monitor)
-    async fn start_background_tasks(&mut self) {
-        let mut tasks = self.tasks.lock().await;
-
-        let heartbeat_mgr = Arc::new(Self::heartbeat_manager(&self.config));
-
-        let receiver_task = self.spawn_message_receiver(Arc::clone(&heartbeat_mgr));
-        tasks.push(receiver_task);
-
-        let sender_task = self.spawn_heartbeat_sender(Arc::clone(&heartbeat_mgr));
-        tasks.push(sender_task);
-
-        let reconnect_task = self.spawn_reconnection_monitor();
-        tasks.push(reconnect_task);
-    }
-
-    /// Heartbeat manager matching the configured interval and liveness timeout
-    fn heartbeat_manager(config: &RealtimeConfig) -> HeartbeatManager {
-        let interval = config.heartbeat_interval.as_nanos().max(1);
-        let max_missed = config.liveness_timeout.as_nanos().div_ceil(interval);
-        HeartbeatManager::with_settings(
-            config.heartbeat_interval,
-            max_missed.clamp(1, u8::MAX as u128) as u8,
-        )
-    }
-
-    /// Receive next message from WebSocket stream
-    async fn recv_message(
-        ws_stream: &Arc<Mutex<Option<WsStream>>>,
-    ) -> Option<std::result::Result<Message, tokio_tungstenite::tungstenite::Error>> {
-        let mut stream_guard = ws_stream.lock().await;
-        if let Some(stream) = stream_guard.as_mut() {
-            stream.next().await
-        } else {
-            None
-        }
-    }
-
-    /// Handle text message by parsing and dispatching event
-    async fn handle_text_message(
-        text: &str,
-        heartbeat_mgr: &Arc<HeartbeatManager>,
-        callback: &SyncCallback,
-    ) {
-        if let Some(event) = SyncEvent::from_message(text) {
-            if event == SyncEvent::Heartbeat {
-                // Reset heartbeat counter
-                heartbeat_mgr.reset().await;
-            } else {
-                // Dispatch non-heartbeat events to callback
-                callback(event);
-            }
-        }
-    }
-
-    /// Handle WebSocket close event and update connection state
-    async fn handle_close(
-        frame: Option<tokio_tungstenite::tungstenite::protocol::CloseFrame<'_>>,
-        state: &Arc<Mutex<ConnectionState>>,
-    ) {
-        let code = frame.as_ref().map(|f| f.code.into());
-        let mut state_guard = state.lock().await;
-        match code {
-            Some(1000) => {
-                // Normal closure
-                *state_guard = ConnectionState::Disconnected;
-            }
-            Some(4010) => {
-                // Token expired - need to refresh
-                *state_guard = ConnectionState::Reconnecting;
-            }
-            _ => {
-                // Abnormal closure - will reconnect
-                *state_guard = ConnectionState::Reconnecting;
-            }
-        }
-    }
-
-    /// Handle incoming WebSocket message
-    async fn handle_message(
-        msg_result: std::result::Result<Message, tokio_tungstenite::tungstenite::Error>,
-        heartbeat_mgr: &Arc<HeartbeatManager>,
-        callback: &SyncCallback,
-        state: &Arc<Mutex<ConnectionState>>,
-    ) -> bool {
-        match msg_result {
-            Ok(Message::Text(text)) => {
-                Self::handle_text_message(&text, heartbeat_mgr, callback).await;
-                true // Continue loop
-            }
-            Ok(Message::Close(frame)) => {
-                Self::handle_close(frame, state).await;
-                false // Exit loop
-            }
-            Err(_e) => {
-                // WebSocket error - trigger reconnection
-                let mut state_guard = state.lock().await;
-                *state_guard = ConnectionState::Reconnecting;
-                false // Exit loop
-            }
-            _ => {
-                // Ignore binary, ping, pong messages
-                true // Continue loop
-            }
-        }
-    }
-
-    fn spawn_message_receiver(&self, heartbeat_mgr: Arc<HeartbeatManager>) -> JoinHandle<()> {
-        let ws_stream = Arc::clone(&self.ws_stream);
-        let callback = Arc::clone(&self.callback);
-        let state = Arc::clone(&self.state);
-        let mut shutdown_rx = self.shutdown_tx.subscribe();
-
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    _ = shutdown_rx.recv() => {
-                        break;
-                    }
-                    msg_result = Self::recv_message(&ws_stream) => {
-                        if let Some(msg_result) = msg_result {
-                            let should_continue = Self::handle_message(
-                                msg_result,
-                                &heartbeat_mgr,
-                                &callback,
-                                &state,
-                            ).await;
-
-                            if !should_continue {
-                                break;
-                            }
-                        } else {
-                            // Stream is None, exit
-                            break;
-                        }
-                    }
-                }
-            }
-        })
-    }
-
-    /// Check if too many heartbeats have been missed
-    /// Returns true if we should continue, false if we should reconnect
-    async fn check_heartbeat_timeout(
-        heartbeat_mgr: &Arc<HeartbeatManager>,
-        state: &Arc<Mutex<ConnectionState>>,
-    ) -> bool {
-        let missed = heartbeat_mgr.increment_missed().await;
-
-        if missed >= heartbeat_mgr.max_missed() {
-            // Too many missed heartbeats, trigger reconnection
-            let mut state_guard = state.lock().await;
-            *state_guard = ConnectionState::Reconnecting;
-            false
-        } else {
-            true
-        }
-    }
-
-    /// Send heartbeat message over WebSocket
-    /// Returns true if we should continue, false if we should stop
-    async fn send_heartbeat(
-        ws_stream: &Arc<Mutex<Option<WsStream>>>,
-        state: &Arc<Mutex<ConnectionState>>,
-    ) -> bool {
-        let mut stream_guard = ws_stream.lock().await;
-
-        if let Some(stream) = stream_guard.as_mut() {
-            if let Err(_e) = stream
-                .send(Message::Text("--heartbeat--".to_string()))
-                .await
-            {
-                drop(stream_guard);
-                let mut state_guard = state.lock().await;
-                *state_guard = ConnectionState::Reconnecting;
-                false
-            } else {
-                true
-            }
-        } else {
-            // No stream available
-            false
-        }
-    }
-
-    fn spawn_heartbeat_sender(&self, heartbeat_mgr: Arc<HeartbeatManager>) -> JoinHandle<()> {
-        let ws_stream = Arc::clone(&self.ws_stream);
-        let state = Arc::clone(&self.state);
-        let mut shutdown_rx = self.shutdown_tx.subscribe();
-
-        tokio::spawn(async move {
-            let mut ticker = interval(heartbeat_mgr.interval());
-            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-            loop {
-                tokio::select! {
-                    _ = shutdown_rx.recv() => {
-                        break;
-                    }
-                    _ = ticker.tick() => {
-                        // Check if connection is still alive
-                        let current_state = *state.lock().await;
-                        if current_state != ConnectionState::Connected {
-                            break;
-                        }
-
-                        // Check for heartbeat timeout
-                        if !Self::check_heartbeat_timeout(&heartbeat_mgr, &state).await {
-                            break;
-                        }
-
-                        // Send heartbeat message
-                        if !Self::send_heartbeat(&ws_stream, &state).await {
-                            break;
-                        }
-                    }
-                }
-            }
-        })
-    }
-
-    fn spawn_reconnection_monitor(&self) -> JoinHandle<()> {
-        let state = Arc::clone(&self.state);
-        let ws_stream = Arc::clone(&self.ws_stream);
-        let client = Arc::clone(&self.client);
-        let callback = Arc::clone(&self.callback);
-        let shutdown_tx = self.shutdown_tx.clone();
-        let tasks = Arc::clone(&self.tasks);
-        let mut shutdown_rx = self.shutdown_tx.subscribe();
-        let config = self.config.clone();
-
-        tokio::spawn(async move {
-            let mut strategy = ReconnectionStrategy::with_delays(
-                config.reconnect_initial_delay,
-                config.reconnect_max_delay,
-            );
-
-            loop {
-                tokio::select! {
-                    _ = shutdown_rx.recv() => {
-                        break;
-                    }
-                    _ = tokio::time::sleep(Duration::from_secs(1)) => {
-                        let current_state = *state.lock().await;
-
-                        if current_state == ConnectionState::Reconnecting {
-                            let delay = strategy.next_delay();
-
-                            tokio::time::sleep(delay).await;
-
-                            match Self::attempt_reconnect(
-                                Arc::clone(&client),
-                                Arc::clone(&state),
-                                Arc::clone(&ws_stream),
-                                Arc::clone(&callback),
-                                shutdown_tx.clone(),
-                                Arc::clone(&tasks),
-                                &config,
-                            ).await {
-                                Ok(_) => {
-                                    strategy.reset();
-                                    let mut state_guard = state.lock().await;
-                                    *state_guard = ConnectionState::Connected;
-                                }
-                                Err(_e) => {
-                                    // Will retry on next loop iteration
-                                }
-                            }
-                        } else if current_state == ConnectionState::Connected {
-                            // Reset backoff on successful connection
-                            strategy.reset();
-                        } else if current_state == ConnectionState::Closed {
-                            // Permanently closed, exit
-                            break;
-                        }
-                    }
-                }
-            }
-        })
-    }
-
-    /// Attempt to reconnect (used by reconnection monitor)
-    async fn attempt_reconnect(
-        client: Arc<AnyListClient>,
-        state: Arc<Mutex<ConnectionState>>,
-        ws_stream: Arc<Mutex<Option<WsStream>>>,
-        callback: SyncCallback,
-        shutdown_tx: tokio::sync::broadcast::Sender<()>,
-        tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
-        config: &RealtimeConfig,
-    ) -> Result<()> {
-        // Try to refresh tokens first (in case token expired)
-        match client.refresh_tokens().await {
-            Ok(_) => {}
-            Err(_) => {
-                // Continue anyway - maybe the token is still valid
-            }
-        }
-
-        // Build URL
-        let tokens = client.export_tokens()?;
-        let url = format!(
-            "{}/data/add-user-listener?client_id={}&access_token={}",
-            config.resolve_websocket_base(client.base_url()),
-            urlencoding::encode(client.client_identifier()),
-            urlencoding::encode(&tokens.access_token)
-        );
-
-        // Connect
-        let (new_stream, _) = connect_async(&url)
-            .await
-            .map_err(|e| AnyListError::NetworkError(format!("Reconnection failed: {}", e)))?;
-
-        // Replace stream
-        {
-            let mut stream_guard = ws_stream.lock().await;
-            *stream_guard = Some(new_stream);
-        }
-
-        // Update state
-        {
-            let mut state_guard = state.lock().await;
-            *state_guard = ConnectionState::Connected;
-        }
-
-        // Restart background tasks (heartbeat sender and message receiver)
-        let heartbeat_mgr = Arc::new(Self::heartbeat_manager(config));
-
-        // Spawn new message receiver
-        let receiver_task = {
-            let ws_stream = Arc::clone(&ws_stream);
-            let callback = Arc::clone(&callback);
-            let state = Arc::clone(&state);
-            let mut shutdown_rx = shutdown_tx.subscribe();
-            let heartbeat_mgr = Arc::clone(&heartbeat_mgr);
-
-            tokio::spawn(async move {
-                loop {
-                    tokio::select! {
-                        _ = shutdown_rx.recv() => {
-                            break;
-                        }
-                        msg_result = async {
-                            let mut stream_guard = ws_stream.lock().await;
-                            if let Some(stream) = stream_guard.as_mut() {
-                                stream.next().await
-                            } else {
-                                None
-                            }
-                        } => {
-                            if let Some(msg_result) = msg_result {
-                                match msg_result {
-                                    Ok(Message::Text(text)) => {
-                                        if let Some(event) = SyncEvent::from_message(&text) {
-                                            if event == SyncEvent::Heartbeat {
-                                                heartbeat_mgr.reset().await;
-                                            } else {
-                                                callback(event);
-                                            }
-                                        }
-                                    }
-                                    Ok(Message::Close(_)) => {
-                                        let mut state_guard = state.lock().await;
-                                        *state_guard = ConnectionState::Reconnecting;
-                                        break;
-                                    }
-                                    Err(_) => {
-                                        let mut state_guard = state.lock().await;
-                                        *state_guard = ConnectionState::Reconnecting;
-                                        break;
-                                    }
-                                    _ => {}
-                                }
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                }
-            })
-        };
-
-        // Spawn new heartbeat sender
-        let sender_task = {
-            let ws_stream = Arc::clone(&ws_stream);
-            let state = Arc::clone(&state);
-            let mut shutdown_rx = shutdown_tx.subscribe();
-
-            tokio::spawn(async move {
-                let mut ticker = interval(heartbeat_mgr.interval());
-                ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-                loop {
-                    tokio::select! {
-                        _ = shutdown_rx.recv() => {
-                            break;
-                        }
-                        _ = ticker.tick() => {
-                            let current_state = *state.lock().await;
-                            if current_state != ConnectionState::Connected {
-                                break;
-                            }
-
-                            let missed = heartbeat_mgr.increment_missed().await;
-                            if missed >= heartbeat_mgr.max_missed() {
-                                let mut state_guard = state.lock().await;
-                                *state_guard = ConnectionState::Reconnecting;
-                                break;
-                            }
-
-                            let mut stream_guard = ws_stream.lock().await;
-                            if let Some(stream) = stream_guard.as_mut() {
-                                if (stream.send(Message::Text("--heartbeat--".to_string())).await).is_err() {
-                                    drop(stream_guard);
-                                    let mut state_guard = state.lock().await;
-                                    *state_guard = ConnectionState::Reconnecting;
-                                    break;
-                                }
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                }
-            })
-        };
-
-        // Add tasks to the list
-        {
-            let mut tasks_guard = tasks.lock().await;
-            tasks_guard.push(receiver_task);
-            tasks_guard.push(sender_task);
-        }
-
-        Ok(())
-    }
-
-    /// Disconnect and stop all background tasks
+    /// Disconnect and stop the background task.
+    ///
+    /// Sends a close frame (code 1000) if connected, aborts any backoff or
+    /// connection attempt in flight, and returns within about
+    /// `close_timeout`. The state becomes `Closed` for good. Never fails in
+    /// practice; idempotent. No callback runs after this returns.
     pub async fn disconnect(&mut self) -> Result<()> {
-        // Update state
-        {
-            let mut state = self.state.lock().await;
-            *state = ConnectionState::Closed;
-        }
-
-        // Send shutdown signal to all tasks
-        let _ = self.shutdown_tx.send(());
-
-        // Close WebSocket with normal closure code
-        {
-            let mut stream_guard = self.ws_stream.lock().await;
-            if let Some(stream) = stream_guard.as_mut() {
-                let _ = stream.close(None).await;
+        set_state(&self.state, ConnectionState::Closed);
+        if let Some(actor) = self.actor.take() {
+            let _ = actor.cmd_tx.send(Command::Close);
+            let mut join = actor.join;
+            if timeout(self.config.close_timeout, &mut join).await.is_err() {
+                join.abort();
+                let _ = join.await;
             }
-            *stream_guard = None;
         }
-
-        // Wait for all tasks to complete
-        let mut tasks = self.tasks.lock().await;
-        for task in tasks.drain(..) {
-            let _ = task.await;
-        }
-
         Ok(())
     }
 
-    /// Manually trigger reconnection
+    /// Manually trigger reconnection.
+    ///
+    /// While connected, ends the current session (close frame) and
+    /// reconnects at once. While reconnecting, skips the remaining backoff
+    /// delay. Before the first connection, behaves as `connect()`. After
+    /// `disconnect()`, returns `Err(NetworkError)`.
     pub async fn reconnect(&mut self) -> Result<()> {
-        // Check if already connected
-        {
-            let state = self.state.lock().await;
-            if *state == ConnectionState::Connected {
-                return Ok(());
-            }
-            if *state == ConnectionState::Closed {
-                return Err(AnyListError::NetworkError(
-                    "Cannot reconnect after permanent closure".to_string(),
-                ));
+        let state = *self.state.borrow();
+        match state {
+            ConnectionState::Closed => Err(AnyListError::NetworkError(
+                "Cannot reconnect after permanent closure".to_string(),
+            )),
+            ConnectionState::Disconnected | ConnectionState::Connecting => self.connect().await,
+            ConnectionState::Connected | ConnectionState::Reconnecting => {
+                if let Some(actor) = &self.actor {
+                    let _ = actor.cmd_tx.send(Command::Reconnect);
+                }
+                Ok(())
             }
         }
-
-        // Trigger reconnection by setting state
-        // The reconnection monitor will pick this up
-        {
-            let mut state = self.state.lock().await;
-            *state = ConnectionState::Reconnecting;
-        }
-
-        Ok(())
     }
 }
 
 impl Drop for RealtimeSync {
+    /// Requests shutdown without waiting: the background task sends a
+    /// best-effort close frame and exits. No further reconnect attempts are
+    /// made.
     fn drop(&mut self) {
-        // Best effort cleanup - can't use async in Drop
-        // Send shutdown signal
-        let _ = self.shutdown_tx.send(());
+        set_state(&self.state, ConnectionState::Closed);
+        if let Some(actor) = self.actor.take() {
+            let _ = actor.cmd_tx.send(Command::Close);
+        }
+    }
+}
+
+/// Why a connection attempt failed.
+enum ConnectError {
+    /// The upgrade was rejected with HTTP 401.
+    Unauthorized,
+    Failed(String),
+}
+
+fn listener_url(client: &AnyListClient, config: &RealtimeConfig) -> Result<String> {
+    let tokens = client.export_tokens()?;
+    Ok(format!(
+        "{}/data/add-user-listener?client_id={}&access_token={}",
+        config.resolve_websocket_base(client.base_url()),
+        urlencoding::encode(client.client_identifier()),
+        urlencoding::encode(tokens.access_token())
+    ))
+}
+
+/// One WebSocket handshake, bounded by `connect_timeout`.
+async fn open(
+    client: &AnyListClient,
+    config: &RealtimeConfig,
+) -> std::result::Result<WsStream, ConnectError> {
+    let url = listener_url(client, config).map_err(|e| ConnectError::Failed(e.to_string()))?;
+    match timeout(config.connect_timeout, connect_async(&url)).await {
+        Err(_) => Err(ConnectError::Failed(format!(
+            "WebSocket handshake timed out after {:?}",
+            config.connect_timeout
+        ))),
+        Ok(Err(tungstenite::Error::Http(response))) if response.status() == 401 => {
+            Err(ConnectError::Unauthorized)
+        }
+        Ok(Err(e)) => Err(ConnectError::Failed(format!(
+            "WebSocket connection failed: {}",
+            e
+        ))),
+        Ok(Ok((ws, _))) => Ok(ws),
+    }
+}
+
+/// Refresh tokens, bounded by `connect_timeout`.
+async fn refresh(client: &AnyListClient, config: &RealtimeConfig) -> Result<()> {
+    match timeout(config.connect_timeout, client.refresh_tokens()).await {
+        Ok(r) => r,
+        Err(_) => Err(AnyListError::AuthenticationFailed(format!(
+            "Token refresh timed out after {:?}",
+            config.connect_timeout
+        ))),
+    }
+}
+
+/// The first connection: report its result to `connect()`. A 401 refreshes
+/// the tokens once and retries.
+async fn first_connect(client: &AnyListClient, config: &RealtimeConfig) -> Result<WsStream> {
+    match open(client, config).await {
+        Ok(ws) => Ok(ws),
+        Err(ConnectError::Failed(msg)) => Err(AnyListError::NetworkError(msg)),
+        Err(ConnectError::Unauthorized) => {
+            refresh(client, config).await.map_err(|e| match e {
+                AnyListError::AuthenticationFailed(_) => e,
+                other => AnyListError::AuthenticationFailed(other.to_string()),
+            })?;
+            match open(client, config).await {
+                Ok(ws) => Ok(ws),
+                Err(ConnectError::Unauthorized) => Err(AnyListError::NetworkError(
+                    "WebSocket handshake rejected with 401 after token refresh".to_string(),
+                )),
+                Err(ConnectError::Failed(msg)) => Err(AnyListError::NetworkError(msg)),
+            }
+        }
+    }
+}
+
+/// How a session ended.
+enum SessionEnd {
+    /// The consumer closed the connection.
+    Closed,
+    /// The connection was lost (server close, stream error or end, liveness
+    /// timeout, write failure). `refresh` is set for close code 4010.
+    Lost { refresh: bool },
+    /// `reconnect()` was called.
+    Requested,
+}
+
+/// Run `fut` while watching the command channel. Returns `None` if a `Close`
+/// arrives (or the handle is gone), which drops `fut`. `Reconnect` is
+/// ignored, since an attempt is already in flight.
+async fn unless_closed<F: Future>(
+    cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
+    fut: F,
+) -> Option<F::Output> {
+    tokio::pin!(fut);
+    loop {
+        tokio::select! {
+            out = &mut fut => return Some(out),
+            cmd = cmd_rx.recv() => match cmd {
+                Some(Command::Reconnect) => continue,
+                Some(Command::Close) | None => return None,
+            },
+        }
+    }
+}
+
+fn normal_close() -> Option<CloseFrame<'static>> {
+    Some(CloseFrame {
+        code: CloseCode::Normal,
+        reason: "".into(),
+    })
+}
+
+struct ActorContext {
+    client: Arc<AnyListClient>,
+    config: RealtimeConfig,
+    callback: SyncCallback,
+    state: StateTx,
+}
+
+impl ActorContext {
+    async fn run(self, ws: WsStream, mut cmd_rx: mpsc::UnboundedReceiver<Command>) {
+        let mut backoff = ReconnectionStrategy::with_delays(
+            self.config.reconnect_initial_delay,
+            self.config.reconnect_max_delay,
+        );
+        let mut ws = ws;
+        let mut first = true;
+        loop {
+            if !first {
+                set_state(&self.state, ConnectionState::Connected);
+                (self.callback)(SyncEvent::Reconnected);
+            }
+            first = false;
+
+            let started = Instant::now();
+            let (refresh, skip_delay) = match self.session(ws, &mut cmd_rx).await {
+                SessionEnd::Closed => break,
+                SessionEnd::Lost { refresh } => (refresh, false),
+                SessionEnd::Requested => (false, true),
+            };
+            // Only a session that lived for a while resets the backoff, so a
+            // server that accepts and immediately drops is not hammered.
+            if started.elapsed() >= self.config.liveness_timeout {
+                backoff.reset();
+            }
+            set_state(&self.state, ConnectionState::Reconnecting);
+
+            match self
+                .reestablish(&mut backoff, &mut cmd_rx, refresh, skip_delay)
+                .await
+            {
+                Some(new_ws) => ws = new_ws,
+                None => break,
+            }
+        }
+        set_state(&self.state, ConnectionState::Closed);
+    }
+
+    /// One WebSocket session.
+    async fn session(
+        &self,
+        mut ws: WsStream,
+        cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
+    ) -> SessionEnd {
+        let interval = self.config.heartbeat_interval;
+        let mut ticker = tokio::time::interval_at(Instant::now() + interval, interval);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        let mut last_seen = Instant::now();
+
+        loop {
+            tokio::select! {
+                msg = ws.next() => match msg {
+                    Some(Ok(msg)) => {
+                        // Any inbound frame proves the connection is alive.
+                        last_seen = Instant::now();
+                        match msg {
+                            Message::Text(text) => {
+                                if let Some(event) = SyncEvent::from_message(&text) {
+                                    if event != SyncEvent::Heartbeat {
+                                        (self.callback)(event);
+                                    }
+                                }
+                            }
+                            Message::Close(frame) => {
+                                let code = frame.map(|f| u16::from(f.code));
+                                // Flush the close reply tungstenite queued.
+                                let _ = timeout(self.config.send_timeout, ws.close(None)).await;
+                                return SessionEnd::Lost {
+                                    refresh: code == Some(4010),
+                                };
+                            }
+                            _ => {}
+                        }
+                    }
+                    // Stream error, or end of stream after a close handshake.
+                    Some(Err(_)) | None => return SessionEnd::Lost { refresh: false },
+                },
+                _ = ticker.tick() => {
+                    if last_seen.elapsed() > self.config.liveness_timeout {
+                        self.abandon(ws).await;
+                        return SessionEnd::Lost { refresh: false };
+                    }
+                    if !self.send_heartbeat(&mut ws).await {
+                        return SessionEnd::Lost { refresh: false };
+                    }
+                }
+                cmd = cmd_rx.recv() => match cmd {
+                    Some(Command::Reconnect) => {
+                        self.abandon(ws).await;
+                        return SessionEnd::Requested;
+                    }
+                    Some(Command::Close) | None => {
+                        self.close_gracefully(ws).await;
+                        return SessionEnd::Closed;
+                    }
+                },
+            }
+        }
+    }
+
+    /// Write `--heartbeat--` and a Ping (flushed together) under
+    /// `send_timeout`. The Ping gives liveness even if the server does not
+    /// echo the text heartbeat, since any Pong counts as an inbound frame.
+    async fn send_heartbeat(&self, ws: &mut WsStream) -> bool {
+        let write = async {
+            ws.feed(Message::Text(HEARTBEAT.to_string())).await?;
+            ws.feed(Message::Ping(Vec::new())).await?;
+            ws.flush().await
+        };
+        matches!(timeout(self.config.send_timeout, write).await, Ok(Ok(())))
+    }
+
+    /// Best-effort close frame, then drop the socket without waiting for the
+    /// peer.
+    async fn abandon(&self, mut ws: WsStream) {
+        let _ = timeout(self.config.send_timeout, ws.close(normal_close())).await;
+    }
+
+    /// Close frame, then wait for the peer's reply or EOF, all within
+    /// `close_timeout`. Frames that arrive meanwhile are not dispatched.
+    async fn close_gracefully(&self, mut ws: WsStream) {
+        let _ = timeout(self.config.close_timeout, async {
+            if ws.close(normal_close()).await.is_err() {
+                return;
+            }
+            while let Some(Ok(_)) = ws.next().await {}
+        })
+        .await;
+    }
+
+    /// Back off, refresh tokens if needed, and attempt to reconnect until it
+    /// works. Returns `None` if closed meanwhile.
+    async fn reestablish(
+        &self,
+        backoff: &mut ReconnectionStrategy,
+        cmd_rx: &mut mpsc::UnboundedReceiver<Command>,
+        mut needs_refresh: bool,
+        mut skip_delay: bool,
+    ) -> Option<WsStream> {
+        loop {
+            if !skip_delay {
+                let delay = backoff.next_delay();
+                if !delay.is_zero() {
+                    tokio::select! {
+                        _ = tokio::time::sleep(delay) => {}
+                        cmd = cmd_rx.recv() => match cmd {
+                            // reconnect(): skip the rest of the delay.
+                            Some(Command::Reconnect) => {}
+                            Some(Command::Close) | None => return None,
+                        },
+                    }
+                }
+            }
+            skip_delay = false;
+
+            if needs_refresh {
+                // Refresh only for close 4010 or a 401 upgrade, and never
+                // connect with a token known to be stale.
+                match unless_closed(cmd_rx, refresh(&self.client, &self.config)).await? {
+                    Ok(()) => needs_refresh = false,
+                    Err(_) => continue,
+                }
+            }
+
+            match unless_closed(cmd_rx, open(&self.client, &self.config)).await? {
+                Ok(ws) => return Some(ws),
+                Err(ConnectError::Unauthorized) => needs_refresh = true,
+                Err(ConnectError::Failed(_)) => {}
+            }
+        }
     }
 }

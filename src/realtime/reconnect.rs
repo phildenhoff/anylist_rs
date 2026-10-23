@@ -1,11 +1,16 @@
 use std::time::Duration;
 
-/// Manages reconnection backoff strategy
-pub struct ReconnectionStrategy {
-    /// Current retry delay
-    current_delay: Duration,
+/// Exponential reconnect backoff.
+///
+/// The first attempt after a session ends is immediate; each further
+/// attempt waits twice as long as the previous one, starting at the initial
+/// delay and capped at the maximum. `reset()` (after a stable session)
+/// starts over.
+pub(crate) struct ReconnectionStrategy {
+    /// Delay before the next attempt
+    next: Duration,
 
-    /// Initial delay for first retry
+    /// Delay for the first retry
     initial_delay: Duration,
 
     /// Maximum delay between retries
@@ -13,46 +18,30 @@ pub struct ReconnectionStrategy {
 }
 
 impl ReconnectionStrategy {
-    /// Create a new reconnection strategy
-    #[cfg(test)]
-    pub fn new() -> Self {
+    /// Create a strategy with the given delays
+    pub(crate) fn with_delays(initial_delay: Duration, max_delay: Duration) -> Self {
         Self {
-            current_delay: Duration::from_secs(0),
-            initial_delay: Duration::from_secs(2),
-            max_delay: Duration::from_secs(120), // 2 minutes
+            next: Duration::ZERO,
+            // A zero initial delay would retry in a tight loop.
+            initial_delay: initial_delay.max(Duration::from_millis(1)),
+            max_delay: max_delay.max(Duration::from_millis(1)),
         }
     }
 
-    /// Create a strategy with custom delays
-    pub fn with_delays(initial_delay: Duration, max_delay: Duration) -> Self {
-        Self {
-            current_delay: Duration::from_secs(0),
-            initial_delay,
-            max_delay,
-        }
-    }
-
-    /// Get the next delay duration and update internal state
-    pub fn next_delay(&mut self) -> Duration {
-        if self.current_delay.is_zero() {
-            // First retry
-            self.current_delay = self.initial_delay;
+    /// Get the delay before the next attempt and advance the backoff
+    pub(crate) fn next_delay(&mut self) -> Duration {
+        let delay = self.next;
+        self.next = if delay.is_zero() {
+            self.initial_delay.min(self.max_delay)
         } else {
-            // Exponential backoff: double the delay
-            self.current_delay *= 2;
-
-            // Cap at max delay
-            if self.current_delay > self.max_delay {
-                self.current_delay = self.max_delay;
-            }
-        }
-
-        self.current_delay
+            (delay * 2).min(self.max_delay)
+        };
+        delay
     }
 
-    /// Reset the backoff (call on successful connection)
-    pub fn reset(&mut self) {
-        self.current_delay = Duration::from_secs(0);
+    /// Start over (call after a stable session)
+    pub(crate) fn reset(&mut self) {
+        self.next = Duration::ZERO;
     }
 }
 
@@ -62,8 +51,10 @@ mod tests {
 
     #[test]
     fn test_exponential_backoff() {
-        let mut strategy = ReconnectionStrategy::new();
+        let mut strategy =
+            ReconnectionStrategy::with_delays(Duration::from_secs(2), Duration::from_secs(120));
 
+        assert_eq!(strategy.next_delay(), Duration::ZERO);
         assert_eq!(strategy.next_delay(), Duration::from_secs(2));
         assert_eq!(strategy.next_delay(), Duration::from_secs(4));
         assert_eq!(strategy.next_delay(), Duration::from_secs(8));
@@ -74,6 +65,7 @@ mod tests {
         assert_eq!(strategy.next_delay(), Duration::from_secs(120)); // stays capped
 
         strategy.reset();
+        assert_eq!(strategy.next_delay(), Duration::ZERO);
         assert_eq!(strategy.next_delay(), Duration::from_secs(2));
     }
 }

@@ -3,6 +3,7 @@
 use crate::fake::{Behaviour, FakeServer, RefreshReply, Step};
 use crate::support::*;
 use anylist_rs::{AnyListError, ConnectionState, SyncEvent};
+use futures_util::FutureExt;
 use std::time::Instant;
 
 fn request_times(server: &FakeServer) -> Vec<Instant> {
@@ -98,7 +99,7 @@ async fn rt_rc_02_backoff_resets_only_after_a_stable_session() {
             assert_near(t[2] - t[1], INITIAL, 50, "(b) gap after a short session");
             assert_near(t[3] - t[2], INITIAL * 2, 50, "(b) next gap");
         };
-        tokio::join!(stable, unstable);
+        concurrently(vec![stable.boxed(), unstable.boxed()]).await;
     })
     .await
 }
@@ -233,7 +234,7 @@ async fn rt_rc_05_tokens_are_refreshed_only_on_4010_or_http_401() {
                 "4010 should refresh exactly once"
             );
         };
-        tokio::join!(ordinary, expired);
+        concurrently(vec![ordinary.boxed(), expired.boxed()]).await;
     })
     .await
 }
