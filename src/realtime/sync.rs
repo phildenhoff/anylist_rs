@@ -286,6 +286,9 @@ fn listener_url(client: &AnyListClient, config: &RealtimeConfig) -> Result<Strin
 
 /// Open the byte stream and run the WebSocket handshake over it: TCP/TLS
 /// through `connect_async`, or the injected transport and `client_async`.
+// tungstenite's own error type is large; this runs once per connection
+// attempt, so boxing it would buy nothing.
+#[allow(clippy::result_large_err)]
 async fn handshake(
     url: &str,
     config: &RealtimeConfig,
