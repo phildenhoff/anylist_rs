@@ -245,7 +245,8 @@ impl AnyListClient {
             operation_id: generate_id(),
             user_id: self.user_id(),
         };
-        let folder_operation_list = crate::operations::build_delete_folder_items_operation(folder_params);
+        let folder_operation_list =
+            crate::operations::build_delete_folder_items_operation(folder_params);
         let mut folder_buf = Vec::new();
         folder_operation_list.encode(&mut folder_buf).map_err(|e| {
             AnyListError::ProtobufError(format!("Failed to encode folder operation: {}", e))
@@ -258,11 +259,14 @@ impl AnyListClient {
             operation_id: generate_id(),
             user_id: self.user_id(),
         };
-        let settings_operation_list = crate::operations::build_remove_list_settings_operation(settings_params);
+        let settings_operation_list =
+            crate::operations::build_remove_list_settings_operation(settings_params);
         let mut settings_buf = Vec::new();
-        settings_operation_list.encode(&mut settings_buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode settings operation: {}", e))
-        })?;
+        settings_operation_list
+            .encode(&mut settings_buf)
+            .map_err(|e| {
+                AnyListError::ProtobufError(format!("Failed to encode settings operation: {}", e))
+            })?;
         self.post("data/list-settings/update", settings_buf).await?;
 
         Ok(())

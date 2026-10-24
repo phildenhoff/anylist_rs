@@ -109,7 +109,12 @@ pub struct AnyListClient {
     client_identifier: String,
     /// HTTP client for making requests
     client: reqwest::Client,
+    /// Base URL for HTTP endpoints
+    base_url: String,
 }
+
+/// Default base URL for the AnyList HTTP API.
+pub(crate) const DEFAULT_BASE_URL: &str = "https://www.anylist.com";
 
 impl AnyListClient {
     /// Create a new AnyList client by logging in with email and password.
@@ -155,6 +160,7 @@ impl AnyListClient {
             auth_event_callback: None,
             client_identifier,
             client: reqwest::Client::new(),
+            base_url: DEFAULT_BASE_URL.to_string(),
         })
     }
 
@@ -195,6 +201,7 @@ impl AnyListClient {
             auth_event_callback: None,
             client_identifier: generate_id(),
             client: reqwest::Client::new(),
+            base_url: DEFAULT_BASE_URL.to_string(),
         })
     }
 
@@ -253,6 +260,33 @@ impl AnyListClient {
     {
         self.auth_event_callback = Some(Arc::new(callback));
         self
+    }
+
+    /// Set the base URL for HTTP endpoints (token refresh and data requests).
+    ///
+    /// Default `"https://www.anylist.com"`. The real-time WebSocket URL is
+    /// derived from it (`https://` becomes `wss://`, `http://` becomes
+    /// `ws://`) unless [`RealtimeConfig::websocket_url`] overrides it. Useful
+    /// for a local proxy when debugging the protocol, or for tests.
+    ///
+    /// [`RealtimeConfig::websocket_url`]: crate::RealtimeConfig::websocket_url
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use anylist_rs::{AnyListClient, SavedTokens};
+    /// let client = AnyListClient::from_tokens(SavedTokens::new("a", "r", "u", false))
+    ///     .unwrap()
+    ///     .with_base_url("http://127.0.0.1:8080");
+    /// ```
+    pub fn with_base_url(mut self, url: impl Into<String>) -> Self {
+        self.base_url = url.into().trim_end_matches('/').to_string();
+        self
+    }
+
+    /// The base URL for HTTP endpoints.
+    pub(crate) fn base_url(&self) -> &str {
+        &self.base_url
     }
 
     /// Disable automatic token refresh.
@@ -376,7 +410,7 @@ impl AnyListClient {
 
         let response = self
             .client
-            .post("https://www.anylist.com/auth/token/refresh")
+            .post(format!("{}/auth/token/refresh", self.base_url))
             .headers(headers)
             .multipart(form)
             .send()
@@ -446,7 +480,8 @@ impl AnyListClient {
     pub(crate) async fn post(&self, endpoint: &str, body: Vec<u8>) -> Result<Vec<u8>> {
         // Delegate to post_multipart with standard "operations" field name
         // Note: endpoint here doesn't have leading slash, so we add one
-        self.post_multipart(&format!("/{}", endpoint), "operations", body).await
+        self.post_multipart(&format!("/{}", endpoint), "operations", body)
+            .await
     }
 
     /// Make a POST request with custom multipart field name.
@@ -459,13 +494,15 @@ impl AnyListClient {
         field_name: &str,
         body: Vec<u8>,
     ) -> Result<Vec<u8>> {
-        let url = format!("https://www.anylist.com{}", endpoint);
+        let url = format!("{}{}", self.base_url, endpoint);
         // Convert to owned String since we need it for both initial request and potential retry
         let field_name_owned = field_name.to_string();
 
         // Create multipart form with the specified field name containing the protobuf data
-        let form = reqwest::multipart::Form::new()
-            .part(field_name_owned.clone(), reqwest::multipart::Part::bytes(body.clone()));
+        let form = reqwest::multipart::Form::new().part(
+            field_name_owned.clone(),
+            reqwest::multipart::Part::bytes(body.clone()),
+        );
 
         let response = self
             .client
@@ -538,7 +575,7 @@ impl AnyListClient {
         endpoint: &str,
         form: reqwest::multipart::Form,
     ) -> Result<Vec<u8>> {
-        let url = format!("https://www.anylist.com{}", endpoint);
+        let url = format!("{}{}", self.base_url, endpoint);
 
         let response = self
             .client
@@ -557,6 +594,26 @@ impl AnyListClient {
         if !response.status().is_success() {
             return Err(AnyListError::NetworkError(format!(
                 "Request failed with status: {}",
+                response.status()
+            )));
+        }
+
+        let bytes = response.bytes().await?;
+        Ok(bytes.to_vec())
+    }
+
+    /// Make an unauthenticated GET request to an absolute URL and return the body bytes.
+    ///
+    /// Used for public CDN fetches (e.g. recipe photos on photos.anylist.com),
+    /// which don't require auth headers but should share this client's
+    /// connection pool.
+    pub(crate) async fn get_bytes(&self, url: &str) -> Result<Vec<u8>> {
+        let response = self.client.get(url).send().await?;
+
+        if !response.status().is_success() {
+            return Err(AnyListError::NetworkError(format!(
+                "GET {} failed with status: {}",
+                url,
                 response.status()
             )));
         }

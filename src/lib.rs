@@ -50,9 +50,11 @@ pub mod stores;
 mod utils;
 
 pub mod protobuf {
-    pub mod anylist {
-        include!(concat!(env!("OUT_DIR"), "/anylist.proto.rs"));
-    }
+    // Generated from anylist.proto and checked in, so building the crate
+    // doesn't need protoc. Regenerate with:
+    // UPDATE_PROTOBUF=1 cargo test --test protobuf_codegen
+    #[rustfmt::skip]
+    pub mod anylist;
 }
 
 // Re-export commonly used types
@@ -63,9 +65,11 @@ pub use error::{AnyListError, Result};
 pub use categories::{Category, CategoryGroup};
 pub use collections::RecipeCollection;
 pub use favourites::{FavouriteItem, FavouritesList};
+pub use icalendar::ICalendarInfo;
 pub use lists::{List, ListItem};
 pub use meal_planning::MealPlanEvent;
-pub use icalendar::ICalendarInfo;
-pub use realtime::{ConnectionState, RealtimeSync, SyncEvent};
-pub use recipes::{Ingredient, Recipe, RecipeBuilder};
+pub use realtime::{ConnectionState, RealtimeConfig, RealtimeSync, SyncEvent};
+pub use recipes::{
+    Ingredient, Recipe, RecipeBuilder, RecipeIngredientEntry, RecipeIngredientSection,
+};
 pub use stores::{Store, StoreFilter};

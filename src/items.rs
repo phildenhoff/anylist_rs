@@ -197,7 +197,7 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list containing the item
     /// * `item_id` - The ID of the item to delete
     pub async fn delete_item(&self, list_id: &str, item_id: &str) -> Result<()> {
-      self.bulk_delete_items(list_id, &[item_id]).await
+        self.bulk_delete_items(list_id, &[item_id]).await
     }
 
     /// Delete multiple items from a list in a single operation

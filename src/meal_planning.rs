@@ -13,6 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MealPlanEvent {
     id: String,
+    calendar_id: Option<String>,
     date: String,
     title: Option<String>,
     recipe_id: Option<String>,
@@ -23,6 +24,10 @@ pub struct MealPlanEvent {
 impl MealPlanEvent {
     pub fn id(&self) -> &str {
         &self.id
+    }
+
+    pub fn calendar_id(&self) -> Option<&str> {
+        self.calendar_id.as_deref()
     }
 
     /// Get the date in YYYY-MM-DD format
@@ -81,14 +86,7 @@ impl AnyListClient {
                         false
                     }
                 })
-                .map(|e| MealPlanEvent {
-                    id: e.identifier.clone(),
-                    date: e.date.clone().unwrap_or_default(),
-                    title: e.title.clone(),
-                    recipe_id: e.recipe_id.clone(),
-                    label_id: e.label_id.clone(),
-                    details: e.details.clone(),
-                })
+                .map(meal_plan_event_from_pb)
                 .collect(),
             None => Vec::new(),
         };
@@ -159,6 +157,7 @@ impl AnyListClient {
 
         Ok(MealPlanEvent {
             id: event_id,
+            calendar_id: Some(calendar_id.to_string()),
             date: date.to_string(),
             title: title.map(|t| t.to_string()),
             recipe_id: recipe_id.map(|r| r.to_string()),
@@ -295,5 +294,66 @@ impl AnyListClient {
         }
 
         Ok(())
+    }
+}
+
+fn meal_plan_event_from_pb(event: &PbCalendarEvent) -> MealPlanEvent {
+    MealPlanEvent {
+        id: event.identifier.clone(),
+        calendar_id: event.calendar_id.clone(),
+        date: event.date.clone().unwrap_or_default(),
+        title: event.title.clone(),
+        recipe_id: event.recipe_id.clone(),
+        label_id: event.label_id.clone(),
+        details: event.details.clone(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_meal_plan_event_from_pb_maps_all_fields() {
+        let pb = PbCalendarEvent {
+            identifier: "event-1".to_string(),
+            logical_timestamp: Some(1),
+            calendar_id: Some("calendar-1".to_string()),
+            date: Some("2026-06-15".to_string()),
+            title: Some("Dinner".to_string()),
+            details: Some("notes".to_string()),
+            recipe_id: Some("recipe-1".to_string()),
+            label_id: Some("label-1".to_string()),
+            order_added_sort_index: Some(0),
+            recipe_scale_factor: Some(1.0),
+        };
+
+        let event = meal_plan_event_from_pb(&pb);
+
+        assert_eq!(event.id(), "event-1");
+        assert_eq!(event.calendar_id(), Some("calendar-1"));
+        assert_eq!(event.date(), "2026-06-15");
+        assert_eq!(event.title(), Some("Dinner"));
+        assert_eq!(event.recipe_id(), Some("recipe-1"));
+        assert_eq!(event.label_id(), Some("label-1"));
+        assert_eq!(event.details(), Some("notes"));
+    }
+
+    #[test]
+    fn test_meal_plan_event_from_pb_handles_missing_optionals() {
+        let pb = PbCalendarEvent {
+            identifier: "event-2".to_string(),
+            ..Default::default()
+        };
+
+        let event = meal_plan_event_from_pb(&pb);
+
+        assert_eq!(event.id(), "event-2");
+        assert_eq!(event.calendar_id(), None);
+        assert_eq!(event.date(), "");
+        assert_eq!(event.title(), None);
+        assert_eq!(event.recipe_id(), None);
+        assert_eq!(event.label_id(), None);
+        assert_eq!(event.details(), None);
     }
 }

@@ -1,13 +1,13 @@
 [package]
 name = "anylist_rs"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Phil Denhoff <phil@denhoff.ca>"]
 edition = "2021"
 description = "Interact with the grocery list management app AnyList's undocumented API. Unofficial."
 license = "MIT"
 repository = "https://github.com/phildenhoff/anylist_rs"
 homepage = "https://github.com/phildenhoff/anylist_rs"
-readme = "README.md"
+readme = "readme.md"
 keywords = ["anylist", "grocery", "shopping", "api", "list"]
 categories = ["api-bindings"]
 exclude = [
@@ -29,7 +29,7 @@ native-tls = ["reqwest/native-tls", "tokio-tungstenite/connect", "tokio-tungsten
 rustls-tls = ["reqwest/rustls-tls", "tokio-tungstenite/connect", "tokio-tungstenite/rustls-tls-native-roots"]
 
 [dependencies]
-reqwest = { version = "0.11", default-features = false, features = ["json", "multipart"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "multipart", "http2"] }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
@@ -37,14 +37,17 @@ tokio = { version = "1", features = ["full"] }
 prost = "0.12"
 chrono = { version = "0.4.42", features = ["serde"] }
 uuid = { version = "1.18.1", features = ["rng-getrandom", "v4"] }
-tokio-tungstenite = { version = "0.21", default-features = false }
+tokio-tungstenite = { version = "0.23.1", default-features = false }
 futures-util = "0.3"
 urlencoding = "2.1"
 regex = "1.0"
 
-[build-dependencies]
-prost-build = "0.11.0"
-
 [dev-dependencies]
+# test-util: the paused clock (`start_paused`) for the realtime suite.
+tokio = { version = "1", features = ["full", "test-util"] }
 insta = "1.40"
 hex = "0.4"
+# Regenerates and checks src/protobuf/anylist.rs (see tests/protobuf_codegen.rs).
+# protox is a pure-Rust protobuf compiler, so no protoc install is needed.
+prost-build = "0.12"
+protox = "0.6"

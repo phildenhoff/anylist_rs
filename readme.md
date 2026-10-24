@@ -55,9 +55,12 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-anylist_rs = "0.1.0"
+anylist_rs = "0.5"
 tokio = { version = "1", features = ["full"] }
 ```
+
+No other tools are needed. The Rust code generated from the AnyList protobuf
+schema is checked in, so you don't need `protoc` to build the crate.
 
 ## Examples
 
@@ -133,8 +136,30 @@ However, if native TLS is unavailable (e.g. cros-compliation), you can use [rust
 
 ```toml
 [dependencies]
-anylist_rs = { version = "0.1.0", default-features = false, features = ["rustls-tls"] }
+anylist_rs = { version = "0.5", default-features = false, features = ["rustls-tls"] }
 ```
+
+## Development
+
+`cargo build` and `cargo test` work with a stock Rust toolchain; `protoc` isn't
+required.
+
+The protobuf schema lives in `src/protobuf/anylist.proto`, and the Rust generated
+from it is checked in as `src/protobuf/anylist.rs`. After editing the `.proto`,
+regenerate it:
+
+```sh
+UPDATE_PROTOBUF=1 cargo test --test protobuf_codegen
+```
+
+That test uses [protox](https://github.com/andrewhickman/protox), a pure-Rust
+protobuf compiler, and fails in a normal `cargo test` run if the checked-in file
+is stale.
+
+The only thing that needs `protoc` is decoding captured payloads with
+`tools/decode_snapshot.py` (see [docs/testing.md](./docs/testing.md)). Install
+it with `brew install protobuf`, `apt install protobuf-compiler`, or
+`nix shell nixpkgs#protobuf`.
 
 ## Possible future features
 
@@ -143,7 +168,6 @@ anylist_rs = { version = "0.1.0", default-features = false, features = ["rustls-
   - Heartbeat protocol for connection health
   - Handle "refresh-shopping-lists" messages for collaborative updates
 - Logical timestamps for conflict resolution
-- Photo upload/download support (S3 presigned URLs)
 - List folders and organization
 - Recipe web import from URLs
 - iCalendar feed export for meal planning

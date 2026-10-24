@@ -12,10 +12,11 @@ async fn main() -> Result<()> {
     let event = client.create_meal_plan_event(
         calendar_id,
         "2025-10-25",  // Date in YYYY-MM-DD format
-        Some(&recipe.id),
+        Some(recipe.id()),
         None,
         Some("dinner-label-id")  // Meal label (Breakfast, Lunch, Dinner)
     ).await?;
+    println!("Created event {} on calendar {:?}", event.id(), event.calendar_id());
 
     // Create a note-based event (e.g., "Eating out")
     client.create_meal_plan_event(
@@ -29,13 +30,13 @@ async fn main() -> Result<()> {
     // Get meal plan for a date range
     let events = client.get_meal_plan_events("2025-10-25", "2025-10-31").await?;
     for event in &events {
-        println!("Event on {}: {:?}", event.date, event.title);
+        println!("Event on {}: {:?}", event.date(), event.title());
     }
 
     // Add all meal plan ingredients to shopping list for the week
     let list = client.get_list_by_name("Groceries").await?;
     client.add_meal_plan_ingredients_to_list(
-        &list.id,
+        list.id(),
         "2025-10-25",
         "2025-10-31"
     ).await?;

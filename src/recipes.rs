@@ -4,9 +4,36 @@ use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbIngredient, PbOperationMetadata, PbRecipe,
     PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
 };
-use crate::utils::{current_timestamp, generate_id};
-use prost::Message;
+use crate::utils::{current_timestamp, encode_operation_list, generate_id};
 use serde_derive::{Deserialize, Serialize};
+
+fn build_delete_recipe_operation(
+    operation_id: &str,
+    user_id: &str,
+    recipe_id: &str,
+    recipe: Option<PbRecipe>,
+) -> PbRecipeOperationList {
+    let operation = PbRecipeOperation {
+        metadata: Some(PbOperationMetadata {
+            operation_id: Some(operation_id.to_string()),
+            handler_id: Some("remove-recipe".to_string()),
+            user_id: Some(user_id.to_string()),
+            operation_class: Some(OperationClass::Undefined as i32),
+        }),
+        recipe_data_id: None,
+        recipe,
+        recipe_collection: None,
+        recipe_link_request: None,
+        recipe_collection_ids: vec![],
+        recipes: vec![],
+        is_new_recipe_from_web_import: None,
+        recipe_ids: vec![recipe_id.to_string()],
+    };
+
+    PbRecipeOperationList {
+        operations: vec![operation],
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ingredient {
@@ -57,6 +84,95 @@ impl Ingredient {
     pub fn raw_ingredient(&self) -> Option<&str> {
         self.raw_ingredient.as_deref()
     }
+
+    fn to_pb(&self) -> PbIngredient {
+        PbIngredient {
+            raw_ingredient: self.raw_ingredient.clone(),
+            name: Some(self.name.clone()),
+            quantity: self.quantity.clone(),
+            note: self.note.clone(),
+            identifier: None,
+            is_heading: None,
+        }
+    }
+}
+
+/// A section heading in a recipe's ingredient list (e.g. "Sauce").
+///
+/// The AnyList protocol gives every heading a stable identifier; it is
+/// preserved when a recipe is fetched and reused on save, so editing a
+/// recipe does not rewrite its heading identifiers. `new` generates an
+/// identifier for a genuinely new section.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecipeIngredientSection {
+    identifier: String,
+    name: String,
+}
+
+impl RecipeIngredientSection {
+    /// Create a new section heading with a freshly generated identifier.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            identifier: generate_id(),
+            name: name.into(),
+        }
+    }
+
+    /// Create a section heading with a known identifier (e.g. one the
+    /// server assigned).
+    pub fn with_identifier(identifier: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            identifier: identifier.into(),
+            name: name.into(),
+        }
+    }
+
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn to_pb(&self) -> PbIngredient {
+        PbIngredient {
+            raw_ingredient: None,
+            name: Some(self.name.clone()),
+            quantity: None,
+            note: None,
+            identifier: Some(self.identifier.clone()),
+            is_heading: Some(true),
+        }
+    }
+}
+
+/// A single entry in a recipe's ingredient list: either a section heading
+/// or an ingredient. Lets a recipe group its ingredients under headings
+/// (e.g. "Sauce", "Topping") the way the AnyList apps display them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecipeIngredientEntry {
+    Section(RecipeIngredientSection),
+    Ingredient(Ingredient),
+}
+
+impl RecipeIngredientEntry {
+    /// Create a new section heading entry with a freshly generated
+    /// identifier.
+    pub fn section(name: impl Into<String>) -> Self {
+        Self::Section(RecipeIngredientSection::new(name))
+    }
+
+    pub fn ingredient(ingredient: Ingredient) -> Self {
+        Self::Ingredient(ingredient)
+    }
+
+    fn to_pb(&self) -> PbIngredient {
+        match self {
+            Self::Section(section) => section.to_pb(),
+            Self::Ingredient(ingredient) => ingredient.to_pb(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +180,8 @@ pub struct Recipe {
     id: String,
     name: String,
     ingredients: Vec<Ingredient>,
+    #[serde(default)]
+    ingredient_entries: Vec<RecipeIngredientEntry>,
     preparation_steps: Vec<String>,
     note: Option<String>,
     source_name: Option<String>,
@@ -88,6 +206,16 @@ impl Recipe {
 
     pub fn ingredients(&self) -> &[Ingredient] {
         &self.ingredients
+    }
+
+    /// The full ingredient list in display order, including section headings.
+    ///
+    /// A `Recipe` deserialized from JSON written before this field existed
+    /// has an empty entry list even when [`ingredients`](Self::ingredients)
+    /// is populated; `RecipeBuilder::from` rebuilds the entries from the flat
+    /// list in that case.
+    pub fn ingredient_entries(&self) -> &[RecipeIngredientEntry] {
+        &self.ingredient_entries
     }
 
     pub fn preparation_steps(&self) -> &[String] {
@@ -176,6 +304,8 @@ pub struct RecipeBuilder {
     name: String,
     /// List of ingredients
     ingredients: Vec<Ingredient>,
+    /// Section headings and ingredients in display order.
+    ingredient_entries: Vec<RecipeIngredientEntry>,
     /// Preparation steps (each step can be multiline, supports markdown headers/bold/italic)
     preparation_steps: Vec<String>,
     /// Recipe notes/description
@@ -205,6 +335,7 @@ impl RecipeBuilder {
             id: None,
             name: name.into(),
             ingredients: Vec::new(),
+            ingredient_entries: Vec::new(),
             preparation_steps: Vec::new(),
             note: None,
             source_name: None,
@@ -220,10 +351,25 @@ impl RecipeBuilder {
 
     /// Create a builder from an existing recipe for updates
     pub fn from(recipe: &Recipe) -> Self {
+        // Recipes deserialized from JSON written before ingredient_entries
+        // existed have an empty entry list; rebuild it from the flat list so
+        // later entry edits (e.g. add_ingredient_section) don't lose them.
+        let ingredient_entries =
+            if recipe.ingredient_entries.is_empty() && !recipe.ingredients.is_empty() {
+                recipe
+                    .ingredients
+                    .iter()
+                    .cloned()
+                    .map(RecipeIngredientEntry::Ingredient)
+                    .collect()
+            } else {
+                recipe.ingredient_entries.clone()
+            };
         Self {
             id: Some(recipe.id.clone()),
             name: recipe.name.clone(),
             ingredients: recipe.ingredients.clone(),
+            ingredient_entries,
             preparation_steps: recipe.preparation_steps.clone(),
             note: recipe.note.clone(),
             source_name: recipe.source_name.clone(),
@@ -237,15 +383,54 @@ impl RecipeBuilder {
         }
     }
 
-    /// Set all ingredients at once (replaces any existing)
+    /// Set the recipe name.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = name.into();
+        self
+    }
+
+    /// Set all ingredients at once (replaces any existing ingredients and
+    /// removes any section headings)
     pub fn ingredients(mut self, ingredients: Vec<Ingredient>) -> Self {
+        self.ingredient_entries = ingredients
+            .iter()
+            .cloned()
+            .map(RecipeIngredientEntry::Ingredient)
+            .collect();
         self.ingredients = ingredients;
+        self
+    }
+
+    /// Set the full ingredient list, including section headings, at once
+    /// (replaces any existing ingredients and section headings).
+    pub fn ingredient_entries(mut self, entries: Vec<RecipeIngredientEntry>) -> Self {
+        self.ingredients = entries
+            .iter()
+            .filter_map(|entry| match entry {
+                RecipeIngredientEntry::Section(_) => None,
+                RecipeIngredientEntry::Ingredient(ingredient) => Some(ingredient.clone()),
+            })
+            .collect();
+        self.ingredient_entries = entries;
         self
     }
 
     /// Add a single ingredient
     pub fn add_ingredient(mut self, ingredient: Ingredient) -> Self {
+        self.ingredient_entries
+            .push(RecipeIngredientEntry::Ingredient(ingredient.clone()));
         self.ingredients.push(ingredient);
+        self
+    }
+
+    /// Add a section heading to the ingredient list.
+    ///
+    /// The heading gets a freshly generated identifier; to reuse a known
+    /// identifier, push a [`RecipeIngredientSection::with_identifier`] entry
+    /// via [`ingredient_entries`](Self::ingredient_entries).
+    pub fn add_ingredient_section(mut self, section: impl Into<String>) -> Self {
+        self.ingredient_entries
+            .push(RecipeIngredientEntry::section(section));
         self
     }
 
@@ -324,16 +509,24 @@ impl RecipeBuilder {
 
     /// Convert to protobuf recipe
     fn to_pb_recipe(&self, recipe_id: &str, timestamp: f64) -> PbRecipe {
-        let pb_ingredients: Vec<PbIngredient> = self
-            .ingredients
-            .iter()
-            .map(|i| PbIngredient {
-                raw_ingredient: i.raw_ingredient.clone(),
-                name: Some(i.name.clone()),
-                quantity: i.quantity.clone(),
-                note: i.note.clone(),
-            })
-            .collect();
+        // Defensive fallback: a Recipe can reach a builder with an empty entry
+        // list but a populated flat list (e.g. deserialized from JSON written
+        // before ingredient_entries existed).
+        let fallback_entries: Vec<RecipeIngredientEntry>;
+        let entries: &[RecipeIngredientEntry] =
+            if self.ingredient_entries.is_empty() && !self.ingredients.is_empty() {
+                fallback_entries = self
+                    .ingredients
+                    .iter()
+                    .cloned()
+                    .map(RecipeIngredientEntry::Ingredient)
+                    .collect();
+                &fallback_entries
+            } else {
+                &self.ingredient_entries
+            };
+        let pb_ingredients: Vec<PbIngredient> =
+            entries.iter().map(RecipeIngredientEntry::to_pb).collect();
 
         let photo_ids = self.photo_id.clone().into_iter().collect();
 
@@ -399,10 +592,7 @@ impl RecipeBuilder {
             operations: vec![operation],
         };
 
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = encode_operation_list(&operation_list)?;
 
         client.post("data/user-recipe-data/update", buf).await?;
 
@@ -410,6 +600,7 @@ impl RecipeBuilder {
             id: recipe_id,
             name: self.name,
             ingredients: self.ingredients,
+            ingredient_entries: self.ingredient_entries,
             preparation_steps: self.preparation_steps,
             note: self.note,
             source_name: self.source_name,
@@ -453,10 +644,7 @@ impl RecipeBuilder {
             operations: vec![operation],
         };
 
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let buf = encode_operation_list(&operation_list)?;
 
         client.post("data/user-recipe-data/update", buf).await?;
 
@@ -464,6 +652,7 @@ impl RecipeBuilder {
             id: recipe_id,
             name: self.name,
             ingredients: self.ingredients,
+            ingredient_entries: self.ingredient_entries,
             preparation_steps: self.preparation_steps,
             note: self.note,
             source_name: self.source_name,
@@ -532,6 +721,10 @@ impl AnyListClient {
 
     /// Create a new recipe
     ///
+    /// The recipe gets a flat ingredient list; to group ingredients under
+    /// section headings, use [`RecipeBuilder::add_ingredient_section`] or
+    /// [`RecipeBuilder::ingredient_entries`] instead.
+    ///
     /// # Arguments
     ///
     /// * `name` - The name of the recipe
@@ -565,89 +758,28 @@ impl AnyListClient {
         ingredients: Vec<Ingredient>,
         preparation_steps: Vec<String>,
     ) -> Result<Recipe> {
-        let recipe_id = generate_id();
-        let operation_id = generate_id();
-
-        let pb_ingredients: Vec<PbIngredient> = ingredients
-            .iter()
-            .map(|i| PbIngredient {
-                raw_ingredient: i.raw_ingredient.clone(),
-                name: Some(i.name.clone()),
-                quantity: i.quantity.clone(),
-                note: i.note.clone(),
-            })
-            .collect();
-
-        let new_recipe = PbRecipe {
-            identifier: recipe_id.clone(),
-            timestamp: Some(current_timestamp()),
-            name: Some(name.to_string()),
-            icon: None,
-            note: None,
-            source_name: None,
-            source_url: None,
-            ingredients: pb_ingredients,
-            preparation_steps: preparation_steps.clone(),
-            photo_ids: vec![],
-            ad_campaign_id: None,
-            photo_urls: vec![],
-            scale_factor: Some(1.0),
-            rating: None,
-            creation_timestamp: Some(current_timestamp()),
-            nutritional_info: None,
-            cook_time: None,
-            prep_time: None,
-            servings: None,
-            paprika_identifier: None,
-        };
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("save-recipe".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: Some(new_recipe),
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-
-        Ok(Recipe {
-            id: recipe_id,
-            name: name.to_string(),
-            ingredients,
-            preparation_steps,
-            note: None,
-            source_name: None,
-            source_url: None,
-            servings: None,
-            prep_time: None,
-            cook_time: None,
-            rating: None,
-            nutritional_info: None,
-            photo_id: None,
-            photo_urls: vec![],
-        })
+        RecipeBuilder::new(name)
+            .ingredients(ingredients)
+            .preparation_steps(preparation_steps)
+            .save(self)
+            .await
     }
 
-    /// Update an existing recipe
+    /// Update an existing recipe's name, ingredients, and preparation steps
+    ///
+    /// The recipe is fetched first, so its other fields (note, source,
+    /// rating, photo, servings, times) are preserved. Section headings in
+    /// the ingredient list are preserved — with stable identifiers — as long
+    /// as `ingredients` matches the recipe's current flat ingredient list
+    /// exactly (same ingredients, same order, same quantities and notes) —
+    /// the common case of editing only the name or steps. Any difference,
+    /// including reordering, replaces the whole ingredient list and removes
+    /// the section headings; use [`RecipeBuilder::from`] with
+    /// [`RecipeBuilder::ingredient_entries`] to edit ingredients while
+    /// keeping headings.
+    ///
+    /// Returns [`AnyListError::NotFound`] if no recipe with `recipe_id`
+    /// exists.
     ///
     /// # Arguments
     ///
@@ -662,104 +794,45 @@ impl AnyListClient {
         ingredients: Vec<Ingredient>,
         preparation_steps: Vec<String>,
     ) -> Result<()> {
-        let operation_id = generate_id();
+        let existing = self.get_recipe_by_id(recipe_id).await?;
+        let entries = entries_for_ingredient_update(&existing, ingredients);
 
-        let pb_ingredients: Vec<PbIngredient> = ingredients
-            .iter()
-            .map(|i| PbIngredient {
-                raw_ingredient: i.raw_ingredient.clone(),
-                name: Some(i.name.clone()),
-                quantity: i.quantity.clone(),
-                note: i.note.clone(),
-            })
-            .collect();
-
-        let updated_recipe = PbRecipe {
-            identifier: recipe_id.to_string(),
-            timestamp: Some(current_timestamp()),
-            name: Some(name.to_string()),
-            icon: None,
-            note: None,
-            source_name: None,
-            source_url: None,
-            ingredients: pb_ingredients,
-            preparation_steps,
-            photo_ids: vec![],
-            ad_campaign_id: None,
-            photo_urls: vec![],
-            scale_factor: Some(1.0),
-            rating: None,
-            creation_timestamp: Some(current_timestamp()),
-            nutritional_info: None,
-            cook_time: None,
-            prep_time: None,
-            servings: None,
-            paprika_identifier: None,
-        };
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("save-recipe".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: Some(updated_recipe),
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
+        RecipeBuilder::from(&existing)
+            .name(name)
+            .ingredient_entries(entries)
+            .preparation_steps(preparation_steps)
+            .save(self)
+            .await?;
         Ok(())
     }
 
     /// Delete a recipe
+    ///
+    /// Sends the recipe exactly as stored on the server alongside its ID,
+    /// matching the delete operation of the official web client. If the
+    /// recipe is not present in the user's data (e.g. it was already deleted
+    /// from another device), the operation is still sent with just the recipe
+    /// ID, so deleting an already-deleted recipe succeeds.
     ///
     /// # Arguments
     ///
     /// * `recipe_id` - The ID of the recipe to delete
     pub async fn delete_recipe(&self, recipe_id: &str) -> Result<()> {
         let operation_id = generate_id();
+        let recipe = self
+            .get_user_data()
+            .await?
+            .recipe_data_response
+            .and_then(|response| {
+                response
+                    .recipes
+                    .into_iter()
+                    .find(|recipe| recipe.identifier == recipe_id)
+            });
 
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-recipe".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: None,
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![recipe_id.to_string()],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
+        let operation_list =
+            build_delete_recipe_operation(&operation_id, &self.user_id(), recipe_id, recipe);
+        let buf = encode_operation_list(&operation_list)?;
 
         self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
@@ -823,8 +896,15 @@ impl AnyListClient {
     ///
     /// # Arguments
     ///
-    /// * `data` - The image bytes (JPEG recommended)
-    /// * `filename` - Original filename (e.g., "pasta.jpg")
+    /// * `data` - The image bytes; the MIME type is detected from the bytes.
+    ///   JPEG, PNG, GIF, and WebP are all verified to work against the live
+    ///   API: AnyList re-encodes uploads to JPEG server-side and serves the
+    ///   photo at `https://photos.anylist.com/{photo_id}.jpg`. HEIC is
+    ///   rejected — AnyList's own clients convert HEIC to JPEG before
+    ///   uploading, so convert it first. Unrecognized data is also rejected.
+    /// * `filename` - Original filename (e.g., "pasta.jpg"), sent as the
+    ///   multipart part's filename. The server stores the photo under a
+    ///   generated ID regardless.
     ///
     /// # Example
     ///
@@ -847,19 +927,82 @@ impl AnyListClient {
     /// # }
     /// ```
     pub async fn upload_photo(&self, data: Vec<u8>, filename: &str) -> Result<String> {
+        let mime = sniff_image_mime(&data).ok_or_else(|| {
+            AnyListError::Other(
+                "unrecognized image format: expected JPEG, PNG, GIF, or WebP".to_string(),
+            )
+        })?;
+        if mime == "image/heic" {
+            return Err(AnyListError::Other(
+                "HEIC is not supported: AnyList's own clients convert HEIC to JPEG \
+                 before uploading; convert the image to JPEG first"
+                    .to_string(),
+            ));
+        }
+
         let photo_id = generate_id();
         let server_filename = format!("{}.jpg", photo_id);
 
         let photo_part = reqwest::multipart::Part::bytes(data)
-            .file_name(filename.to_string());
+            .file_name(filename.to_string())
+            .mime_str(mime)?;
 
         let form = reqwest::multipart::Form::new()
             .text("filename", server_filename)
             .part("photo", photo_part);
 
-        self.post_multipart_form("/data/photos/upload", form).await?;
+        self.post_multipart_form("/data/photos/upload", form)
+            .await?;
 
         Ok(photo_id)
+    }
+
+    /// Download an existing recipe photo by photo ID.
+    ///
+    /// Fetches the JPEG bytes from `https://photos.anylist.com/{photo_id}.jpg`,
+    /// the public CDN where AnyList serves recipe photos (no authentication
+    /// required).
+    ///
+    /// # Arguments
+    ///
+    /// * `photo_id` - The bare photo ID (32 hex characters, from
+    ///   `upload_photo` or `Recipe::photo_id`) — not a URL or a filename
+    ///   with extension
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use anylist_rs::AnyListClient;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let client = AnyListClient::login("user@example.com", "password").await?;
+    ///
+    /// let photo = client.download_photo("6694e8edc84744a496ea1feadeb8f177").await?;
+    /// std::fs::write("photo.jpg", photo)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn download_photo(&self, photo_id: &str) -> Result<Vec<u8>> {
+        let url = format!("https://photos.anylist.com/{photo_id}.jpg");
+        self.get_bytes(&url).await
+    }
+}
+
+/// Entry list for a legacy ingredient update: keep the existing entry
+/// structure (section headings, stable identifiers) when the new flat
+/// ingredient list is unchanged; otherwise the new ingredients replace the
+/// whole list, without headings.
+fn entries_for_ingredient_update(
+    existing: &Recipe,
+    ingredients: Vec<Ingredient>,
+) -> Vec<RecipeIngredientEntry> {
+    if existing.ingredients() == ingredients && !existing.ingredient_entries().is_empty() {
+        existing.ingredient_entries().to_vec()
+    } else {
+        ingredients
+            .into_iter()
+            .map(RecipeIngredientEntry::Ingredient)
+            .collect()
     }
 }
 
@@ -867,18 +1010,32 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
     let mut recipes: Vec<Recipe> = Vec::new();
     for recipe in response.recipes {
         if let Some(name) = recipe.name {
-            let ingredients: Vec<Ingredient> = recipe
-                .ingredients
-                .iter()
-                .filter_map(|i| {
-                    i.name.as_ref().map(|name| Ingredient {
+            let mut ingredients: Vec<Ingredient> = Vec::new();
+            let mut ingredient_entries: Vec<RecipeIngredientEntry> = Vec::new();
+            for i in &recipe.ingredients {
+                if i.is_heading == Some(true) {
+                    if let Some(name) = &i.name {
+                        // Preserve the server-assigned identifier so saving
+                        // the recipe again keeps headings stable.
+                        let section = match &i.identifier {
+                            Some(id) => {
+                                RecipeIngredientSection::with_identifier(id.clone(), name.clone())
+                            }
+                            None => RecipeIngredientSection::new(name.clone()),
+                        };
+                        ingredient_entries.push(RecipeIngredientEntry::Section(section));
+                    }
+                } else if let Some(name) = &i.name {
+                    let ingredient = Ingredient {
                         name: name.clone(),
                         quantity: i.quantity.clone(),
                         note: i.note.clone(),
                         raw_ingredient: i.raw_ingredient.clone(),
-                    })
-                })
-                .collect();
+                    };
+                    ingredients.push(ingredient.clone());
+                    ingredient_entries.push(RecipeIngredientEntry::Ingredient(ingredient));
+                }
+            }
 
             let photo_id = recipe.photo_ids.first().cloned();
 
@@ -886,6 +1043,7 @@ fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
                 id: recipe.identifier,
                 name,
                 ingredients,
+                ingredient_entries,
                 preparation_steps: recipe.preparation_steps,
                 note: recipe.note,
                 source_name: recipe.source_name,
@@ -923,5 +1081,387 @@ fn scale_quantity(quantity: &str, scale: f64) -> String {
         }
     } else {
         quantity.to_string()
+    }
+}
+
+/// Detect an image's MIME type from its magic bytes.
+///
+/// AnyList re-encodes uploads to JPEG server-side, so the upload just needs
+/// to label the part with the actual format (matching the official web
+/// client, which sends the browser-reported MIME type). HEIC is detected
+/// only so `upload_photo` can reject it with a targeted error: official
+/// clients convert HEIC to JPEG before uploading, so the server never sees
+/// it and its support is unverified.
+fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
+    if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        return Some("image/jpeg");
+    }
+    if data.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Some("image/png");
+    }
+    if data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a") {
+        return Some("image/gif");
+    }
+    if data.len() >= 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        return Some("image/webp");
+    }
+    if data.len() >= 12 && &data[4..8] == b"ftyp" {
+        if let b"heic" | b"heix" | b"heim" | b"heis" | b"hevc" | b"hevx" | b"heif" | b"mif1"
+        | b"msf1" = &data[8..12]
+        {
+            return Some("image/heic");
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client::SavedTokens;
+    use prost::Message;
+
+    #[test]
+    fn test_sniff_image_mime() {
+        assert_eq!(
+            sniff_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]),
+            Some("image/jpeg")
+        );
+        assert_eq!(
+            sniff_image_mime(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+            Some("image/png")
+        );
+        assert_eq!(sniff_image_mime(b"GIF89a\x01\x00"), Some("image/gif"));
+        assert_eq!(
+            sniff_image_mime(b"RIFF\x24\x00\x00\x00WEBPVP8 "),
+            Some("image/webp")
+        );
+        assert_eq!(
+            sniff_image_mime(b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00"),
+            Some("image/heic")
+        );
+        assert_eq!(sniff_image_mime(b"not an image"), None);
+        assert_eq!(sniff_image_mime(&[]), None);
+        // Truncated multi-byte signatures must not panic on the length guards
+        assert_eq!(sniff_image_mime(b"RIFF"), None);
+        assert_eq!(sniff_image_mime(b"\x00\x00\x00\x18ftyp"), None);
+    }
+
+    #[tokio::test]
+    async fn test_upload_photo_rejects_unrecognized_data() {
+        let client =
+            AnyListClient::from_tokens(SavedTokens::new("access", "refresh", "user", false))
+                .unwrap();
+
+        // Must fail with a clear error before any network request is made
+        let err = client
+            .upload_photo(b"definitely not an image".to_vec(), "notes.txt")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("unrecognized image format"));
+    }
+
+    #[tokio::test]
+    async fn test_upload_photo_rejects_heic() {
+        let client =
+            AnyListClient::from_tokens(SavedTokens::new("access", "refresh", "user", false))
+                .unwrap();
+
+        let heic_data = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00".to_vec();
+        let err = client
+            .upload_photo(heic_data, "photo.heic")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("HEIC"));
+    }
+
+    #[test]
+    fn delete_recipe_operation_preserves_stored_recipe_payload() {
+        let recipe = PbRecipe {
+            identifier: "recipe-id".to_string(),
+            timestamp: Some(1111.25),
+            name: Some("Probe Recipe".to_string()),
+            icon: Some("icon-name".to_string()),
+            ingredients: vec![PbIngredient {
+                identifier: Some("ingredient-1".to_string()),
+                raw_ingredient: Some("2 cups flour, sifted".to_string()),
+                name: Some("flour".to_string()),
+                quantity: Some("2 cups".to_string()),
+                note: Some("sifted".to_string()),
+                is_heading: Some(false),
+            }],
+            photo_ids: vec!["photo-1".to_string(), "photo-2".to_string()],
+            photo_urls: vec!["https://example.com/photo-1.jpg".to_string()],
+            scale_factor: Some(2.5),
+            creation_timestamp: Some(42.5),
+            paprika_identifier: Some("paprika-id".to_string()),
+            ..Default::default()
+        };
+
+        let operation_list = build_delete_recipe_operation(
+            "operation-id",
+            "user-id",
+            "recipe-id",
+            Some(recipe.clone()),
+        );
+        let encoded =
+            encode_operation_list(&operation_list).expect("delete operation should encode");
+        let decoded = PbRecipeOperationList::decode(encoded.as_slice())
+            .expect("delete operation should decode");
+
+        assert_eq!(decoded.operations.len(), 1);
+        let operation = &decoded.operations[0];
+        let metadata = operation.metadata.as_ref().expect("metadata");
+        assert_eq!(metadata.operation_id.as_deref(), Some("operation-id"));
+        assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
+        assert_eq!(metadata.user_id.as_deref(), Some("user-id"));
+        assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
+        assert_eq!(operation.is_new_recipe_from_web_import, None);
+        assert_eq!(operation.recipe.as_ref(), Some(&recipe));
+    }
+
+    #[test]
+    fn delete_recipe_operation_falls_back_to_id_only_payload() {
+        let operation_list =
+            build_delete_recipe_operation("operation-id", "user-id", "recipe-id", None);
+        let encoded =
+            encode_operation_list(&operation_list).expect("delete operation should encode");
+        let decoded = PbRecipeOperationList::decode(encoded.as_slice())
+            .expect("delete operation should decode");
+
+        assert_eq!(decoded.operations.len(), 1);
+        let operation = &decoded.operations[0];
+        let metadata = operation.metadata.as_ref().expect("metadata");
+        assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
+        assert_eq!(operation.recipe, None);
+        assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
+        assert_eq!(operation.is_new_recipe_from_web_import, None);
+    }
+
+    fn heading_pb(identifier: Option<&str>, name: &str) -> PbIngredient {
+        PbIngredient {
+            name: Some(name.to_string()),
+            identifier: identifier.map(str::to_string),
+            is_heading: Some(true),
+            ..Default::default()
+        }
+    }
+
+    fn ingredient_pb(name: &str) -> PbIngredient {
+        PbIngredient {
+            name: Some(name.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn response_with_ingredients(ingredients: Vec<PbIngredient>) -> PbRecipeDataResponse {
+        PbRecipeDataResponse {
+            recipes: vec![PbRecipe {
+                identifier: "recipe-1".to_string(),
+                name: Some("Pasta".to_string()),
+                ingredients,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn decode_preserves_heading_identifier_and_order() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+            heading_pb(Some("sec-2"), "Topping"),
+            ingredient_pb("Basil"),
+        ]);
+
+        let recipes = recipes_from_response(response);
+        assert_eq!(recipes.len(), 1);
+        let recipe = &recipes[0];
+
+        // Flat list excludes headings.
+        let names: Vec<&str> = recipe.ingredients().iter().map(Ingredient::name).collect();
+        assert_eq!(names, ["Tomato", "Basil"]);
+
+        // Entries keep display order and server identifiers.
+        let entries = recipe.ingredient_entries();
+        assert_eq!(entries.len(), 4);
+        match &entries[0] {
+            RecipeIngredientEntry::Section(section) => {
+                assert_eq!(section.identifier(), "sec-1");
+                assert_eq!(section.name(), "Sauce");
+            }
+            other => panic!("expected section, got {:?}", other),
+        }
+        match &entries[2] {
+            RecipeIngredientEntry::Section(section) => {
+                assert_eq!(section.identifier(), "sec-2");
+                assert_eq!(section.name(), "Topping");
+            }
+            other => panic!("expected section, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn decode_generates_identifier_when_server_omits_it() {
+        let response = response_with_ingredients(vec![heading_pb(None, "Sauce")]);
+        let recipes = recipes_from_response(response);
+        match &recipes[0].ingredient_entries()[0] {
+            RecipeIngredientEntry::Section(section) => {
+                assert!(!section.identifier().is_empty());
+            }
+            other => panic!("expected section, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn save_round_trip_keeps_heading_identifiers_stable() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        let builder = RecipeBuilder::from(&recipe);
+        let first = builder.to_pb_recipe("recipe-1", 0.0);
+        let second = builder.to_pb_recipe("recipe-1", 0.0);
+
+        assert_eq!(first.ingredients[0].identifier.as_deref(), Some("sec-1"));
+        assert_eq!(first.ingredients[0].is_heading, Some(true));
+        assert_eq!(first.ingredients[0].name.as_deref(), Some("Sauce"));
+        // Encoding is deterministic: no fresh identifiers per save.
+        assert_eq!(first.ingredients, second.ingredients);
+    }
+
+    #[test]
+    fn new_section_gets_one_identifier_stable_across_encodes() {
+        let builder = RecipeBuilder::new("Pasta")
+            .add_ingredient_section("Sauce")
+            .add_ingredient(Ingredient::new("Tomato"));
+
+        let first = builder.to_pb_recipe("recipe-1", 0.0);
+        let second = builder.to_pb_recipe("recipe-1", 0.0);
+
+        let heading = &first.ingredients[0];
+        assert_eq!(heading.is_heading, Some(true));
+        assert!(heading
+            .identifier
+            .as_deref()
+            .is_some_and(|id| !id.is_empty()));
+        assert_eq!(first.ingredients, second.ingredients);
+
+        // The plain ingredient is not marked as a heading.
+        assert_eq!(first.ingredients[1].is_heading, None);
+        assert_eq!(first.ingredients[1].name.as_deref(), Some("Tomato"));
+    }
+
+    #[test]
+    fn ingredients_setter_replaces_sections() {
+        let builder = RecipeBuilder::new("Pasta")
+            .add_ingredient_section("Sauce")
+            .ingredients(vec![Ingredient::new("Tomato")]);
+
+        assert_eq!(builder.ingredient_entries.len(), 1);
+        assert!(matches!(
+            builder.ingredient_entries[0],
+            RecipeIngredientEntry::Ingredient(_)
+        ));
+    }
+
+    #[test]
+    fn ingredient_entries_setter_syncs_flat_list() {
+        let builder = RecipeBuilder::new("Pasta").ingredient_entries(vec![
+            RecipeIngredientEntry::section("Sauce"),
+            RecipeIngredientEntry::ingredient(Ingredient::new("Tomato")),
+            RecipeIngredientEntry::section("Topping"),
+            RecipeIngredientEntry::ingredient(Ingredient::new("Basil")),
+        ]);
+
+        let names: Vec<&str> = builder.ingredients.iter().map(Ingredient::name).collect();
+        assert_eq!(names, ["Tomato", "Basil"]);
+        assert_eq!(builder.ingredient_entries.len(), 4);
+    }
+
+    #[test]
+    fn ingredient_update_with_unchanged_list_keeps_headings() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+            ingredient_pb("Basil"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        // Same flat list (e.g. the caller only renamed the recipe).
+        let entries = entries_for_ingredient_update(&recipe, recipe.ingredients().to_vec());
+        assert_eq!(entries, recipe.ingredient_entries());
+        match &entries[0] {
+            RecipeIngredientEntry::Section(section) => assert_eq!(section.identifier(), "sec-1"),
+            other => panic!("expected section, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn ingredient_update_with_reordered_list_replaces_entries() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+            ingredient_pb("Basil"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        // The comparison is exact: a reordered list counts as changed, so
+        // the headings are replaced (documented on update_recipe).
+        let mut reordered = recipe.ingredients().to_vec();
+        reordered.reverse();
+        let entries = entries_for_ingredient_update(&recipe, reordered);
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .all(|e| matches!(e, RecipeIngredientEntry::Ingredient(_))));
+    }
+
+    #[test]
+    fn ingredient_update_with_changed_list_replaces_entries() {
+        let response = response_with_ingredients(vec![
+            heading_pb(Some("sec-1"), "Sauce"),
+            ingredient_pb("Tomato"),
+        ]);
+        let recipe = recipes_from_response(response).remove(0);
+
+        let entries = entries_for_ingredient_update(&recipe, vec![Ingredient::new("Garlic")]);
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(entries[0], RecipeIngredientEntry::Ingredient(_)));
+    }
+
+    #[test]
+    fn builder_from_rebuilds_entries_for_pre_entries_recipes() {
+        // A Recipe deserialized from JSON written before ingredient_entries
+        // existed has an empty entry list.
+        let old_json = r#"{
+            "id": "r1",
+            "name": "Bread",
+            "ingredients": [
+                {"name": "Flour", "quantity": null, "note": null, "raw_ingredient": null}
+            ],
+            "preparation_steps": [],
+            "note": null,
+            "source_name": null,
+            "source_url": null,
+            "servings": null,
+            "prep_time": null,
+            "cook_time": null,
+            "rating": null,
+            "nutritional_info": null,
+            "photo_id": null,
+            "photo_urls": []
+        }"#;
+        let recipe: Recipe = serde_json::from_str(old_json).unwrap();
+        assert!(recipe.ingredient_entries().is_empty());
+
+        // Entry-level edits must not lose the flat ingredients.
+        let builder = RecipeBuilder::from(&recipe).add_ingredient_section("Toppings");
+        let pb = builder.to_pb_recipe("r1", 0.0);
+        let names: Vec<Option<&str>> = pb.ingredients.iter().map(|i| i.name.as_deref()).collect();
+        assert_eq!(names, [Some("Flour"), Some("Toppings")]);
     }
 }
