@@ -33,6 +33,6 @@ fn generated_protobuf_code_is_up_to_date() {
     assert!(
         checked_in == generated,
         "src/protobuf/anylist.rs is out of date with anylist.proto; \
-         regenerate it with: UPDATE_PROTOBUF=1 cargo test --test protobuf_codegen"
+         regenerate it with: UPDATE_PROTOBUF=1 cargo test --test it protobuf_codegen"
     );
 }

@@ -4,8 +4,8 @@
 //! handshake delay and echoes heartbeats. The delay keeps the client in
 //! `Reconnecting` for a while, so a poller can observe it.
 
-use crate::fake::{Behaviour, FakeServer, RefreshReply, Step};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, RefreshReply, Step};
+use crate::realtime::support::*;
 use anylist_rs::{AuthEvent, ConnectionState, SyncEvent};
 use tokio::time::Instant;
 

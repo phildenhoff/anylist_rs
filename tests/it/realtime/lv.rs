@@ -5,8 +5,8 @@
 //! heartbeat interval` after the last inbound frame. In virtual time the
 //! tests assert exactly that window.
 
-use crate::fake::{Behaviour, FakeServer, Step};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, Step};
+use crate::realtime::support::*;
 use anylist_rs::{ConnectionState, SyncEvent};
 use tokio::time::Instant;
 

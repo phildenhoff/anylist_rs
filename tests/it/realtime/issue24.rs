@@ -2,8 +2,8 @@
 //! live in `src/realtime/sync.rs` (and reached into private fields). Same
 //! intent, production timings on the paused clock.
 
-use crate::fake::{Behaviour, FakeServer, Step};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, Step};
+use crate::realtime::support::*;
 use anylist_rs::ConnectionState;
 use tokio::time::Instant;
 

@@ -1,7 +1,7 @@
 //! 2.4 Event delivery (EV)
 
-use crate::fake::{Behaviour, FakeServer, Step, HEARTBEAT};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, Step, HEARTBEAT};
+use crate::realtime::support::*;
 use anylist_rs::{ConnectionState, RealtimeSync, SyncEvent};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};

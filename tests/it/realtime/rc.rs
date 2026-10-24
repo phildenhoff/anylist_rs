@@ -1,7 +1,7 @@
 //! 2.6 Reconnect (RC)
 
-use crate::fake::{Behaviour, FakeServer, RefreshReply, Step};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, RefreshReply, Step};
+use crate::realtime::support::*;
 use anylist_rs::{AnyListError, ConnectionState, SyncEvent};
 use tokio::time::Instant;
 

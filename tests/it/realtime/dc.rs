@@ -1,7 +1,7 @@
 //! 2.7 Disconnect (DC)
 
-use crate::fake::{Behaviour, FakeServer, Step};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, Step};
+use crate::realtime::support::*;
 use anylist_rs::ConnectionState;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;

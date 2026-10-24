@@ -1,7 +1,7 @@
 //! 2.8 Drop (DR)
 
-use crate::fake::{Behaviour, FakeServer, Step};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, Step};
+use crate::realtime::support::*;
 use anylist_rs::RealtimeSync;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -40,7 +40,7 @@ async fn rt_dr_01_drop_while_connected_ends_the_connection() {
 async fn rt_dr_02_drop_during_backoff_makes_no_further_attempts() {
     guard(async {
         // Halfway through the pending delay, as in RT-DC-06.
-        let (server, h) = crate::dc::in_backoff(crate::dc::PENDING / 2).await;
+        let (server, h) = crate::realtime::dc::in_backoff(crate::realtime::dc::PENDING / 2).await;
         // The server accepts again from the moment of the drop, so a
         // pending attempt that survived it would connect.
         let sync = h.into_sync().await;
