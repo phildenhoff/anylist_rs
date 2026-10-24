@@ -2,7 +2,7 @@ use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
     pb_operation_metadata::OperationClass, PbOperationMetadata, PbRecipeCollection,
-    PbRecipeCollectionSettings, PbRecipeOperation, PbRecipeOperationList,
+    PbRecipeCollectionSettings, PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
 };
 use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
@@ -30,31 +30,20 @@ impl RecipeCollection {
 }
 
 impl AnyListClient {
+    async fn get_recipe_data(&self) -> Result<Option<PbRecipeDataResponse>> {
+        Ok(self.get_user_data().await?.recipe_data_response)
+    }
+
     async fn get_recipe_data_id(&self) -> Result<Option<String>> {
         Ok(self
-            .get_user_data()
+            .get_recipe_data()
             .await?
-            .recipe_data_response
             .and_then(|response| response.recipe_data_id))
     }
 
     pub async fn get_recipe_collections(&self) -> Result<Vec<RecipeCollection>> {
-        let data = self.get_user_data().await?;
-        let collections = match data.recipe_data_response {
-            Some(ref res) => res
-                .recipe_collections
-                .iter()
-                .filter_map(|c| {
-                    c.name.as_ref().map(|name| RecipeCollection {
-                        id: c.identifier.clone(),
-                        name: name.clone(),
-                        recipe_ids: c.recipe_ids.clone(),
-                    })
-                })
-                .collect(),
-            None => Vec::new(),
-        };
-        Ok(collections)
+        let data = self.get_recipe_data().await?;
+        Ok(collections_from(data.as_ref()))
     }
 
     /// Create a new recipe collection
@@ -179,16 +168,12 @@ impl AnyListClient {
         recipe_id: &str,
     ) -> Result<()> {
         let operation_id = generate_id();
-        let recipe_data_id = self.get_recipe_data_id().await?;
-
-        // Get the current collection
-        let collections = self.get_recipe_collections().await?;
-        let collection = collections
-            .iter()
-            .find(|c| c.id == collection_id)
-            .ok_or_else(|| {
-                AnyListError::NotFound(format!("Collection with ID {} not found", collection_id))
-            })?;
+        // One fetch gives both the recipe data ID and the current collection
+        let recipe_data = self.get_recipe_data().await?;
+        let recipe_data_id = recipe_data
+            .as_ref()
+            .and_then(|response| response.recipe_data_id.clone());
+        let collection = find_collection(recipe_data.as_ref(), collection_id)?;
 
         let mut new_recipe_ids = collection.recipe_ids.clone();
         if !new_recipe_ids.contains(&recipe_id.to_string()) {
@@ -248,16 +233,12 @@ impl AnyListClient {
         recipe_id: &str,
     ) -> Result<()> {
         let operation_id = generate_id();
-        let recipe_data_id = self.get_recipe_data_id().await?;
-
-        // Get the current collection
-        let collections = self.get_recipe_collections().await?;
-        let collection = collections
-            .iter()
-            .find(|c| c.id == collection_id)
-            .ok_or_else(|| {
-                AnyListError::NotFound(format!("Collection with ID {} not found", collection_id))
-            })?;
+        // One fetch gives both the recipe data ID and the current collection
+        let recipe_data = self.get_recipe_data().await?;
+        let recipe_data_id = recipe_data
+            .as_ref()
+            .and_then(|response| response.recipe_data_id.clone());
+        let collection = find_collection(recipe_data.as_ref(), collection_id)?;
 
         let new_recipe_ids: Vec<String> = collection
             .recipe_ids
@@ -306,4 +287,33 @@ impl AnyListClient {
         self.post("data/user-recipe-data/update", buf).await?;
         Ok(())
     }
+}
+
+fn collections_from(data: Option<&PbRecipeDataResponse>) -> Vec<RecipeCollection> {
+    match data {
+        Some(res) => res
+            .recipe_collections
+            .iter()
+            .filter_map(|c| {
+                c.name.as_ref().map(|name| RecipeCollection {
+                    id: c.identifier.clone(),
+                    name: name.clone(),
+                    recipe_ids: c.recipe_ids.clone(),
+                })
+            })
+            .collect(),
+        None => Vec::new(),
+    }
+}
+
+fn find_collection(
+    data: Option<&PbRecipeDataResponse>,
+    collection_id: &str,
+) -> Result<RecipeCollection> {
+    collections_from(data)
+        .into_iter()
+        .find(|c| c.id == collection_id)
+        .ok_or_else(|| {
+            AnyListError::NotFound(format!("Collection with ID {} not found", collection_id))
+        })
 }
