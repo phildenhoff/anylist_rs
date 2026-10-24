@@ -9,10 +9,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Jobs use the Rust that ships on the runner images (stable, with clippy and
-# rustfmt) rather than downloading the newest release, which saves ~8 s per
-# job. The images are updated weekly, so they can trail a new stable briefly.
-
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
@@ -23,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
       - run: cargo fmt --all --check
 
   clippy:
@@ -30,6 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features
 
@@ -47,6 +49,7 @@ jobs:
         tls: [native-tls, rustls-tls]
     steps:
       - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.tls }}
