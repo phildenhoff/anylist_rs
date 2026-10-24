@@ -7,7 +7,7 @@ description = "Interact with the grocery list management app AnyList's undocumen
 license = "MIT"
 repository = "https://github.com/phildenhoff/anylist_rs"
 homepage = "https://github.com/phildenhoff/anylist_rs"
-readme = "README.md"
+readme = "readme.md"
 keywords = ["anylist", "grocery", "shopping", "api", "list"]
 categories = ["api-bindings"]
 exclude = [
@@ -42,11 +42,12 @@ futures-util = "0.3"
 urlencoding = "2.1"
 regex = "1.0"
 
-[build-dependencies]
-prost-build = "0.11.0"
-
 [dev-dependencies]
 # test-util: the paused clock (`start_paused`) for the realtime suite.
 tokio = { version = "1", features = ["full", "test-util"] }
 insta = "1.40"
 hex = "0.4"
+# Regenerates and checks src/protobuf/anylist.rs (see tests/protobuf_codegen.rs).
+# protox is a pure-Rust protobuf compiler, so no protoc install is needed.
+prost-build = "0.12"
+protox = "0.6"

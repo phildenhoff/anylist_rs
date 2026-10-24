@@ -50,9 +50,11 @@ pub mod stores;
 mod utils;
 
 pub mod protobuf {
-    pub mod anylist {
-        include!(concat!(env!("OUT_DIR"), "/anylist.proto.rs"));
-    }
+    // Generated from anylist.proto and checked in, so building the crate
+    // doesn't need protoc. Regenerate with:
+    // UPDATE_PROTOBUF=1 cargo test --test protobuf_codegen
+    #[rustfmt::skip]
+    pub mod anylist;
 }
 
 // Re-export commonly used types
