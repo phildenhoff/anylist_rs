@@ -593,7 +593,9 @@ pub struct RemoveFavouriteParams {
     pub user_id: String,
 }
 
-pub fn build_remove_favourite_operation(params: RemoveFavouriteParams) -> PbStarterListOperationList {
+pub fn build_remove_favourite_operation(
+    params: RemoveFavouriteParams,
+) -> PbStarterListOperationList {
     let operation = PbStarterListOperation {
         metadata: Some(PbOperationMetadata {
             operation_id: Some(params.operation_id),
