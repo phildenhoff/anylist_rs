@@ -38,6 +38,10 @@ jobs:
   test:
     name: test (${{ matrix.os }}, ${{ matrix.tls }})
     runs-on: ${{ matrix.os }}
+    env:
+      # Debug info isn't needed in CI; dropping it speeds up linking the test
+      # binaries and shrinks the cache.
+      CARGO_PROFILE_DEV_DEBUG: 0
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +53,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.tls }}
-      - name: Build
-        run: cargo build --all-targets --no-default-features --features ${{ matrix.tls }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
       - name: Test
-        run: cargo test --no-default-features --features ${{ matrix.tls }}
+        run: cargo nextest run --no-default-features --features ${{ matrix.tls }}
+      # nextest doesn't run doctests.
+      - name: Doctests
+        run: cargo test --doc --no-default-features --features ${{ matrix.tls }}
