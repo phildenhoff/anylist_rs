@@ -6,7 +6,7 @@
 
 #![allow(dead_code)]
 
-use crate::fake::FakeServer;
+use crate::realtime::fake::FakeServer;
 use anylist_rs::{
     AnyListClient, AnyListError, AuthEvent, ConnectionState, RealtimeConfig, RealtimeSync,
     SavedTokens, SyncEvent,

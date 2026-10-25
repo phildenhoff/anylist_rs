@@ -1,7 +1,7 @@
 //! 2.2 Heartbeats (HB)
 
-use crate::fake::{Behaviour, FakeServer, Frame, Step, HEARTBEAT};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, FakeServer, Frame, Step, HEARTBEAT};
+use crate::realtime::support::*;
 use anylist_rs::{ConnectionState, SyncEvent};
 use tokio::time::Instant;
 

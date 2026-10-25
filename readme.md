@@ -149,7 +149,7 @@ from it is checked in as `src/protobuf/anylist.rs`. After editing the `.proto`,
 regenerate it:
 
 ```sh
-UPDATE_PROTOBUF=1 cargo test --test protobuf_codegen
+UPDATE_PROTOBUF=1 cargo test --test it protobuf_codegen
 ```
 
 That test uses [protox](https://github.com/andrewhickman/protox), a pure-Rust

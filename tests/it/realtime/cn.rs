@@ -1,7 +1,7 @@
 //! 2.1 Connecting (CN)
 
-use crate::fake::{Behaviour, End, FakeServer, RefreshReply};
-use crate::support::*;
+use crate::realtime::fake::{Behaviour, End, FakeServer, RefreshReply};
+use crate::realtime::support::*;
 use anylist_rs::{AnyListError, ConnectionState, SyncEvent};
 use tokio::time::Instant;
 

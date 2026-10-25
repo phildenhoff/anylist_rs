@@ -47,7 +47,7 @@ regex = "1.0"
 tokio = { version = "1", features = ["full", "test-util"] }
 insta = "1.40"
 hex = "0.4"
-# Regenerates and checks src/protobuf/anylist.rs (see tests/protobuf_codegen.rs).
+# Regenerates and checks src/protobuf/anylist.rs (see tests/it/protobuf_codegen.rs).
 # protox is a pure-Rust protobuf compiler, so no protoc install is needed.
 prost-build = "0.12"
 protox = "0.6"

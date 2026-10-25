@@ -52,7 +52,7 @@ mod utils;
 pub mod protobuf {
     // Generated from anylist.proto and checked in, so building the crate
     // doesn't need protoc. Regenerate with:
-    // UPDATE_PROTOBUF=1 cargo test --test protobuf_codegen
+    // UPDATE_PROTOBUF=1 cargo test --test it protobuf_codegen
     #[rustfmt::skip]
     pub mod anylist;
 }
