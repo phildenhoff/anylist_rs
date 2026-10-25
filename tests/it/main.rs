@@ -5,4 +5,5 @@ mod ingredient_sections;
 mod meal_plan_calendar_id;
 mod protobuf_codegen;
 mod realtime;
+mod recipe_collections;
 mod recipe_serde;
