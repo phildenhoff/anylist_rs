@@ -220,7 +220,7 @@ async fn create_recipe_collection_sends_recipe_data_id() {
     let op = api.sent_operation();
     assert_eq!(handler_id(&op), "new-recipe-collection");
     assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
-    assert_eq!(op.recipe_collection_ids, [created.id()]);
+    assert!(op.recipe_collection_ids.is_empty());
     assert!(op.recipe_ids.is_empty());
     let sent = op.recipe_collection.unwrap();
     assert_eq!(sent.identifier, created.id());
@@ -243,13 +243,13 @@ async fn create_recipe_collection_with_recipe_ids_populates_collection() {
     let op = api.sent_operation();
     assert_eq!(handler_id(&op), "new-recipe-collection");
     assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
-    assert_eq!(op.recipe_ids, ids);
+    assert!(op.recipe_ids.is_empty());
     assert_eq!(op.recipe_collection.unwrap().recipe_ids, ids);
 }
 
 #[tokio::test]
-async fn delete_recipe_collection_sends_recipe_data_id() {
-    let api = FakeApi::start(recipe_data(vec![collection("c1", "Dinners", &[])])).await;
+async fn delete_recipe_collection_sends_the_stored_collection() {
+    let api = FakeApi::start(recipe_data(vec![collection("c1", "Dinners", &["r1"])])).await;
 
     api.client().delete_recipe_collection("c1").await.unwrap();
 
@@ -257,11 +257,15 @@ async fn delete_recipe_collection_sends_recipe_data_id() {
     let op = api.sent_operation();
     assert_eq!(handler_id(&op), "remove-recipe-collection");
     assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
-    assert_eq!(op.recipe_collection_ids, ["c1"]);
+    assert!(op.recipe_collection_ids.is_empty());
+    let sent = op.recipe_collection.unwrap();
+    assert_eq!(sent.identifier, "c1");
+    assert_eq!(sent.name.as_deref(), Some("Dinners"));
+    assert_eq!(sent.recipe_ids, ["r1"]);
 }
 
 #[tokio::test]
-async fn add_recipe_to_collection_fetches_user_data_once() {
+async fn add_recipe_to_collection_sends_only_the_added_recipe() {
     let api = FakeApi::start(recipe_data(vec![collection("c1", "Dinners", &["r1"])])).await;
 
     api.client()
@@ -276,11 +280,11 @@ async fn add_recipe_to_collection_fetches_user_data_once() {
     let sent = op.recipe_collection.unwrap();
     assert_eq!(sent.identifier, "c1");
     assert_eq!(sent.name.as_deref(), Some("Dinners"));
-    assert_eq!(sent.recipe_ids, ["r1", "r2"]);
+    assert_eq!(sent.recipe_ids, ["r2"]);
 }
 
 #[tokio::test]
-async fn add_recipe_already_in_collection_does_not_duplicate_it() {
+async fn add_recipe_already_in_collection_sends_nothing() {
     let api = FakeApi::start(recipe_data(vec![collection("c1", "Dinners", &["r1"])])).await;
 
     api.client()
@@ -288,12 +292,11 @@ async fn add_recipe_already_in_collection_does_not_duplicate_it() {
         .await
         .unwrap();
 
-    let sent = api.sent_operation().recipe_collection.unwrap();
-    assert_eq!(sent.recipe_ids, ["r1"]);
+    assert_eq!(api.paths(), [USER_DATA]);
 }
 
 #[tokio::test]
-async fn remove_recipe_from_collection_fetches_user_data_once() {
+async fn remove_recipe_from_collection_sends_only_the_removed_recipe() {
     let api = FakeApi::start(recipe_data(vec![collection(
         "c1",
         "Dinners",
@@ -310,7 +313,21 @@ async fn remove_recipe_from_collection_fetches_user_data_once() {
     let op = api.sent_operation();
     assert_eq!(handler_id(&op), "remove-recipes-from-collection");
     assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
-    assert_eq!(op.recipe_collection.unwrap().recipe_ids, ["r2"]);
+    let sent = op.recipe_collection.unwrap();
+    assert_eq!(sent.name.as_deref(), Some("Dinners"));
+    assert_eq!(sent.recipe_ids, ["r1"]);
+}
+
+#[tokio::test]
+async fn remove_recipe_not_in_collection_sends_nothing() {
+    let api = FakeApi::start(recipe_data(vec![collection("c1", "Dinners", &["r1"])])).await;
+
+    api.client()
+        .remove_recipe_from_collection("c1", "r2")
+        .await
+        .unwrap();
+
+    assert_eq!(api.paths(), [USER_DATA]);
 }
 
 #[tokio::test]
@@ -320,8 +337,10 @@ async fn changing_an_unknown_collection_is_not_found_and_sends_nothing() {
 
     let add = client.add_recipe_to_collection("missing", "r1").await;
     let remove = client.remove_recipe_from_collection("missing", "r1").await;
+    let delete = client.delete_recipe_collection("missing").await;
 
     assert!(matches!(add, Err(AnyListError::NotFound(_))));
     assert!(matches!(remove, Err(AnyListError::NotFound(_))));
-    assert_eq!(api.paths(), [USER_DATA, USER_DATA]);
+    assert!(matches!(delete, Err(AnyListError::NotFound(_))));
+    assert_eq!(api.paths(), [USER_DATA, USER_DATA, USER_DATA]);
 }
