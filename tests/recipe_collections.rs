@@ -218,7 +218,7 @@ async fn create_recipe_collection_sends_recipe_data_id() {
     assert_eq!(api.paths(), [USER_DATA, RECIPE_UPDATE]);
 
     let op = api.sent_operation();
-    assert_eq!(handler_id(&op), "save-recipe-collection");
+    assert_eq!(handler_id(&op), "new-recipe-collection");
     assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
     assert_eq!(op.recipe_collection_ids, [created.id()]);
     assert!(op.recipe_ids.is_empty());
@@ -241,7 +241,7 @@ async fn create_recipe_collection_with_recipe_ids_populates_collection() {
 
     assert_eq!(created.recipe_ids(), ids.as_slice());
     let op = api.sent_operation();
-    assert_eq!(handler_id(&op), "save-recipe-collection");
+    assert_eq!(handler_id(&op), "new-recipe-collection");
     assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
     assert_eq!(op.recipe_ids, ids);
     assert_eq!(op.recipe_collection.unwrap().recipe_ids, ids);
