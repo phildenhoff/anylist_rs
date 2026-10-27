@@ -15,7 +15,12 @@
       "listDataId": "c16853c3b19a47949ac9c5c3c3fbb835",
       "listFolder": {
         "identifier": "64dc0b61c8b24718826d94a5590cb105",
-        "folderSettings": {}
+        "folderSettings": {
+          "icon": {
+            "iconName": "default_folder_icon",
+            "tintHexColor": "16A1E0"
+          }
+        }
       }
     }
   ],

@@ -47,6 +47,7 @@ pub mod operations;
 pub mod realtime;
 pub mod recipes;
 pub mod stores;
+mod user_data;
 mod utils;
 
 pub mod protobuf {

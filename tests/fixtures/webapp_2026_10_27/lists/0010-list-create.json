@@ -15,7 +15,11 @@
       "updatedSettings": {
         "identifier": "9b3e6d55af116dbd3c812d05db7d9e8b",
         "userId": "c16853c3b19a47949ac9c5c3c3fbb835",
-        "listId": "4a32d6958d604452b002a4098ab5e1ab"
+        "listId": "4a32d6958d604452b002a4098ab5e1ab",
+        "icon": {
+          "iconName": "default_list_icon",
+          "tintHexColor": "16a1e0"
+        }
       }
     }
   ],

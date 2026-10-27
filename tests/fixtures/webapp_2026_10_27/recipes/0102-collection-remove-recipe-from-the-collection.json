@@ -20,7 +20,11 @@
           "93553f276ef14257a4c3e676ae822455"
         ],
         "collectionSettings": {
-          "recipesSortOrder": 3
+          "recipesSortOrder": 3,
+          "useReversedSortDirection": false,
+          "icon": {
+            "iconName": "food_and_cooking/stack_of_recipe_cards"
+          }
         }
       }
     }

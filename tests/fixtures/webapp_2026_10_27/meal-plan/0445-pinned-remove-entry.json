@@ -19,7 +19,18 @@
         "title": "zz capture note event 2",
         "details": "zz details",
         "labelId": "fa6d4f01d2b74c668ed34af257df0fbd",
-        "orderAddedSortIndex": 0
+        "orderAddedSortIndex": 0,
+        "eventType": 3,
+        "eventListItems": [
+          {
+            "identifier": "7e5968603b2446499de286208411dcda",
+            "name": "zz event ingredient",
+            "quantityPb": {
+              "amount": "2",
+              "rawQuantity": "2"
+            }
+          }
+        ]
       }
     }
   ],

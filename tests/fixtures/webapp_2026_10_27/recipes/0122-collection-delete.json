@@ -17,7 +17,11 @@
         "identifier": "41d55fedd91946aeb85d2db43d7368d6",
         "name": "zz capture collection 2",
         "collectionSettings": {
-          "recipesSortOrder": 3
+          "recipesSortOrder": 3,
+          "useReversedSortDirection": false,
+          "icon": {
+            "iconName": "food_and_cooking/stack_of_recipe_cards"
+          }
         }
       }
     }

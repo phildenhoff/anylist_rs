@@ -30,6 +30,25 @@
             "categoryGroupId": "f6d892d30384598eb5206901e52d83de",
             "categoryId": "82bfa0cbee7b4857adc173963942af4b"
           }
+        ],
+        "priceQuantityShouldOverrideItemQuantity": true,
+        "ingredients": [
+          {
+            "ingredient": {
+              "rawIngredient": "2 cups zz flour",
+              "name": "zz flour",
+              "quantity": "2 cups",
+              "note": "",
+              "identifier": "e6f9e01095ad49a68fc526dbcdc2ee4d"
+            },
+            "recipeId": "93553f276ef14257a4c3e676ae822455",
+            "recipeName": "zz capture recipe",
+            "quantityPb": {
+              "amount": "2",
+              "unit": "cups",
+              "rawQuantity": "2 cups"
+            }
+          }
         ]
       }
     },
@@ -55,6 +74,25 @@
             "categoryGroupId": "f6d892d30384598eb5206901e52d83de",
             "categoryId": "82bfa0cbee7b4857adc173963942af4b"
           }
+        ],
+        "priceQuantityShouldOverrideItemQuantity": true,
+        "ingredients": [
+          {
+            "ingredient": {
+              "rawIngredient": "1 tsp zz salt",
+              "name": "zz salt",
+              "quantity": "1 tsp",
+              "note": "",
+              "identifier": "7018c35b6ee1493a800a11d87d1f3114"
+            },
+            "recipeId": "93553f276ef14257a4c3e676ae822455",
+            "recipeName": "zz capture recipe",
+            "quantityPb": {
+              "amount": "1",
+              "unit": "tsp",
+              "rawQuantity": "1 tsp"
+            }
+          }
         ]
       }
     },
@@ -79,6 +117,25 @@
             "identifier": "7fce66a3f24f59fcb4b937b770a21932",
             "categoryGroupId": "f6d892d30384598eb5206901e52d83de",
             "categoryId": "b3738900b2254c52a04150d64e9a25bb"
+          }
+        ],
+        "priceQuantityShouldOverrideItemQuantity": true,
+        "ingredients": [
+          {
+            "ingredient": {
+              "rawIngredient": "250 mL zz water",
+              "name": "zz water",
+              "quantity": "250 mL",
+              "note": "",
+              "identifier": "484c0c04e9b04cdbaaa57421a75fc55c"
+            },
+            "recipeId": "93553f276ef14257a4c3e676ae822455",
+            "recipeName": "zz capture recipe",
+            "quantityPb": {
+              "amount": "250",
+              "unit": "mL",
+              "rawQuantity": "250 mL"
+            }
           }
         ]
       }

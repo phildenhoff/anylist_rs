@@ -1,9 +1,8 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::lists::ListItem;
-use crate::protobuf::anylist::PbListItem;
-use crate::utils::generate_id;
-use prost::Message;
+use crate::lists::{transform_api_list_item, ListItem};
+use crate::operations;
+use crate::protobuf::anylist::{PbListItem, PbStarterList, PbUserDataResponse};
 use serde_derive::{Deserialize, Serialize};
 
 /// Represents a favourite item that can be quickly added to shopping lists
@@ -175,35 +174,15 @@ impl AnyListClient {
         name: &str,
         category: Option<&str>,
     ) -> Result<FavouriteItem> {
-        let item_id = generate_id();
-        let operation_id = generate_id();
-
-        let params = crate::operations::AddFavouriteParams {
-            item_id: item_id.clone(),
-            list_id: list_id.to_string(),
-            operation_id,
-            user_id: self.user_id(),
-            name: name.to_string(),
-            category: category.map(|c| c.to_string()),
-        };
-
-        let operation_list = crate::operations::build_add_favourite_operation(params);
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/starter-lists/update", buf).await?;
-
-        Ok(FavouriteItem {
-            id: item_id,
-            list_id: list_id.to_string(),
-            name: name.to_string(),
-            quantity: None,
-            details: None,
-            category: category.map(|c| c.to_string()),
-        })
+        let data = self.get_user_data().await?;
+        let favourites = favourites_list(&data, list_id)?;
+        let shopping_list_id = favourites.list_id.as_deref().unwrap_or_default();
+        let list = data.list_context(shopping_list_id);
+        let mut ids = self.ids();
+        let item = operations::new_list_item(&mut ids, list, name, category);
+        let (item, requests) = operations::add_favourite(&mut ids, list_id, item);
+        self.send(requests).await?;
+        Ok(transform_favourite_items(&[item], list_id).remove(0))
     }
 
     /// Remove a favourite item
@@ -213,29 +192,17 @@ impl AnyListClient {
     /// * `list_id` - The ID of the favourites list containing the item
     /// * `item_id` - The ID of the favourite item to remove
     pub async fn remove_favourite(&self, list_id: &str, item_id: &str) -> Result<()> {
-        let operation_id = generate_id();
-
-        let params = crate::operations::RemoveFavouriteParams {
-            item_id: item_id.to_string(),
-            list_id: list_id.to_string(),
-            operation_id,
-            user_id: self.user_id(),
-        };
-
-        let operation_list = crate::operations::build_remove_favourite_operation(params);
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/starter-lists/update", buf).await?;
-        Ok(())
+        let data = self.get_user_data().await?;
+        let item = favourite_item(&data, list_id, item_id)?;
+        let requests =
+            operations::remove_starter_list_items(&mut self.ids(), list_id, vec![item.clone()]);
+        self.send(requests).await
     }
 
     /// Add a favourite item to a shopping list
     ///
-    /// This is a convenience method that copies a favourite to a shopping list.
+    /// Like the web client, this adds a copy of the favourite, with its
+    /// quantity, note and category.
     ///
     /// # Arguments
     ///
@@ -246,15 +213,46 @@ impl AnyListClient {
         favourite: &FavouriteItem,
         shopping_list_id: &str,
     ) -> Result<ListItem> {
-        self.add_item_with_details(
+        let data = self.get_user_data().await?;
+        let item = favourite_item(&data, &favourite.list_id, &favourite.id)?;
+        let (copies, requests) = operations::add_starter_list_items_to_list(
+            &mut self.ids(),
             shopping_list_id,
-            &favourite.name,
-            favourite.quantity.as_deref(),
-            favourite.details.as_deref(),
-            favourite.category.as_deref(),
-        )
-        .await
+            std::slice::from_ref(item),
+        );
+        self.send(requests).await?;
+        transform_api_list_item(copies)
+            .pop()
+            .ok_or_else(|| AnyListError::InvalidResponse("Favourite has no name".to_string()))
     }
+}
+
+fn favourites_list<'a>(data: &'a PbUserDataResponse, list_id: &str) -> Result<&'a PbStarterList> {
+    data.starter_lists_response
+        .as_ref()
+        .and_then(|r| r.favorite_item_lists_response.as_ref())
+        .into_iter()
+        .flat_map(|batch| &batch.list_responses)
+        .filter_map(|r| r.starter_list.as_ref())
+        .find(|l| l.identifier == list_id)
+        .ok_or_else(|| AnyListError::NotFound(format!("Favourites list {} not found", list_id)))
+}
+
+fn favourite_item<'a>(
+    data: &'a PbUserDataResponse,
+    list_id: &str,
+    item_id: &str,
+) -> Result<&'a PbListItem> {
+    favourites_list(data, list_id)?
+        .items
+        .iter()
+        .find(|i| i.identifier == item_id)
+        .ok_or_else(|| {
+            AnyListError::NotFound(format!(
+                "Favourite {} not found in list {}",
+                item_id, list_id
+            ))
+        })
 }
 
 /// Convert a batch response to a list of FavouritesList
@@ -284,7 +282,11 @@ fn transform_favourite_items(items: &[PbListItem], list_id: &str) -> Vec<Favouri
                 id: item.identifier.clone(),
                 list_id: list_id.to_string(),
                 name: name.clone(),
-                quantity: item.quantity.clone(),
+                quantity: item.quantity.clone().or_else(|| {
+                    item.quantity_pb
+                        .as_ref()
+                        .and_then(|q| q.raw_quantity.clone())
+                }),
                 details: item.details.clone(),
                 category: item.category.clone(),
             })

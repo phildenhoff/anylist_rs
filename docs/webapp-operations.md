@@ -11,7 +11,7 @@ The request bodies are saved as fixtures in
 `tests/fixtures/webapp_2026_10_27/{lists,recipes,meal-plan}`. The
 `webapp_captures` integration test decodes each one with the crate's prost types,
 checks the handler IDs, and snapshots how many bytes prost drops because
-`anylist.proto` lacks the field.
+`anylist.proto` lacks the field (now none).
 
 ## How the capture works
 
@@ -26,81 +26,88 @@ checks the handler IDs, and snapshots how many bytes prost drops because
   (the list's `sharedUsers`). It is replaced with a same-length placeholder so
   the protobuf lengths stay valid.
 
-## Where the crate differs from the web client
+## How the crate matches the web client
 
-### Handler IDs the web client never sends
+Every client method sends what the web client sends for the same action: the
+same handlers, in the same order, with the same fields and the same derived
+identifiers. The builders live in `src/operations.rs` and take the state the
+web client reads first (the stored list, item, category group, recipe and so
+on), so values the web client copies from storage are copied too.
+`src/operations_webapp_tests.rs` replays the captured identifiers through each
+builder and compares the result with the captured request (see "Wire order"
+below). Every method was also run against a live account with `zz` data and
+read back.
 
-None of these appear in the capture or in the bundle under the operation type
-the crate uses. The server may accept them as silent no-ops. Each one should be
-checked live (send, then read back) before it is trusted.
+| Crate method | What it sends (captures) |
+|---|---|
+| `create_list` | `new-shopping-list` with the account's email in `sharedUsers`, the root folder and 20 default categories; two `new-starter-list` (Recent Items and Favorite Items, whose IDs are derived from the list ID); eight list settings `set-*`; `set-icon` (0004 to 0010) |
+| `rename_list` | `rename-list` (0028) |
+| `delete_list` | `delete-folder-items`, then `remove-list-settings` (0072, 0073) |
+| `add_item`, `add_item_with_details` | `add-shopping-list-item` with the item categorised for every category group, plus the list when new items go on top (0011 to 0013) |
+| `update_item` | only what changed: `set-list-item-name`, `set-list-item-details` (with the original value), `set-list-item-quantity-v2`, and for a category `save-categorization-rule` then `update-list-item-category-assignment` and `set-list-item-category-match-id` (0017 to 0020) |
+| `cross_off_item`, `uncheck_item` | `set-list-item-checked`; crossing off also files a copy under Recent Items, replacing an equal one (0014 to 0016, 0060, 0061) |
+| `delete_item`, `bulk_delete_items` | `bulk-remove-list-items` with the stored items, then their copies under Recent Items (0044, 0045) |
+| `delete_all_crossed_off_items` | copies missing from Recent Items, then `bulk-remove-list-items` (0062) |
+| `create_category` | `create-category` with the next sort index, then `set-sorted-category-ids` to keep "Other" last (0021, 0022) |
+| `rename_category` | `set-category-name` with the stored category (0023) |
+| `delete_category` | `remove-category-ids`, `remove-categorization-rules-for-category-ids` with `set-sorted-category-ids`, then each of its items moves to the default category (0024 to 0027) |
+| `create_store` | `new-store`, then `new-store-filter` ("<name> Items"); a name another store has is refused (0030, 0031) |
+| `update_store` | `set-store-name` with the stored store (0032) |
+| `delete_store` | `remove-store-id-from-all-items` on the list and its Favorite Items, `update-store-filter` or `delete-store-filter`, the same on Recent Items, then `delete-store` (0035 to 0039) |
+| `add_favourite`, `add_favourite_to_list` | `add-item` on the Favorite Items list, categorised for its list (0041) |
+| `add_favourite_to_shopping_list` | `bulk-add-list-items` with a copy of the stored favourite (0042) |
+| `remove_favourite` | `bulk-remove-list-items` with the stored favourite (0043) |
+| `RecipeBuilder::save`, `create_recipe`, `update_recipe` | `save-recipe` with the whole recipe: ingredient identifiers (kept on edit), empty notes, times in seconds, a creation time for a new recipe. An edit also updates the recipe's ingredients on the list recipe ingredients were last added to (0080, 0084, 0085) |
+| `delete_recipe` | `delete-events-for-recipe-id` with the recipe's events, `remove-recipe` with the stored recipe, then `remove-ingredient-id-from-list-item` on that list (0350 to 0352) |
+| `add_recipe_to_list` | `add-item-ingredient-to-list-item`: ingredients with the same stemmed name, unit and package size share one item, whose ID is derived from them, so adding a recipe twice merges instead of duplicating (0083) |
+| `create_recipe_collection(_with_recipe_ids)` | `new-recipe-collection`, `set-recipe-collection-icon`, then `add-recipes-to-collection` (0092 to 0094) |
+| `add_recipe_to_collection`, `remove_recipe_from_collection`, `delete_recipe_collection` | the stored collection, with `recipeIds` narrowed to the recipe for add and remove (0094, 0099, 0122) |
+| `create_meal_plan_event` | a recipe on its own: `save-new-events` (operation version 1), as when a recipe is added to the meal plan; anything else: `new-event`, as the event editor saves it. The sort index puts it after the day's other events (0171, 0385) |
+| `update_meal_plan_event` | `update-event` with the whole stored event, as the event editor saves an existing event; a recipe event's ingredients on the list follow a date change |
+| `delete_meal_plan_event` | `delete-event` with the stored event, then its ingredients come off the list (0401) |
+| `add_meal_plan_ingredients_to_list` | `add-item-ingredient-to-list-item` for each recipe event's ingredients, linked to the event and scaled as it says |
 
-| Crate function | Crate sends | Web client sends instead |
-|---|---|---|
-| `update_item` | `update-list-item` with a whole `PBListItem` | one handler per field: `set-list-item-details`, `set-list-item-quantity-v2`, `update-list-item-category-assignment` with `set-list-item-category-match-id`, `add-list-item-store-id`, `save-item-price` |
-| `add_favourite` | `add-starter-list-item` | `add-item` (adding in the favourites panel) or `bulk-add-list-items` (favouriting from a list) |
-| `remove_favourite` | `remove-starter-list-item` | `bulk-remove-list-items` |
-| `delete_category` | `remove-category` (`PBListOperation`) | `remove-category-ids`, `remove-categorization-rules-for-category-ids`, `set-sorted-category-ids`. `remove-category` exists in the bundle only as a `PBUserCategoryOperation`. |
-| `update_meal_plan_event` | `update-event` | `set-event-title`, `set-date-for-events` (and other `set-*` handlers per field) |
+### Known differences
 
-### Handler IDs that match, but the web client sends more
-
-- **Create list** (`create_list`): `new-shopping-list`, then two
-  `new-starter-list` operations (the list's favourites and recents), the
-  list settings `set-*` operations, and `set-icon`.
-- **Create store** (`create_store`): `new-store`, then `new-store-filter`.
-- **Delete recipe** (`delete_recipe`): `remove-recipe`, then
-  `delete-events-for-recipe-id` and `remove-ingredient-id-from-list-item`.
-- **Add recipe to list** (`add_recipe_to_list`): the crate sends
-  `add-shopping-list-item`; the web client sends `add-item-ingredient-to-list-item`,
-  which links the list item to the recipe ingredient.
-- **Create recipe collection**: `new-recipe-collection`, then
-  `set-recipe-collection-icon`. The crate never sets the icon.
-
-### Recipe collections (confirms PR #33 and #34)
-
-- Add and remove send `add-recipes-to-collection` and
-  `remove-recipes-from-collection` with the stored collection whose `recipeIds`
-  are narrowed to the affected recipe.
-- Delete sends `remove-recipe-collection` with the collection and no `recipeIds`.
-- Reorder sends `set-ordered-recipe-collection-ids`; sort order sends
-  `set-recipe-collection-sort-order`.
-- **Risk:** the web client always sends `collectionSettings` with
-  `useReversedSortDirection` (field 4) and `icon` (field 8). `anylist.proto`
-  has neither, so prost drops them when the crate decodes a stored collection,
-  and the collection the crate sends back is missing 42 to 45 bytes. If the
-  server stores the sent collection whole, the crate would clear the
-  collection's icon and sort direction. Not checked live.
-
-### Handler IDs that match
-
-`new-shopping-list`, `rename-list`, `delete-folder-items` with
-`remove-list-settings` (delete list), `add-shopping-list-item`,
-`set-list-item-checked`, `bulk-remove-list-items`, `create-category`,
-`set-category-name`, `new-store`, `set-store-name`, `remove-store-id-from-all-items`
-with `delete-store-filter` and `delete-store` (delete store), `new-event`,
-`delete-event`, `save-recipe`, `remove-recipe`.
+- **Item database.** The web client looks new items and recipe ingredients
+  up in its own grocery database, which picks a category and sets
+  `priceMatchupTag`. The crate has no such database: the list's remembered
+  category for the name wins, then the caller's `category`, then the list's
+  default category, and `priceMatchupTag` is never set.
+- **Wire order.** The web client writes some fields in the order its schema
+  declares them (an ingredient's `identifier` first, for one); prost writes
+  field-number order. Protobuf readers treat the two the same. The tests
+  accept either, as long as decoding the capture loses nothing.
+- **Interface-only settings.** `set-web-selected-*` and
+  `set-list-id-for-recipe-ingredients` record what the web page shows, so the
+  crate does not send them.
+- **Ingredient parsing.** The crate reads a quantity as an amount and a unit;
+  the web client also reads package sizes ("1 (400 g) can") and formats
+  scaled amounts as fractions.
+- **Collections.** Adding a recipe that does not exist returns `NotFound`, and
+  adding one already in the collection sends nothing (the web client sends an
+  empty addition).
+- **Raw ingredient text.** The web client keeps what was typed. Without
+  `raw_ingredient`, the crate writes "<quantity> <name>, <note>".
 
 ### Things the crate does not do yet
 
-- Lists: `uncheck-all`, `set-should-hide-prices`, `save-categorization-rule`.
+- Lists: `uncheck-all`, `set-should-hide-prices`.
 - Folders: `create-new-folder`, `set-folder-name`, `move-folder-items`,
   `set-ordered-folder-items`, `set-icon`.
-- Meal plan: `save-new-events` (adding a recipe to the calendar, copying
-  entries), labels (`new-label`, `update-label`, `delete-label`) and templates
+- Meal plan: copying and moving entries (`save-new-events`,
+  `set-date-for-events`), labels (`new-label`, `update-label`, `delete-label`) and templates
   (`new-template`, `set-template-name`, `remove-template-day-ids`,
   `delete-template`). Pinned, queued and template entries are all `new-event`
   with a different `eventType`.
 
-## Schema gaps
+## Schema
 
-[webapp-schema-diff.md](webapp-schema-diff.md) compares the protobuf.js schema
-embedded in the web bundle with `anylist.proto`: 39 messages and 93 fields of
-shared messages are missing, and no field has a different type. The ones that
-matter most for round trips are `ListItem` 21 to 29 (`quantityPb`,
-`ingredients` and others), `CalendarEvent` 11 to 17 (`eventType`,
-`templateId`, `isLeftover`, `icon`), `RecipeCollectionSettings` 3 to 8,
-the `icon` on list and folder settings, and `OperationMetadata` 5
-(`operationVersion`).
+`anylist.proto` now has every message and field of the schema embedded in the
+web bundle (`node tools/webapp_capture/bundle_schema.mjs --write-proto` adds
+missing ones), so prost keeps every field of what it reads and sends it back.
+The `webapp_captures` snapshot shows 0 dropped bytes for every capture.
+[webapp-schema-diff.md](webapp-schema-diff.md) records the gaps as they were.
 
 ## The static scan is incomplete
 

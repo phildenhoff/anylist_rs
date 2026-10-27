@@ -30,7 +30,12 @@
             "categoryGroupId": "b331b59d45f35d67bba82d7bcc7214ad",
             "categoryId": "3b7d963597e24207b6533260551c3c69"
           }
-        ]
+        ],
+        "quantityPb": {
+          "amount": "2",
+          "unit": "L",
+          "rawQuantity": "2 L"
+        }
       }
     },
     {
@@ -57,7 +62,12 @@
             "categoryGroupId": "b331b59d45f35d67bba82d7bcc7214ad",
             "categoryId": "3b7d963597e24207b6533260551c3c69"
           }
-        ]
+        ],
+        "quantityPb": {
+          "amount": "2",
+          "unit": "L",
+          "rawQuantity": "2 L"
+        }
       }
     }
   ],

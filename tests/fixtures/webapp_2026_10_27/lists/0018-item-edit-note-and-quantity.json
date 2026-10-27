@@ -16,7 +16,12 @@
       "listItemId": "6d8e0c21507e4daf98ea9c60c65e1ee9",
       "listItem": {
         "identifier": "6d8e0c21507e4daf98ea9c60c65e1ee9",
-        "listId": "4a32d6958d604452b002a4098ab5e1ab"
+        "listId": "4a32d6958d604452b002a4098ab5e1ab",
+        "quantityPb": {
+          "amount": "2",
+          "unit": "L",
+          "rawQuantity": "2 L"
+        }
       }
     }
   ],

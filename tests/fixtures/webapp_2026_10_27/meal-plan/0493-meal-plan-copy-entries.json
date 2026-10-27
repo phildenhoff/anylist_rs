@@ -10,7 +10,8 @@
       "metadata": {
         "operationId": "dabb1d4747df464e9650ae4de0fcf2cc",
         "handlerId": "save-new-events",
-        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "operationVersion": 1
       },
       "calendarId": "515dff1907ce4e469274b404a17e11ee",
       "updatedEvents": [

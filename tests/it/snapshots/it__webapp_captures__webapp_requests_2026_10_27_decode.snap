@@ -1,5 +1,6 @@
 ---
 source: tests/it/webapp_captures.rs
+assertion_line: 96
 expression: table
 ---
 scenario | request | endpoint | handler ids | bytes prost drops
@@ -7,8 +8,8 @@ lists | 0003-sign-in | /data/mobile-app-settings/update | set-web-selected-tab-i
 lists | 0004-list-create | /data/shopping-lists/update | new-shopping-list | 0
 lists | 0005-list-create | /data/starter-lists/update | new-starter-list, new-starter-list | 0
 lists | 0006-list-create | /data/list-settings/update | set-list-theme-id, set-should-hide-categories, set-generic-grocery-autocomplete-enabled, set-list-item-sort-order, set-list-category-group-id, set-should-remember-item-categories, set-favorites-autocomplete-enabled, set-recent-items-autocomplete-enabled | 0
-lists | 0007-list-create | /data/mobile-app-settings/update | set-web-selected-list-id | 35
-lists | 0010-list-create | /data/list-settings/update | set-icon | 31
+lists | 0007-list-create | /data/mobile-app-settings/update | set-web-selected-list-id | 0
+lists | 0010-list-create | /data/list-settings/update | set-icon | 0
 lists | 0011-item-add | /data/shopping-lists/update | add-shopping-list-item | 0
 lists | 0012-item-add | /data/shopping-lists/update | add-shopping-list-item | 0
 lists | 0013-item-add | /data/shopping-lists/update | add-shopping-list-item | 0
@@ -16,16 +17,16 @@ lists | 0014-item-cross-off | /data/shopping-lists/update | set-list-item-checke
 lists | 0015-item-cross-off | /data/starter-lists/update | bulk-add-list-items | 0
 lists | 0016-item-uncross | /data/shopping-lists/update | set-list-item-checked | 0
 lists | 0017-item-edit-note-and-quantity | /data/shopping-lists/update | set-list-item-details | 0
-lists | 0018-item-edit-note-and-quantity | /data/shopping-lists/update | set-list-item-quantity-v2 | 14
+lists | 0018-item-edit-note-and-quantity | /data/shopping-lists/update | set-list-item-quantity-v2 | 0
 lists | 0019-item-change-category | /data/shopping-lists/update-v2 | save-categorization-rule | 0
-lists | 0020-item-change-category | /data/shopping-lists/update | update-list-item-category-assignment, set-list-item-category-match-id | 28
+lists | 0020-item-change-category | /data/shopping-lists/update | update-list-item-category-assignment, set-list-item-category-match-id | 0
 lists | 0021-category-create | /data/shopping-lists/update-v2 | create-category | 0
 lists | 0022-category-create | /data/shopping-lists/update-v2 | set-sorted-category-ids | 0
 lists | 0023-category-rename | /data/shopping-lists/update-v2 | set-category-name | 0
 lists | 0024-category-delete | /data/shopping-lists/update-v2 | remove-category-ids | 0
 lists | 0025-category-delete | /data/shopping-lists/update-v2 | remove-categorization-rules-for-category-ids, set-sorted-category-ids | 0
 lists | 0026-category-delete | /data/shopping-lists/update-v2 | save-categorization-rule | 0
-lists | 0027-category-delete | /data/shopping-lists/update | update-list-item-category-assignment, set-list-item-category-match-id | 28
+lists | 0027-category-delete | /data/shopping-lists/update | update-list-item-category-assignment, set-list-item-category-match-id | 0
 lists | 0028-list-rename | /data/shopping-lists/update | rename-list | 0
 lists | 0029-list-settings-toggle-show-prices | /data/list-settings/update | set-should-hide-prices | 0
 lists | 0030-store-create | /data/shopping-lists/update-v2 | new-store | 0
@@ -47,23 +48,23 @@ lists | 0045-item-delete | /data/starter-lists/update | bulk-add-list-items | 0
 lists | 0046-list-create-second-list | /data/shopping-lists/update | new-shopping-list | 0
 lists | 0047-list-create-second-list | /data/list-settings/update | set-list-theme-id, set-should-hide-categories, set-generic-grocery-autocomplete-enabled, set-list-item-sort-order, set-list-category-group-id, set-should-remember-item-categories, set-favorites-autocomplete-enabled, set-recent-items-autocomplete-enabled | 0
 lists | 0048-list-create-second-list | /data/starter-lists/update | new-starter-list, new-starter-list | 0
-lists | 0049-list-create-second-list | /data/mobile-app-settings/update | set-web-selected-list-id | 35
-lists | 0052-list-create-second-list | /data/list-settings/update | set-icon | 31
-lists | 0053-list-create-second-list | /data/mobile-app-settings/update | set-web-selected-list-id | 35
+lists | 0049-list-create-second-list | /data/mobile-app-settings/update | set-web-selected-list-id | 0
+lists | 0052-list-create-second-list | /data/list-settings/update | set-icon | 0
+lists | 0053-list-create-second-list | /data/mobile-app-settings/update | set-web-selected-list-id | 0
 lists | 0054-item-copy-to-other-list | /data/shopping-lists/update | bulk-add-list-items | 0
-lists | 0055-item-move-to-other-list | /data/starter-lists/update | bulk-add-list-items | 14
-lists | 0056-item-move-to-other-list | /data/shopping-lists/update | bulk-add-list-items, bulk-remove-list-items | 28
+lists | 0055-item-move-to-other-list | /data/starter-lists/update | bulk-add-list-items | 0
+lists | 0056-item-move-to-other-list | /data/shopping-lists/update | bulk-add-list-items, bulk-remove-list-items | 0
 lists | 0057-list-uncross-all | /data/shopping-lists/update | set-list-item-checked | 0
 lists | 0058-list-uncross-all | /data/starter-lists/update | bulk-add-list-items | 0
 lists | 0059-list-uncross-all | /data/shopping-lists/update | uncheck-all | 0
 lists | 0060-list-delete-crossed-off | /data/shopping-lists/update | set-list-item-checked | 0
 lists | 0061-list-delete-crossed-off | /data/starter-lists/update | bulk-remove-list-items, bulk-add-list-items | 0
 lists | 0062-list-delete-crossed-off | /data/shopping-lists/update | bulk-remove-list-items | 0
-lists | 0063-list-delete-all-items | /data/mobile-app-settings/update | set-web-selected-list-id | 35
-lists | 0064-list-delete-all-items | /data/starter-lists/update | bulk-add-list-items | 14
-lists | 0065-list-delete-all-items | /data/shopping-lists/update | bulk-remove-list-items | 14
+lists | 0063-list-delete-all-items | /data/mobile-app-settings/update | set-web-selected-list-id | 0
+lists | 0064-list-delete-all-items | /data/starter-lists/update | bulk-add-list-items | 0
+lists | 0065-list-delete-all-items | /data/shopping-lists/update | bulk-remove-list-items | 0
 lists | 0066-folder-create | /data/list-folders/update | create-new-folder | 0
-lists | 0067-folder-create | /data/list-folders/update | set-icon | 31
+lists | 0067-folder-create | /data/list-folders/update | set-icon | 0
 lists | 0069-folder-move-list-into-folder | /data/list-folders/update | move-folder-items | 0
 lists | 0070-folder-rename | /data/list-folders/update | set-folder-name | 0
 lists | 0071-lists-reorder | /data/list-folders/update | set-ordered-folder-items | 0
@@ -74,15 +75,15 @@ lists | 0075-folder-delete-with-a-list-inside | /data/list-folders/update | dele
 recipes | 0072-list-create-for-recipe-ingredients | /data/shopping-lists/update | new-shopping-list | 0
 recipes | 0073-list-create-for-recipe-ingredients | /data/list-settings/update | set-list-theme-id, set-should-hide-categories, set-generic-grocery-autocomplete-enabled, set-list-item-sort-order, set-list-category-group-id, set-should-remember-item-categories, set-favorites-autocomplete-enabled, set-recent-items-autocomplete-enabled | 0
 recipes | 0074-list-create-for-recipe-ingredients | /data/starter-lists/update | new-starter-list, new-starter-list | 0
-recipes | 0076-list-create-for-recipe-ingredients | /data/mobile-app-settings/update | set-web-selected-list-id | 35
-recipes | 0078-list-create-for-recipe-ingredients | /data/list-settings/update | set-icon | 31
+recipes | 0076-list-create-for-recipe-ingredients | /data/mobile-app-settings/update | set-web-selected-list-id | 0
+recipes | 0078-list-create-for-recipe-ingredients | /data/list-settings/update | set-icon | 0
 recipes | 0079-list-create-for-recipe-ingredients | /data/mobile-app-settings/update | set-web-selected-tab-id | 0
 recipes | 0080-recipe-create | /data/user-recipe-data/update | save-recipe | 0
 recipes | 0081-recipe-create | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
 recipes | 0082-recipe-add-ingredients-to-list | /data/mobile-app-settings/update | set-list-id-for-recipe-ingredients | 0
-recipes | 0083-recipe-add-ingredients-to-list | /data/shopping-lists/update | add-item-ingredient-to-list-item, add-item-ingredient-to-list-item, add-item-ingredient-to-list-item | 450
+recipes | 0083-recipe-add-ingredients-to-list | /data/shopping-lists/update | add-item-ingredient-to-list-item, add-item-ingredient-to-list-item, add-item-ingredient-to-list-item | 0
 recipes | 0084-recipe-edit-rename | /data/user-recipe-data/update | save-recipe | 0
-recipes | 0085-recipe-edit-rename | /data/shopping-lists/update | add-item-ingredient-to-list-item, add-item-ingredient-to-list-item, add-item-ingredient-to-list-item | 450
+recipes | 0085-recipe-edit-rename | /data/shopping-lists/update | add-item-ingredient-to-list-item, add-item-ingredient-to-list-item, add-item-ingredient-to-list-item | 0
 recipes | 0086-recipe-duplicate | /data/user-recipe-data/update | save-recipe | 0
 recipes | 0087-recipe-duplicate | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
 recipes | 0088-recipe-delete-the-duplicate | /data/meal-planning-calendar/update | delete-events-for-recipe-id | 0
@@ -90,59 +91,59 @@ recipes | 0089-recipe-delete-the-duplicate | /data/user-recipe-data/update | rem
 recipes | 0090-recipe-delete-the-duplicate | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
 recipes | 0091-recipe-delete-the-duplicate | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
 recipes | 0092-collection-create | /data/user-recipe-data/update | new-recipe-collection | 0
-recipes | 0093-collection-create | /data/user-recipe-data/update | set-recipe-collection-icon | 42
-recipes | 0094-collection-add-recipe-from-the-recipe | /data/user-recipe-data/update | add-recipes-to-collection | 43
-recipes | 0095-collection-rename | /data/user-recipe-data/update | set-recipe-collection-name | 43
+recipes | 0093-collection-create | /data/user-recipe-data/update | set-recipe-collection-icon | 0
+recipes | 0094-collection-add-recipe-from-the-recipe | /data/user-recipe-data/update | add-recipes-to-collection | 0
+recipes | 0095-collection-rename | /data/user-recipe-data/update | set-recipe-collection-name | 0
 recipes | 0096-collection-change-sort-order | /data/mobile-app-settings/update | set-web-selected-recipe-collection-id | 0
-recipes | 0097-collection-change-sort-order | /data/mobile-app-settings/update | set-web-selected-recipe-collection-type | 3
-recipes | 0098-collection-change-sort-order | /data/user-recipe-data/update | set-recipe-collection-sort-order | 45
-recipes | 0099-collection-remove-recipe-from-the-recipe | /data/user-recipe-data/update | remove-recipes-from-collection | 45
-recipes | 0100-collection-add-recipe-from-the-collection | /data/user-recipe-data/update | add-recipes-to-collection | 45
+recipes | 0097-collection-change-sort-order | /data/mobile-app-settings/update | set-web-selected-recipe-collection-type | 0
+recipes | 0098-collection-change-sort-order | /data/user-recipe-data/update | set-recipe-collection-sort-order | 0
+recipes | 0099-collection-remove-recipe-from-the-recipe | /data/user-recipe-data/update | remove-recipes-from-collection | 0
+recipes | 0100-collection-add-recipe-from-the-collection | /data/user-recipe-data/update | add-recipes-to-collection | 0
 recipes | 0101-collection-remove-recipe-from-the-collection | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
-recipes | 0102-collection-remove-recipe-from-the-collection | /data/user-recipe-data/update | remove-recipes-from-collection | 45
+recipes | 0102-collection-remove-recipe-from-the-collection | /data/user-recipe-data/update | remove-recipes-from-collection | 0
 recipes | 0103-collection-remove-recipe-from-the-collection | /data/mobile-app-settings/update | set-web-selected-recipe-collection-id | 0
 recipes | 0104-collection-remove-recipe-from-the-collection | /data/mobile-app-settings/update | set-web-selected-recipe-collection-type | 0
 recipes | 0105-collection-reorder | /data/user-recipe-data/update | set-ordered-recipe-collection-ids | 0
-recipes | 0122-collection-delete | /data/user-recipe-data/update | remove-recipe-collection | 44
+recipes | 0122-collection-delete | /data/user-recipe-data/update | remove-recipe-collection | 0
 recipes | 0141-meal-plan-add-recipe-to-calendar | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
-recipes | 0171-meal-plan-add-recipe-to-calendar | /data/meal-planning-calendar/update | save-new-events | 2
-recipes | 0192-meal-plan-add-recipe-to-queue | /data/meal-planning-calendar/update | new-event | 4
+recipes | 0171-meal-plan-add-recipe-to-calendar | /data/meal-planning-calendar/update | save-new-events | 0
+recipes | 0192-meal-plan-add-recipe-to-queue | /data/meal-planning-calendar/update | new-event | 0
 recipes | 0215-meal-plan-add-recipe-to-queue | /data/mobile-app-settings/update | set-web-selected-tab-id | 0
-recipes | 0237-meal-plan-plan-leftovers | /data/meal-planning-calendar/update | new-event | 5
+recipes | 0237-meal-plan-plan-leftovers | /data/meal-planning-calendar/update | new-event | 0
 recipes | 0256-meal-plan-remove-recipe-event | /data/meal-planning-calendar/update | delete-event | 0
-recipes | 0273-meal-plan-remove-leftovers-event | /data/meal-planning-calendar/update | delete-event | 3
-recipes | 0274-queue-remove-recipe | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 3
-recipes | 0284-queue-remove-recipe | /data/meal-planning-calendar/update | delete-event | 2
-recipes | 0293-queue-remove-recipe | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 3
+recipes | 0273-meal-plan-remove-leftovers-event | /data/meal-planning-calendar/update | delete-event | 0
+recipes | 0274-queue-remove-recipe | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 0
+recipes | 0284-queue-remove-recipe | /data/meal-planning-calendar/update | delete-event | 0
+recipes | 0293-queue-remove-recipe | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 0
 recipes | 0294-recipe-delete | /data/mobile-app-settings/update | set-web-selected-tab-id | 0
 recipes | 0350-recipe-delete | /data/meal-planning-calendar/update | delete-events-for-recipe-id | 0
 recipes | 0351-recipe-delete | /data/user-recipe-data/update | remove-recipe | 0
-recipes | 0352-recipe-delete | /data/shopping-lists/update | remove-ingredient-id-from-list-item, remove-ingredient-id-from-list-item, remove-ingredient-id-from-list-item | 450
+recipes | 0352-recipe-delete | /data/shopping-lists/update | remove-ingredient-id-from-list-item, remove-ingredient-id-from-list-item, remove-ingredient-id-from-list-item | 0
 recipes | 0353-recipe-delete | /data/mobile-app-settings/update | set-web-selected-recipe-id | 0
 recipes | 0356-list-delete-recipe-ingredients-list | /data/mobile-app-settings/update | set-web-selected-tab-id | 0
 recipes | 0359-list-delete-recipe-ingredients-list | /data/list-folders/update | delete-folder-items | 0
 recipes | 0360-list-delete-recipe-ingredients-list | /data/list-settings/update | remove-list-settings | 0
 meal-plan | 0383-list-delete-recipe-ingredients-list | /data/mobile-app-settings/update | set-web-selected-tab-id | 0
 meal-plan | 0384-label-create | /data/meal-planning-calendar/update | new-label | 0
-meal-plan | 0385-meal-plan-note-event-ingredient-then-save | /data/meal-planning-calendar/update | new-event | 67
-meal-plan | 0386-meal-plan-edit-event-title | /data/meal-planning-calendar/update | set-event-title | 67
-meal-plan | 0387-meal-plan-pin-entry | /data/meal-planning-calendar/update | new-event | 69
-meal-plan | 0388-meal-plan-change-date | /data/meal-planning-calendar/update | set-date-for-events | 65
-meal-plan | 0389-meal-plan-add-to-queue | /data/meal-planning-calendar/update | new-event | 69
-meal-plan | 0401-meal-plan-remove-event-from-calendar | /data/meal-planning-calendar/update | delete-event | 65
-meal-plan | 0402-queue-remove-entry | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 3
-meal-plan | 0426-queue-remove-entry | /data/meal-planning-calendar/update | delete-event | 67
-meal-plan | 0430-queue-remove-entry | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 3
-meal-plan | 0445-pinned-remove-entry | /data/meal-planning-calendar/update | delete-event | 67
-meal-plan | 0468-template-create | /data/meal-planning-calendar/update | new-template | 357
-meal-plan | 0477-template-rename | /data/meal-planning-calendar/update | set-template-name | 333
-meal-plan | 0478-template-set-number-of-days | /data/meal-planning-calendar/update | remove-template-day-ids | 264
-meal-plan | 0481-template-add-note-entry | /data/meal-planning-calendar/update | new-event | 73
-meal-plan | 0482-template-apply-to-calendar | /data/meal-planning-calendar/update | new-event | 2
-meal-plan | 0493-meal-plan-copy-entries | /data/meal-planning-calendar/update | save-new-events | 2
+meal-plan | 0385-meal-plan-note-event-ingredient-then-save | /data/meal-planning-calendar/update | new-event | 0
+meal-plan | 0386-meal-plan-edit-event-title | /data/meal-planning-calendar/update | set-event-title | 0
+meal-plan | 0387-meal-plan-pin-entry | /data/meal-planning-calendar/update | new-event | 0
+meal-plan | 0388-meal-plan-change-date | /data/meal-planning-calendar/update | set-date-for-events | 0
+meal-plan | 0389-meal-plan-add-to-queue | /data/meal-planning-calendar/update | new-event | 0
+meal-plan | 0401-meal-plan-remove-event-from-calendar | /data/meal-planning-calendar/update | delete-event | 0
+meal-plan | 0402-queue-remove-entry | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 0
+meal-plan | 0426-queue-remove-entry | /data/meal-planning-calendar/update | delete-event | 0
+meal-plan | 0430-queue-remove-entry | /data/mobile-app-settings/update | set-web-selected-meal-plan-tab-v2 | 0
+meal-plan | 0445-pinned-remove-entry | /data/meal-planning-calendar/update | delete-event | 0
+meal-plan | 0468-template-create | /data/meal-planning-calendar/update | new-template | 0
+meal-plan | 0477-template-rename | /data/meal-planning-calendar/update | set-template-name | 0
+meal-plan | 0478-template-set-number-of-days | /data/meal-planning-calendar/update | remove-template-day-ids | 0
+meal-plan | 0481-template-add-note-entry | /data/meal-planning-calendar/update | new-event | 0
+meal-plan | 0482-template-apply-to-calendar | /data/meal-planning-calendar/update | new-event | 0
+meal-plan | 0493-meal-plan-copy-entries | /data/meal-planning-calendar/update | save-new-events | 0
 meal-plan | 0499-meal-plan-move-entries | /data/meal-planning-calendar/update | set-date-for-events | 0
 meal-plan | 0508-meal-plan-remove-entries-day-21 | /data/meal-planning-calendar/update | delete-event | 0
 meal-plan | 0511-meal-plan-remove-entries-day-22 | /data/meal-planning-calendar/update | delete-event | 0
 meal-plan | 0512-label-rename | /data/meal-planning-calendar/update | update-label | 0
 meal-plan | 0513-label-delete | /data/meal-planning-calendar/update | delete-label | 0
-meal-plan | 0514-template-delete | /data/meal-planning-calendar/update | delete-template | 197
+meal-plan | 0514-template-delete | /data/meal-planning-calendar/update | delete-template | 0

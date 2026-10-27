@@ -1,11 +1,7 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::protobuf::anylist::pb_operation_metadata::OperationClass;
-use crate::protobuf::anylist::{
-    PbListOperation, PbListOperationList, PbOperationMetadata, PbStore,
-};
-use crate::utils::generate_id;
-use prost::Message;
+use crate::operations;
+use crate::protobuf::anylist::{pb_starter_list, PbListResponse, PbStore, PbUserDataResponse};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,50 +89,30 @@ impl AnyListClient {
 
     /// Create a new store for a list
     ///
+    /// Like the web client, this also creates a store filter ("<name>
+    /// Items") that shows the store's items, and refuses a name another of
+    /// the list's stores has.
+    ///
     /// # Arguments
     ///
     /// * `list_id` - The ID of the list
     /// * `name` - The name of the store
     pub async fn create_store(&self, list_id: &str, name: &str) -> Result<Store> {
-        let store_id = generate_id();
-        let operation_id = generate_id();
-
-        let new_store = PbStore {
-            identifier: store_id.clone(),
-            logical_timestamp: None,
-            list_id: Some(list_id.to_string()),
-            name: Some(name.to_string()),
-            // TODO: set this as the lists num. of stores + 1
-            sort_index: Some(0),
-        };
-
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("new-store".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Store as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_store: Some(new_store),
-            ..Default::default()
-        };
-
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update-v2", buf).await?;
-
+        let data = self.get_user_data().await?;
+        let response = list_response(&data, list_id)?;
+        check_store_name(response, None, name)?;
+        let created = operations::create_store(
+            &mut self.ids(),
+            list_id,
+            name,
+            &response.stores,
+            &response.store_filters,
+        );
+        self.send(created.requests).await?;
         Ok(Store {
-            id: store_id,
+            id: created.store.identifier,
             name: name.to_string(),
-            sort_index: 0,
+            sort_index: created.store.sort_index.unwrap_or_default(),
         })
     }
 
@@ -147,41 +123,18 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list
     /// * `store_id` - The ID of the store
     /// * `new_name` - The new name for the store
+    ///
+    /// Like the web client, this refuses a name another of the list's stores
+    /// has.
     pub async fn update_store(&self, list_id: &str, store_id: &str, new_name: &str) -> Result<()> {
-        let operation_id = generate_id();
-
-        let updated_store = PbStore {
-            identifier: store_id.to_string(),
-            logical_timestamp: Some(1),
-            list_id: Some(list_id.to_string()),
-            name: Some(new_name.to_string()),
-            sort_index: Some(0),
-        };
-
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("set-store-name".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Store as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_value: Some(new_name.to_string()),
-            updated_store: Some(updated_store),
-            ..Default::default()
-        };
-
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update-v2", buf).await?;
-        Ok(())
+        let data = self.get_user_data().await?;
+        let store = stored_store(&data, list_id, store_id)?;
+        if store.name.as_deref() == Some(new_name) {
+            return Ok(());
+        }
+        check_store_name(list_response(&data, list_id)?, Some(store_id), new_name)?;
+        let requests = operations::rename_store(&mut self.ids(), store, new_name);
+        self.send(requests).await
     }
 
     /// Get all store filters for a specific list
@@ -220,201 +173,65 @@ impl AnyListClient {
         )))
     }
 
-    /// Remove a store ID from all items in shopping lists
+    /// Delete a store
     ///
-    /// # Arguments
-    ///
-    /// * `list_id` - The ID of the list
-    /// * `store_id` - The ID of the store to remove from items
-    async fn remove_store_from_shopping_list_items(
-        &self,
-        list_id: &str,
-        store_id: &str,
-    ) -> Result<()> {
-        let operation_id = generate_id();
-
-        // Imperative shell: gather runtime values
-        let params = crate::operations::RemoveStoreFromItemsParams {
-            list_id: list_id.to_string(),
-            store_id: store_id.to_string(),
-            operation_id,
-            user_id: self.user_id(),
-        };
-
-        // Functional core: pure operation building
-        let operation_list = crate::operations::build_remove_store_from_items_operation(params);
-
-        // Imperative shell: side effects
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update", buf).await?;
-        Ok(())
-    }
-
-    /// Remove a store ID from all items in starter lists
-    ///
-    /// # Arguments
-    ///
-    /// * `list_id` - The ID of the list
-    /// * `store_id` - The ID of the store to remove from items
-    async fn remove_store_from_starter_list_items(
-        &self,
-        list_id: &str,
-        store_id: &str,
-    ) -> Result<()> {
-        let operation_id = generate_id();
-
-        // Imperative shell: gather runtime values
-        let params = crate::operations::RemoveStoreFromItemsParams {
-            list_id: list_id.to_string(),
-            store_id: store_id.to_string(),
-            operation_id,
-            user_id: self.user_id(),
-        };
-
-        // Functional core: pure operation building
-        let operation_list = crate::operations::build_remove_store_from_items_operation(params);
-
-        // Imperative shell: side effects
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/starter-lists/update", buf).await?;
-        Ok(())
-    }
-
-    /// Update or delete store filters that contain a specific store ID
-    ///
-    /// This follows the webapp's orchestration logic:
-    /// - If a filter contains the deleted store and still has other stores after removal: UPDATE the filter
-    /// - If a filter contains only the deleted store and becomes empty: DELETE the filter
-    ///
-    /// # Arguments
-    ///
-    /// * `list_id` - The ID of the list
-    /// * `store_id` - The ID of the store to remove from filters
-    async fn delete_store_filters_with_store(&self, list_id: &str, store_id: &str) -> Result<()> {
-        let filters = self.get_store_filters_for_list(list_id).await?;
-
-        // Find filters that contain this store_id
-        let affected_filters: Vec<_> = filters
-            .into_iter()
-            .filter(|filter| filter.store_ids.contains(&store_id.to_string()))
-            .collect();
-
-        if affected_filters.is_empty() {
-            return Ok(());
-        }
-
-        // Process each affected filter
-        for filter in affected_filters {
-            let operation_id = generate_id();
-
-            // Remove the store ID from the filter's store_ids array
-            let mut updated_store_ids = filter.store_ids.clone();
-            updated_store_ids.retain(|id| id != store_id);
-
-            // Decide whether to UPDATE or DELETE based on remaining stores
-            if updated_store_ids.is_empty() {
-                // DELETE: Filter has no stores left
-                let params = crate::operations::DeleteStoreFilterParams {
-                    filter_id: filter.id.clone(),
-                    list_id: list_id.to_string(),
-                    filter_name: filter.name.clone(),
-                    operation_id,
-                    user_id: self.user_id(),
-                };
-
-                let operation_list = crate::operations::build_delete_store_filter_operation(params);
-
-                let mut buf = Vec::new();
-                operation_list.encode(&mut buf).map_err(|e| {
-                    AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-                })?;
-
-                self.post("data/shopping-lists/update-v2", buf).await?;
-            } else {
-                // UPDATE: Filter still has other stores
-                let params = crate::operations::UpdateStoreFilterParams {
-                    filter_id: filter.id.clone(),
-                    list_id: list_id.to_string(),
-                    filter_name: filter.name.clone(),
-                    store_ids: updated_store_ids,
-                    operation_id,
-                    user_id: self.user_id(),
-                };
-
-                let operation_list = crate::operations::build_update_store_filter_operation(params);
-
-                let mut buf = Vec::new();
-                operation_list.encode(&mut buf).map_err(|e| {
-                    AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-                })?;
-
-                self.post("data/shopping-lists/update-v2", buf).await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Delete a store (with proper cleanup of items and filters)
-    ///
-    /// This method performs the following operations in order:
-    /// 1. Remove the store from all items in shopping lists (data/shopping-lists/update)
-    /// 2. Remove the store from all items in starter lists (data/starter-lists/update)
-    /// 3. Delete any store filters that contain this store (data/shopping-lists/update-v2)
-    /// 4. Remove the store from starter list items again (data/starter-lists/update)
-    /// 5. Delete the store itself (data/shopping-lists/update-v2)
+    /// Like the web client, this takes the store off the items of the list
+    /// and of its Favorite and Recent Items, takes it out of the list's store
+    /// filters (deleting the ones left with no store), then deletes it.
     ///
     /// # Arguments
     ///
     /// * `list_id` - The ID of the list
     /// * `store_id` - The ID of the store to delete
     pub async fn delete_store(&self, list_id: &str, store_id: &str) -> Result<()> {
-        // Step 1: Remove store from all items in shopping lists
-        self.remove_store_from_shopping_list_items(list_id, store_id)
-            .await?;
-
-        // Step 2: Remove store from all items in starter lists
-        self.remove_store_from_starter_list_items(list_id, store_id)
-            .await?;
-
-        // Step 3: Delete store filters containing this store
-        self.delete_store_filters_with_store(list_id, store_id)
-            .await?;
-
-        // Step 4: Remove store from starter list items again
-        self.remove_store_from_starter_list_items(list_id, store_id)
-            .await?;
-
-        // Step 5: Delete the store itself
-        let operation_id = generate_id();
-
-        // Imperative shell: gather runtime values
-        let params = crate::operations::DeleteStoreParams {
-            store_id: store_id.to_string(),
-            store_name: None,
-            list_id: list_id.to_string(),
-            operation_id,
-            user_id: self.user_id(),
-        };
-
-        // Functional core: pure operation building
-        let operation_list = crate::operations::build_delete_store_operation(params);
-
-        // Imperative shell: side effects
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update-v2", buf).await?;
-        Ok(())
+        let data = self.get_user_data().await?;
+        let store = stored_store(&data, list_id, store_id)?;
+        let filters = &list_response(&data, list_id)?.store_filters;
+        let requests = operations::delete_store(
+            &mut self.ids(),
+            store,
+            filters,
+            data.starter_list(list_id, pb_starter_list::Type::FavoriteItems),
+            data.starter_list(list_id, pb_starter_list::Type::RecentItems),
+        );
+        self.send(requests).await
     }
+}
+
+fn list_response<'a>(data: &'a PbUserDataResponse, list_id: &str) -> Result<&'a PbListResponse> {
+    data.list_response(list_id)
+        .ok_or_else(|| AnyListError::NotFound(format!("List with ID {} not found", list_id)))
+}
+
+fn stored_store<'a>(
+    data: &'a PbUserDataResponse,
+    list_id: &str,
+    store_id: &str,
+) -> Result<&'a PbStore> {
+    list_response(data, list_id)?
+        .stores
+        .iter()
+        .find(|s| s.identifier == store_id)
+        .ok_or_else(|| {
+            AnyListError::NotFound(format!("Store {} not found in list {}", store_id, list_id))
+        })
+}
+
+/// The web client refuses a store name another of the list's stores has,
+/// ignoring case.
+fn check_store_name(response: &PbListResponse, store_id: Option<&str>, name: &str) -> Result<()> {
+    let lowercase = name.to_lowercase();
+    let taken = response.stores.iter().any(|s| {
+        Some(s.identifier.as_str()) != store_id
+            && s.name
+                .as_deref()
+                .is_some_and(|n| n.to_lowercase() == lowercase)
+    });
+    if taken {
+        return Err(AnyListError::Other(format!(
+            "There is already a store named {}",
+            name
+        )));
+    }
+    Ok(())
 }

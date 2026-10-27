@@ -7,6 +7,16 @@ Snapshot tests verify the Protobuf output of functions in a byte-for-byte manner
 Testing in this way ensures that wire formats do not change, business logic
 matches the web app, and that output remains the same across refactors.
 
+### Comparing with the web client's captures
+
+`src/operations_webapp_tests.rs` checks each operation builder against
+requests captured from the web client in `tests/fixtures/webapp_2026_10_27`
+(see [webapp-operations.md](webapp-operations.md)). A test replays the
+identifiers the web client generated, in the order the builder asks for them,
+gives the builder the state the web client had, and compares every request.
+When one differs, set `WEBAPP_DIFF_DIR` to a folder to get both sides decoded
+and in hex.
+
 ### Creating snapshots from AnyList Web
 
 We support two types of snapshot testing:

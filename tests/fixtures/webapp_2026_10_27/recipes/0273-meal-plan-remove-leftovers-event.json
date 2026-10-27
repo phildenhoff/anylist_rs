@@ -18,7 +18,8 @@
         "calendarId": "515dff1907ce4e469274b404a17e11ee",
         "date": "2026-10-16",
         "recipeId": "93553f276ef14257a4c3e676ae822455",
-        "orderAddedSortIndex": 0
+        "orderAddedSortIndex": 0,
+        "isLeftover": true
       }
     }
   ],

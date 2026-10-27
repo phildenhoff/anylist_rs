@@ -32,7 +32,12 @@
                 "categoryGroupId": "b331b59d45f35d67bba82d7bcc7214ad",
                 "categoryId": "124d51d9c22b428092e478914e17c02a"
               }
-            ]
+            ],
+            "quantityPb": {
+              "amount": "2",
+              "unit": "L",
+              "rawQuantity": "2 L"
+            }
           }
         ]
       }
