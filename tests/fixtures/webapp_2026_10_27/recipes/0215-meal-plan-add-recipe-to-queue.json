@@ -1,0 +1,23 @@
+{
+  "label": "meal plan: add recipe to queue",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-tab-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "afc4cac8561a4615a705261edc81217f",
+        "handlerId": "set-web-selected-tab-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078494.4709077,
+        "webSelectedTabId": "ALMealPlanTabBarItemIdentifier"
+      }
+    }
+  ],
+  "hex": "0aac010a5d0a20616663346361633835363161343631356137303532363165646338313231376612177365742d7765622d73656c65637465642d7461622d69641a206331363835336333623139613437393439616339633563336333666262383335124b0a206331363835336333623139613437393439616339633563336333666262383335115a239e370db8da417a1e414c4d65616c506c616e5461624261724974656d4964656e746966696572"
+}

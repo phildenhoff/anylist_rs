@@ -473,6 +473,19 @@ impl AnyListClient {
         headers
     }
 
+    /// Post each request in order, as the web client does for one action.
+    pub(crate) async fn send(&self, requests: Vec<crate::operations::Request>) -> Result<()> {
+        for request in requests {
+            self.post(request.endpoint, request.body).await?;
+        }
+        Ok(())
+    }
+
+    /// Identifiers for new operations, signed by this client's user.
+    pub(crate) fn ids(&self) -> crate::operations::Ids {
+        crate::operations::Ids::new(self.user_id())
+    }
+
     /// Make a POST request to the AnyList API.
     ///
     /// Automatically handles token refresh on 401 errors if auto_refresh is enabled.

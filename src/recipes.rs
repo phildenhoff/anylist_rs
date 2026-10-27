@@ -1,39 +1,11 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
+use crate::operations;
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbIngredient, PbOperationMetadata, PbRecipe,
-    PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
+    pb_starter_list, PbIngredient, PbRecipe, PbRecipeDataResponse, PbUserDataResponse,
 };
-use crate::utils::{current_timestamp, encode_operation_list, generate_id};
+use crate::utils::{current_timestamp, generate_id};
 use serde_derive::{Deserialize, Serialize};
-
-fn build_delete_recipe_operation(
-    operation_id: &str,
-    user_id: &str,
-    recipe_id: &str,
-    recipe: Option<PbRecipe>,
-) -> PbRecipeOperationList {
-    let operation = PbRecipeOperation {
-        metadata: Some(PbOperationMetadata {
-            operation_id: Some(operation_id.to_string()),
-            handler_id: Some("remove-recipe".to_string()),
-            user_id: Some(user_id.to_string()),
-            operation_class: Some(OperationClass::Undefined as i32),
-        }),
-        recipe_data_id: None,
-        recipe,
-        recipe_collection: None,
-        recipe_link_request: None,
-        recipe_collection_ids: vec![],
-        recipes: vec![],
-        is_new_recipe_from_web_import: None,
-        recipe_ids: vec![recipe_id.to_string()],
-    };
-
-    PbRecipeOperationList {
-        operations: vec![operation],
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ingredient {
@@ -85,15 +57,38 @@ impl Ingredient {
         self.raw_ingredient.as_deref()
     }
 
-    fn to_pb(&self) -> PbIngredient {
+    /// The ingredient as the web client stores it: with an identifier, an
+    /// empty note when it has none, and the text it was parsed from.
+    fn to_pb(&self, identifier: String) -> PbIngredient {
+        let quantity = self.quantity.clone().filter(|q| !q.is_empty());
+        let note = self.note.clone().unwrap_or_default();
+        let raw_ingredient = self.raw_ingredient.clone().unwrap_or_else(|| {
+            let mut raw = match &quantity {
+                Some(quantity) => format!("{} {}", quantity, self.name),
+                None => self.name.clone(),
+            };
+            if !note.is_empty() {
+                raw = format!("{}, {}", raw, note);
+            }
+            raw
+        });
         PbIngredient {
-            raw_ingredient: self.raw_ingredient.clone(),
+            raw_ingredient: Some(raw_ingredient),
             name: Some(self.name.clone()),
-            quantity: self.quantity.clone(),
-            note: self.note.clone(),
-            identifier: None,
+            quantity,
+            note: Some(note),
+            identifier: Some(identifier),
             is_heading: None,
         }
+    }
+
+    /// Whether a stored ingredient is this one.
+    fn matches(&self, stored: &PbIngredient) -> bool {
+        let text = |s: &Option<String>| s.clone().unwrap_or_default();
+        stored.name.as_deref() == Some(self.name.as_str())
+            && text(&stored.quantity) == text(&self.quantity)
+            && text(&stored.note) == text(&self.note)
+            && (self.raw_ingredient.is_none() || stored.raw_ingredient == self.raw_ingredient)
     }
 }
 
@@ -165,13 +160,6 @@ impl RecipeIngredientEntry {
 
     pub fn ingredient(ingredient: Ingredient) -> Self {
         Self::Ingredient(ingredient)
-    }
-
-    fn to_pb(&self) -> PbIngredient {
-        match self {
-            Self::Section(section) => section.to_pb(),
-            Self::Ingredient(ingredient) => ingredient.to_pb(),
-        }
     }
 }
 
@@ -475,13 +463,13 @@ impl RecipeBuilder {
         self
     }
 
-    /// Set prep time in minutes
+    /// Set prep time in minutes (stored in seconds, as the web client does)
     pub fn prep_time(mut self, minutes: i32) -> Self {
         self.prep_time = Some(minutes);
         self
     }
 
-    /// Set cook time in minutes
+    /// Set cook time in minutes (stored in seconds, as the web client does)
     pub fn cook_time(mut self, minutes: i32) -> Self {
         self.cook_time = Some(minutes);
         self
@@ -508,7 +496,10 @@ impl RecipeBuilder {
     }
 
     /// Convert to protobuf recipe
-    fn to_pb_recipe(&self, recipe_id: &str, timestamp: f64) -> PbRecipe {
+    /// The ingredient list as the web client stores it. Ingredients the
+    /// stored recipe already has keep their identifiers: first exact
+    /// matches, then ones with the same name.
+    fn to_pb_ingredients(&self, stored: &[PbIngredient]) -> Vec<PbIngredient> {
         // Defensive fallback: a Recipe can reach a builder with an empty entry
         // list but a populated flat list (e.g. deserialized from JSON written
         // before ingredient_entries existed).
@@ -525,146 +516,122 @@ impl RecipeBuilder {
             } else {
                 &self.ingredient_entries
             };
-        let pb_ingredients: Vec<PbIngredient> =
-            entries.iter().map(RecipeIngredientEntry::to_pb).collect();
 
-        let photo_ids = self.photo_id.clone().into_iter().collect();
+        let mut unused: Vec<&PbIngredient> = stored
+            .iter()
+            .filter(|i| i.is_heading != Some(true))
+            .collect();
+        let mut pb: Vec<Option<PbIngredient>> = entries
+            .iter()
+            .map(|entry| match entry {
+                RecipeIngredientEntry::Section(section) => Some(section.to_pb()),
+                RecipeIngredientEntry::Ingredient(ingredient) => {
+                    let position = unused.iter().position(|s| ingredient.matches(s))?;
+                    Some(unused.remove(position).clone())
+                }
+            })
+            .collect();
+        for (entry, slot) in entries.iter().zip(pb.iter_mut()) {
+            let RecipeIngredientEntry::Ingredient(ingredient) = entry else {
+                continue;
+            };
+            if slot.is_some() {
+                continue;
+            }
+            let identifier = unused
+                .iter()
+                .position(|s| {
+                    s.name
+                        .as_deref()
+                        .is_some_and(|n| n.to_lowercase() == ingredient.name.to_lowercase())
+                })
+                .and_then(|position| unused.remove(position).identifier.clone())
+                .unwrap_or_else(generate_id);
+            *slot = Some(ingredient.to_pb(identifier));
+        }
+        pb.into_iter().flatten().collect()
+    }
 
+    /// The recipe as the web client's editor saves it: a new recipe gets a
+    /// creation time; an existing one keeps the stored fields the builder
+    /// does not cover. Times are stored in seconds.
+    fn to_pb_recipe(&self, stored: Option<&PbRecipe>, recipe_id: &str) -> PbRecipe {
+        let base = match stored {
+            Some(stored) => stored.clone(),
+            None => PbRecipe {
+                identifier: recipe_id.to_string(),
+                creation_timestamp: Some(creation_timestamp()),
+                ..Default::default()
+            },
+        };
+        let seconds = |minutes: Option<i32>, stored: Option<i32>| match (minutes, stored) {
+            (Some(minutes), Some(stored)) if stored / 60 == minutes => Some(stored),
+            (minutes, _) => minutes.map(|m| m * 60),
+        };
+        let photo_ids = match &self.photo_id {
+            Some(id) if base.photo_ids.first() == Some(id) => base.photo_ids.clone(),
+            photo_id => photo_id.clone().into_iter().collect(),
+        };
+        let text = |value: &Option<String>| value.clone().filter(|v| !v.is_empty());
         PbRecipe {
-            identifier: recipe_id.to_string(),
-            timestamp: Some(timestamp),
             name: Some(self.name.clone()),
-            icon: None,
-            note: self.note.clone(),
-            source_name: self.source_name.clone(),
-            source_url: self.source_url.clone(),
-            ingredients: pb_ingredients,
+            note: text(&self.note),
+            source_name: text(&self.source_name),
+            source_url: text(&self.source_url),
+            ingredients: self.to_pb_ingredients(&base.ingredients),
             preparation_steps: self.preparation_steps.clone(),
             photo_ids,
-            ad_campaign_id: None,
-            photo_urls: vec![],
-            scale_factor: Some(1.0),
             rating: self.rating,
-            creation_timestamp: Some(timestamp),
-            nutritional_info: self.nutritional_info.clone(),
-            cook_time: self.cook_time,
-            prep_time: self.prep_time,
-            servings: self.servings.clone(),
-            paprika_identifier: None,
+            nutritional_info: text(&self.nutritional_info),
+            cook_time: seconds(self.cook_time, base.cook_time),
+            prep_time: seconds(self.prep_time, base.prep_time),
+            servings: text(&self.servings),
+            ..base
         }
     }
 
     /// Save the recipe (creates if new, updates if existing)
+    ///
+    /// Like the web client, saving an existing recipe also updates its
+    /// ingredients on the list recipe ingredients were last added to.
     pub async fn save(self, client: &AnyListClient) -> Result<Recipe> {
-        if self.id.is_some() {
-            self.update(client).await
-        } else {
-            self.create(client).await
+        let data = client.get_user_data().await?;
+        let recipe_data_id = recipe_data_id(&data)?;
+        let mut ids = client.ids();
+        let (recipe, mut requests, old) = match &self.id {
+            Some(recipe_id) => {
+                let stored = stored_recipe(&data, recipe_id)?;
+                let recipe = self.to_pb_recipe(Some(stored), recipe_id);
+                (recipe, Vec::new(), Some(stored))
+            }
+            None => {
+                let recipe_id = ids.new_id();
+                (self.to_pb_recipe(None, &recipe_id), Vec::new(), None)
+            }
+        };
+        requests.extend(operations::save_recipe(
+            &mut ids,
+            recipe_data_id,
+            recipe.clone(),
+        ));
+        if let (Some(old), Some(list_id)) = (old, recipe_ingredients_list_id(&data)) {
+            let items = data
+                .shopping_list(list_id)
+                .map(|l| l.items.as_slice())
+                .unwrap_or_default();
+            requests.extend(operations::update_recipe_ingredients_on_list(
+                &mut ids,
+                data.list_context(list_id),
+                items,
+                data.starter_list(list_id, pb_starter_list::Type::FavoriteItems),
+                data.starter_list(list_id, pb_starter_list::Type::RecentItems),
+                old,
+                &recipe,
+            ));
         }
-    }
-
-    /// Create a new recipe
-    async fn create(self, client: &AnyListClient) -> Result<Recipe> {
-        let recipe_id = generate_id();
-        let operation_id = generate_id();
-        let timestamp = current_timestamp();
-
-        let pb_recipe = self.to_pb_recipe(&recipe_id, timestamp);
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("save-recipe".to_string()),
-                user_id: Some(client.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: Some(pb_recipe),
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let buf = encode_operation_list(&operation_list)?;
-
-        client.post("data/user-recipe-data/update", buf).await?;
-
-        Ok(Recipe {
-            id: recipe_id,
-            name: self.name,
-            ingredients: self.ingredients,
-            ingredient_entries: self.ingredient_entries,
-            preparation_steps: self.preparation_steps,
-            note: self.note,
-            source_name: self.source_name,
-            source_url: self.source_url,
-            servings: self.servings,
-            prep_time: self.prep_time,
-            cook_time: self.cook_time,
-            rating: self.rating,
-            nutritional_info: self.nutritional_info,
-            photo_id: self.photo_id,
-            photo_urls: vec![],
-        })
-    }
-
-    /// Update an existing recipe
-    async fn update(self, client: &AnyListClient) -> Result<Recipe> {
-        let recipe_id = self.id.clone().expect("update called without recipe ID");
-        let operation_id = generate_id();
-        let timestamp = current_timestamp();
-
-        let pb_recipe = self.to_pb_recipe(&recipe_id, timestamp);
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("save-recipe".to_string()),
-                user_id: Some(client.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id: None,
-            recipe: Some(pb_recipe),
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let buf = encode_operation_list(&operation_list)?;
-
-        client.post("data/user-recipe-data/update", buf).await?;
-
-        Ok(Recipe {
-            id: recipe_id,
-            name: self.name,
-            ingredients: self.ingredients,
-            ingredient_entries: self.ingredient_entries,
-            preparation_steps: self.preparation_steps,
-            note: self.note,
-            source_name: self.source_name,
-            source_url: self.source_url,
-            servings: self.servings,
-            prep_time: self.prep_time,
-            cook_time: self.cook_time,
-            rating: self.rating,
-            nutritional_info: self.nutritional_info,
-            photo_id: self.photo_id,
-            photo_urls: vec![],
-        })
+        client.send(requests).await?;
+        recipe_from_pb(recipe)
+            .ok_or_else(|| AnyListError::InvalidResponse("Saved recipe has no name".to_string()))
     }
 }
 
@@ -818,24 +785,32 @@ impl AnyListClient {
     ///
     /// * `recipe_id` - The ID of the recipe to delete
     pub async fn delete_recipe(&self, recipe_id: &str) -> Result<()> {
-        let operation_id = generate_id();
-        let recipe = self
-            .get_user_data()
-            .await?
-            .recipe_data_response
-            .and_then(|response| {
-                response
-                    .recipes
-                    .into_iter()
-                    .find(|recipe| recipe.identifier == recipe_id)
-            });
-
-        let operation_list =
-            build_delete_recipe_operation(&operation_id, &self.user_id(), recipe_id, recipe);
-        let buf = encode_operation_list(&operation_list)?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-        Ok(())
+        let data = self.get_user_data().await?;
+        let recipe_data_id = recipe_data_id(&data)?;
+        let recipe = stored_recipe(&data, recipe_id)?;
+        let calendar = data.meal_planning_calendar_response.as_ref();
+        let calendar_id = calendar
+            .map(|c| c.calendar_id.as_str())
+            .unwrap_or(recipe_data_id);
+        let event_ids = calendar
+            .into_iter()
+            .flat_map(|c| c.events.iter().chain(&c.template_events))
+            .filter(|e| e.recipe_id.as_deref() == Some(recipe_id))
+            .map(|e| e.identifier.clone())
+            .collect();
+        let list = recipe_ingredients_list_id(&data).and_then(|list_id| {
+            data.shopping_list(list_id)
+                .map(|l| (list_id, l.items.as_slice()))
+        });
+        let requests = operations::delete_recipe(
+            &mut self.ids(),
+            recipe_data_id,
+            calendar_id,
+            recipe,
+            event_ids,
+            list,
+        );
+        self.send(requests).await
     }
 
     /// Add recipe ingredients to a shopping list
@@ -868,26 +843,37 @@ impl AnyListClient {
         list_id: &str,
         scale_factor: Option<f64>,
     ) -> Result<()> {
-        let recipe = self.get_recipe_by_id(recipe_id).await?;
-
-        for ingredient in recipe.ingredients {
-            let quantity = if let (Some(qty), Some(scale)) = (&ingredient.quantity, scale_factor) {
-                Some(scale_quantity(qty, scale))
-            } else {
-                ingredient.quantity.clone()
-            };
-
-            self.add_item_with_details(
-                list_id,
-                &ingredient.name,
-                quantity.as_deref(),
-                ingredient.note.as_deref(),
-                None,
-            )
-            .await?;
+        let data = self.get_user_data().await?;
+        let recipe = stored_recipe(&data, recipe_id)?;
+        if data.shopping_list(list_id).is_none() {
+            return Err(AnyListError::NotFound(format!(
+                "List with ID {} not found",
+                list_id
+            )));
         }
-
-        Ok(())
+        let scale = scale_factor
+            .or(recipe.scale_factor)
+            .filter(|s| *s != 0.0)
+            .unwrap_or(1.0);
+        let ingredients: Vec<_> = recipe
+            .ingredients
+            .iter()
+            .filter(|i| i.is_heading != Some(true))
+            .map(|i| operations::item_ingredient(recipe, &operations::scaled_ingredient(i, scale)))
+            .collect();
+        let items = data
+            .shopping_list(list_id)
+            .map(|l| l.items.as_slice())
+            .unwrap_or_default();
+        let requests = operations::add_ingredients_to_list(
+            &mut self.ids(),
+            data.list_context(list_id),
+            items,
+            data.starter_list(list_id, pb_starter_list::Type::FavoriteItems),
+            data.starter_list(list_id, pb_starter_list::Type::RecentItems),
+            &ingredients,
+        );
+        self.send(requests).await
     }
 
     /// Upload a photo for use as a recipe cover image.
@@ -1007,81 +993,90 @@ fn entries_for_ingredient_update(
 }
 
 fn recipes_from_response(response: PbRecipeDataResponse) -> Vec<Recipe> {
-    let mut recipes: Vec<Recipe> = Vec::new();
-    for recipe in response.recipes {
-        if let Some(name) = recipe.name {
-            let mut ingredients: Vec<Ingredient> = Vec::new();
-            let mut ingredient_entries: Vec<RecipeIngredientEntry> = Vec::new();
-            for i in &recipe.ingredients {
-                if i.is_heading == Some(true) {
-                    if let Some(name) = &i.name {
-                        // Preserve the server-assigned identifier so saving
-                        // the recipe again keeps headings stable.
-                        let section = match &i.identifier {
-                            Some(id) => {
-                                RecipeIngredientSection::with_identifier(id.clone(), name.clone())
-                            }
-                            None => RecipeIngredientSection::new(name.clone()),
-                        };
-                        ingredient_entries.push(RecipeIngredientEntry::Section(section));
-                    }
-                } else if let Some(name) = &i.name {
-                    let ingredient = Ingredient {
-                        name: name.clone(),
-                        quantity: i.quantity.clone(),
-                        note: i.note.clone(),
-                        raw_ingredient: i.raw_ingredient.clone(),
-                    };
-                    ingredients.push(ingredient.clone());
-                    ingredient_entries.push(RecipeIngredientEntry::Ingredient(ingredient));
-                }
-            }
-
-            let photo_id = recipe.photo_ids.first().cloned();
-
-            let recipe = Recipe {
-                id: recipe.identifier,
-                name,
-                ingredients,
-                ingredient_entries,
-                preparation_steps: recipe.preparation_steps,
-                note: recipe.note,
-                source_name: recipe.source_name,
-                source_url: recipe.source_url,
-                servings: recipe.servings,
-                prep_time: recipe.prep_time,
-                cook_time: recipe.cook_time,
-                rating: recipe.rating,
-                nutritional_info: recipe.nutritional_info,
-                photo_id,
-                photo_urls: recipe.photo_urls,
-            };
-            recipes.push(recipe);
-        }
-    }
-    recipes
+    response
+        .recipes
+        .into_iter()
+        .filter_map(recipe_from_pb)
+        .collect()
 }
 
-/// Simple quantity scaling - attempts to parse and scale numeric quantities
-fn scale_quantity(quantity: &str, scale: f64) -> String {
-    // Try to parse the first number in the quantity string
-    let parts: Vec<&str> = quantity.split_whitespace().collect();
-    if parts.is_empty() {
-        return quantity.to_string();
+/// A stored recipe; times are stored in seconds and given in minutes.
+fn recipe_from_pb(recipe: PbRecipe) -> Option<Recipe> {
+    let name = recipe.name?;
+    let mut ingredients: Vec<Ingredient> = Vec::new();
+    let mut ingredient_entries: Vec<RecipeIngredientEntry> = Vec::new();
+    for i in &recipe.ingredients {
+        if i.is_heading == Some(true) {
+            if let Some(name) = &i.name {
+                // Preserve the server-assigned identifier so saving
+                // the recipe again keeps headings stable.
+                let section = match &i.identifier {
+                    Some(id) => RecipeIngredientSection::with_identifier(id.clone(), name.clone()),
+                    None => RecipeIngredientSection::new(name.clone()),
+                };
+                ingredient_entries.push(RecipeIngredientEntry::Section(section));
+            }
+        } else if let Some(name) = &i.name {
+            let ingredient = Ingredient {
+                name: name.clone(),
+                quantity: i.quantity.clone(),
+                note: i.note.clone(),
+                raw_ingredient: i.raw_ingredient.clone(),
+            };
+            ingredients.push(ingredient.clone());
+            ingredient_entries.push(RecipeIngredientEntry::Ingredient(ingredient));
+        }
     }
 
-    // Try to parse the first part as a number
-    if let Ok(num) = parts[0].parse::<f64>() {
-        let scaled = num * scale;
-        let rest = parts[1..].join(" ");
-        if rest.is_empty() {
-            format!("{}", scaled)
-        } else {
-            format!("{} {}", scaled, rest)
-        }
-    } else {
-        quantity.to_string()
-    }
+    let photo_id = recipe.photo_ids.first().cloned();
+    Some(Recipe {
+        id: recipe.identifier,
+        name,
+        ingredients,
+        ingredient_entries,
+        preparation_steps: recipe.preparation_steps,
+        note: recipe.note,
+        source_name: recipe.source_name,
+        source_url: recipe.source_url,
+        servings: recipe.servings,
+        prep_time: recipe.prep_time.map(|seconds| seconds / 60),
+        cook_time: recipe.cook_time.map(|seconds| seconds / 60),
+        rating: recipe.rating,
+        nutritional_info: recipe.nutritional_info,
+        photo_id,
+        photo_urls: recipe.photo_urls,
+    })
+}
+
+fn recipe_data_id(data: &PbUserDataResponse) -> Result<&str> {
+    data.recipe_data_response
+        .as_ref()
+        .and_then(|r| r.recipe_data_id.as_deref())
+        .ok_or_else(|| AnyListError::InvalidResponse("No recipe data ID".to_string()))
+}
+
+fn stored_recipe<'a>(data: &'a PbUserDataResponse, recipe_id: &str) -> Result<&'a PbRecipe> {
+    data.recipe_data_response
+        .as_ref()
+        .into_iter()
+        .flat_map(|r| &r.recipes)
+        .find(|r| r.identifier == recipe_id)
+        .ok_or_else(|| AnyListError::NotFound(format!("Recipe with ID {} not found", recipe_id)))
+}
+
+/// The list recipe ingredients were last added to in the apps, which the web
+/// client keeps in step with recipe edits and deletions.
+fn recipe_ingredients_list_id(data: &PbUserDataResponse) -> Option<&str> {
+    data.mobile_app_settings_response
+        .as_ref()?
+        .list_id_for_recipe_ingredients
+        .as_deref()
+        .filter(|id| !id.is_empty())
+}
+
+/// The web client's creation time: now, in seconds, to the millisecond.
+fn creation_timestamp() -> f64 {
+    (current_timestamp() * 1000.0).floor() / 1000.0
 }
 
 /// Detect an image's MIME type from its magic bytes.
@@ -1119,7 +1114,6 @@ fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
 mod tests {
     use super::*;
     use crate::client::SavedTokens;
-    use prost::Message;
 
     #[test]
     fn test_sniff_image_mime() {
@@ -1173,69 +1167,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.to_string().contains("HEIC"));
-    }
-
-    #[test]
-    fn delete_recipe_operation_preserves_stored_recipe_payload() {
-        let recipe = PbRecipe {
-            identifier: "recipe-id".to_string(),
-            timestamp: Some(1111.25),
-            name: Some("Probe Recipe".to_string()),
-            icon: Some("icon-name".to_string()),
-            ingredients: vec![PbIngredient {
-                identifier: Some("ingredient-1".to_string()),
-                raw_ingredient: Some("2 cups flour, sifted".to_string()),
-                name: Some("flour".to_string()),
-                quantity: Some("2 cups".to_string()),
-                note: Some("sifted".to_string()),
-                is_heading: Some(false),
-            }],
-            photo_ids: vec!["photo-1".to_string(), "photo-2".to_string()],
-            photo_urls: vec!["https://example.com/photo-1.jpg".to_string()],
-            scale_factor: Some(2.5),
-            creation_timestamp: Some(42.5),
-            paprika_identifier: Some("paprika-id".to_string()),
-            ..Default::default()
-        };
-
-        let operation_list = build_delete_recipe_operation(
-            "operation-id",
-            "user-id",
-            "recipe-id",
-            Some(recipe.clone()),
-        );
-        let encoded =
-            encode_operation_list(&operation_list).expect("delete operation should encode");
-        let decoded = PbRecipeOperationList::decode(encoded.as_slice())
-            .expect("delete operation should decode");
-
-        assert_eq!(decoded.operations.len(), 1);
-        let operation = &decoded.operations[0];
-        let metadata = operation.metadata.as_ref().expect("metadata");
-        assert_eq!(metadata.operation_id.as_deref(), Some("operation-id"));
-        assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
-        assert_eq!(metadata.user_id.as_deref(), Some("user-id"));
-        assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
-        assert_eq!(operation.is_new_recipe_from_web_import, None);
-        assert_eq!(operation.recipe.as_ref(), Some(&recipe));
-    }
-
-    #[test]
-    fn delete_recipe_operation_falls_back_to_id_only_payload() {
-        let operation_list =
-            build_delete_recipe_operation("operation-id", "user-id", "recipe-id", None);
-        let encoded =
-            encode_operation_list(&operation_list).expect("delete operation should encode");
-        let decoded = PbRecipeOperationList::decode(encoded.as_slice())
-            .expect("delete operation should decode");
-
-        assert_eq!(decoded.operations.len(), 1);
-        let operation = &decoded.operations[0];
-        let metadata = operation.metadata.as_ref().expect("metadata");
-        assert_eq!(metadata.handler_id.as_deref(), Some("remove-recipe"));
-        assert_eq!(operation.recipe, None);
-        assert_eq!(operation.recipe_ids, ["recipe-id".to_string()]);
-        assert_eq!(operation.is_new_recipe_from_web_import, None);
     }
 
     fn heading_pb(identifier: Option<&str>, name: &str) -> PbIngredient {
@@ -1322,14 +1253,26 @@ mod tests {
         ]);
         let recipe = recipes_from_response(response).remove(0);
 
+        let stored = PbRecipe {
+            identifier: "recipe-1".to_string(),
+            ingredients: vec![
+                heading_pb(Some("sec-1"), "Sauce"),
+                PbIngredient {
+                    identifier: Some("tomato-1".to_string()),
+                    ..ingredient_pb("Tomato")
+                },
+            ],
+            ..Default::default()
+        };
         let builder = RecipeBuilder::from(&recipe);
-        let first = builder.to_pb_recipe("recipe-1", 0.0);
-        let second = builder.to_pb_recipe("recipe-1", 0.0);
+        let first = builder.to_pb_recipe(Some(&stored), "recipe-1");
+        let second = builder.to_pb_recipe(Some(&stored), "recipe-1");
 
         assert_eq!(first.ingredients[0].identifier.as_deref(), Some("sec-1"));
         assert_eq!(first.ingredients[0].is_heading, Some(true));
         assert_eq!(first.ingredients[0].name.as_deref(), Some("Sauce"));
-        // Encoding is deterministic: no fresh identifiers per save.
+        // Saving again keeps the stored ingredients' identifiers.
+        assert_eq!(first.ingredients[1].identifier.as_deref(), Some("tomato-1"));
         assert_eq!(first.ingredients, second.ingredients);
     }
 
@@ -1339,8 +1282,8 @@ mod tests {
             .add_ingredient_section("Sauce")
             .add_ingredient(Ingredient::new("Tomato"));
 
-        let first = builder.to_pb_recipe("recipe-1", 0.0);
-        let second = builder.to_pb_recipe("recipe-1", 0.0);
+        let first = builder.to_pb_recipe(None, "recipe-1");
+        let second = builder.to_pb_recipe(None, "recipe-1");
 
         let heading = &first.ingredients[0];
         assert_eq!(heading.is_heading, Some(true));
@@ -1348,7 +1291,7 @@ mod tests {
             .identifier
             .as_deref()
             .is_some_and(|id| !id.is_empty()));
-        assert_eq!(first.ingredients, second.ingredients);
+        assert_eq!(first.ingredients[0], second.ingredients[0]);
 
         // The plain ingredient is not marked as a heading.
         assert_eq!(first.ingredients[1].is_heading, None);
@@ -1460,8 +1403,46 @@ mod tests {
 
         // Entry-level edits must not lose the flat ingredients.
         let builder = RecipeBuilder::from(&recipe).add_ingredient_section("Toppings");
-        let pb = builder.to_pb_recipe("r1", 0.0);
+        let pb = builder.to_pb_recipe(None, "r1");
         let names: Vec<Option<&str>> = pb.ingredients.iter().map(|i| i.name.as_deref()).collect();
         assert_eq!(names, [Some("Flour"), Some("Toppings")]);
+    }
+
+    /// The recipe the web client's editor saved on 2026-10-27, made with the
+    /// builder: times in seconds, empty notes, raw ingredient text.
+    #[test]
+    fn new_recipe_matches_web_client_capture() {
+        use prost::Message;
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/webapp_2026_10_27/recipes/0080-recipe-create.json");
+        let fixture: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let bytes = hex::decode(fixture["hex"].as_str().unwrap()).unwrap();
+        let captured = crate::protobuf::anylist::PbRecipeOperationList::decode(bytes.as_slice())
+            .unwrap()
+            .operations[0]
+            .recipe
+            .clone()
+            .unwrap();
+
+        let builder = RecipeBuilder::new("zz capture recipe")
+            .note("zz capture note")
+            .source_name("zz capture source")
+            .source_url("https://example.com/zz-capture")
+            .add_ingredient(Ingredient::new("zz flour").quantity_of("2 cups"))
+            .add_ingredient(Ingredient::new("zz salt").quantity_of("1 tsp"))
+            .add_ingredient(Ingredient::new("zz water").quantity_of("250 mL"))
+            .add_step("Mix zz flour and zz salt.")
+            .add_step("Add zz water and knead.")
+            .rating(4)
+            .nutritional_info("zz 100 kcal")
+            .prep_time(15)
+            .servings("4 servings");
+        let mut recipe = builder.to_pb_recipe(None, &captured.identifier);
+        recipe.creation_timestamp = captured.creation_timestamp;
+        for (ours, theirs) in recipe.ingredients.iter_mut().zip(&captured.ingredients) {
+            ours.identifier = theirs.identifier.clone();
+        }
+        assert_eq!(recipe, captured);
     }
 }

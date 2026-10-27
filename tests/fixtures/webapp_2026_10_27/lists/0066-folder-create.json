@@ -1,0 +1,29 @@
+{
+  "label": "folder: create",
+  "endpoint": "/data/list-folders/update",
+  "type": "PBListFolderOperationList",
+  "handlerIds": [
+    "create-new-folder"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "cf295c43cb4a4a5b91ec3e075f9e0291",
+        "handlerId": "create-new-folder",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "listDataId": "c16853c3b19a47949ac9c5c3c3fbb835",
+      "listFolder": {
+        "identifier": "64dc0b61c8b24718826d94a5590cb105",
+        "name": "zz capture folder",
+        "folderSettings": {
+          "listsSortOrder": 0,
+          "folderSortPosition": 2,
+          "folderHexColor": "16A1E0"
+        }
+      },
+      "updatedParentFolderId": "c16853c3b19a47949ac9c5c3c3fbb835"
+    }
+  ],
+  "hex": "0ae2010a570a20636632393563343363623461346135623931656333653037356639653032393112116372656174652d6e65772d666f6c6465721a206331363835336333623139613437393439616339633563336333666262383335122063313638353363336231396134373934396163396335633363336662623833351a430a2036346463306236316338623234373138383236643934613535393063623130351a117a7a206361707475726520666f6c6465722a0c080010021a0631364131453032206331363835336333623139613437393439616339633563336333666262383335"
+}

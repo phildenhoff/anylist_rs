@@ -1,0 +1,59 @@
+{
+  "label": "recipe: create",
+  "endpoint": "/data/user-recipe-data/update",
+  "type": "PBRecipeOperationList",
+  "handlerIds": [
+    "save-recipe"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "7f975d718d8c4c919ec68d64afdb1649",
+        "handlerId": "save-recipe",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "recipeDataId": "515dff1907ce4e469274b404a17e11ee",
+      "recipe": {
+        "identifier": "93553f276ef14257a4c3e676ae822455",
+        "name": "zz capture recipe",
+        "note": "zz capture note",
+        "sourceName": "zz capture source",
+        "sourceUrl": "https://example.com/zz-capture",
+        "ingredients": [
+          {
+            "rawIngredient": "2 cups zz flour",
+            "name": "zz flour",
+            "quantity": "2 cups",
+            "note": "",
+            "identifier": "e6f9e01095ad49a68fc526dbcdc2ee4d"
+          },
+          {
+            "rawIngredient": "1 tsp zz salt",
+            "name": "zz salt",
+            "quantity": "1 tsp",
+            "note": "",
+            "identifier": "7018c35b6ee1493a800a11d87d1f3114"
+          },
+          {
+            "rawIngredient": "250 mL zz water",
+            "name": "zz water",
+            "quantity": "250 mL",
+            "note": "",
+            "identifier": "484c0c04e9b04cdbaaa57421a75fc55c"
+          }
+        ],
+        "preparationSteps": [
+          "Mix zz flour and zz salt.",
+          "Add zz water and knead."
+        ],
+        "rating": 4,
+        "creationTimestamp": 1793078413.992,
+        "nutritionalInfo": "zz 100 kcal",
+        "prepTime": 900,
+        "servings": "4 servings"
+      },
+      "isNewRecipeFromWebImport": false
+    }
+  ],
+  "hex": "0aa9040a510a203766393735643731386438633463393139656336386436346166646231363439120b736176652d7265636970651a206331363835336333623139613437393439616339633563336333666262383335122035313564666631393037636534653436393237346234303461313765313165651aaf030a2039333535336632373665663134323537613463336536373661653832323435351a117a7a2063617074757265207265636970652a0f7a7a2063617074757265206e6f746532117a7a206361707475726520736f757263653a1e68747470733a2f2f6578616d706c652e636f6d2f7a7a2d636170747572654247322065366639653031303935616434396136386663353236646263646332656534640a0f322063757073207a7a20666c6f757212087a7a20666c6f75721a0632206375707322004243322037303138633335623665653134393361383030613131643837643166333131340a0d3120747370207a7a2073616c7412077a7a2073616c741a05312074737022004247322034383463306330346539623034636462616161353734323161373566633535630a0f323530206d4c207a7a20776174657212087a7a2077617465721a06323530206d4c22004a194d6978207a7a20666c6f757220616e64207a7a2073616c742e4a17416464207a7a20776174657220616e64206b6e6561642e78048101ee7c7f230db8da418a010b7a7a20313030206b63616c98018407a2010a342073657276696e67734000"
+}

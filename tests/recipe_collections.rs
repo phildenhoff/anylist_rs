@@ -7,7 +7,7 @@
 use std::sync::{Arc, Mutex};
 
 use anylist_rs::protobuf::anylist::{
-    PbRecipeCollection, PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
+    PbRecipe, PbRecipeCollection, PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
     PbUserDataResponse,
 };
 use anylist_rs::{AnyListClient, AnyListError, SavedTokens};
@@ -84,15 +84,27 @@ impl FakeApi {
 
     /// The single operation sent to the recipe update endpoint.
     fn sent_operation(&self) -> PbRecipeOperation {
+        let mut operations = self.sent_operations();
+        assert_eq!(operations.len(), 1, "expected exactly one operation");
+        operations.remove(0)
+    }
+
+    /// The operations sent to the recipe update endpoint, one per request.
+    fn sent_operations(&self) -> Vec<PbRecipeOperation> {
         let requests = self.requests.lock().unwrap();
-        let updates: Vec<&Request> = requests
+        requests
             .iter()
             .filter(|r| r.path == RECIPE_UPDATE)
-            .collect();
-        assert_eq!(updates.len(), 1, "expected exactly one recipe update");
-        let mut list = PbRecipeOperationList::decode(updates[0].operations.as_slice()).unwrap();
-        assert_eq!(list.operations.len(), 1, "expected exactly one operation");
-        list.operations.remove(0)
+            .map(|r| {
+                let mut list = PbRecipeOperationList::decode(r.operations.as_slice()).unwrap();
+                assert_eq!(
+                    list.operations.len(),
+                    1,
+                    "expected one operation per request"
+                );
+                list.operations.remove(0)
+            })
+            .collect()
     }
 }
 
@@ -167,6 +179,14 @@ fn recipe_data(collections: Vec<PbRecipeCollection>) -> PbRecipeDataResponse {
     PbRecipeDataResponse {
         recipe_data_id: Some(RECIPE_DATA_ID.to_string()),
         recipe_collections: collections,
+        recipes: ["r1", "r2"]
+            .iter()
+            .map(|id| PbRecipe {
+                identifier: id.to_string(),
+                name: Some(format!("Recipe {id}")),
+                ..Default::default()
+            })
+            .collect(),
         ..Default::default()
     }
 }
@@ -204,7 +224,7 @@ async fn get_recipe_collections_maps_named_collections() {
 }
 
 #[tokio::test]
-async fn create_recipe_collection_sends_recipe_data_id() {
+async fn create_recipe_collection_sends_recipe_data_id_then_sets_icon() {
     let api = FakeApi::start(recipe_data(vec![])).await;
 
     let created = api
@@ -215,21 +235,37 @@ async fn create_recipe_collection_sends_recipe_data_id() {
 
     assert_eq!(created.name(), "Dinners");
     assert!(created.recipe_ids().is_empty());
-    assert_eq!(api.paths(), [USER_DATA, RECIPE_UPDATE]);
+    assert_eq!(api.paths(), [USER_DATA, RECIPE_UPDATE, RECIPE_UPDATE]);
 
-    let op = api.sent_operation();
-    assert_eq!(handler_id(&op), "new-recipe-collection");
-    assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
-    assert!(op.recipe_collection_ids.is_empty());
-    assert!(op.recipe_ids.is_empty());
-    let sent = op.recipe_collection.unwrap();
+    let ops = api.sent_operations();
+    assert_eq!(handler_id(&ops[0]), "new-recipe-collection");
+    assert_eq!(ops[0].recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
+    assert!(ops[0].recipe_collection_ids.is_empty());
+    assert!(ops[0].recipe_ids.is_empty());
+    let sent = ops[0].recipe_collection.clone().unwrap();
     assert_eq!(sent.identifier, created.id());
     assert_eq!(sent.name.as_deref(), Some("Dinners"));
     assert!(sent.recipe_ids.is_empty());
+    assert!(sent.collection_settings.is_none());
+
+    // Like the web client, the new collection then gets the default icon.
+    assert_eq!(handler_id(&ops[1]), "set-recipe-collection-icon");
+    let icon = ops[1]
+        .recipe_collection
+        .clone()
+        .unwrap()
+        .collection_settings
+        .unwrap()
+        .icon
+        .unwrap();
+    assert_eq!(
+        icon.icon_name.as_deref(),
+        Some("food_and_cooking/stack_of_recipe_cards")
+    );
 }
 
 #[tokio::test]
-async fn create_recipe_collection_with_recipe_ids_populates_collection() {
+async fn create_recipe_collection_with_recipe_ids_adds_them_after_creating() {
     let api = FakeApi::start(recipe_data(vec![])).await;
     let ids = vec!["r1".to_string(), "r2".to_string()];
 
@@ -240,11 +276,36 @@ async fn create_recipe_collection_with_recipe_ids_populates_collection() {
         .unwrap();
 
     assert_eq!(created.recipe_ids(), ids.as_slice());
-    let op = api.sent_operation();
-    assert_eq!(handler_id(&op), "new-recipe-collection");
-    assert_eq!(op.recipe_data_id.as_deref(), Some(RECIPE_DATA_ID));
-    assert!(op.recipe_ids.is_empty());
-    assert_eq!(op.recipe_collection.unwrap().recipe_ids, ids);
+    let ops = api.sent_operations();
+    let handlers: Vec<&str> = ops.iter().map(handler_id).collect();
+    assert_eq!(
+        handlers,
+        [
+            "new-recipe-collection",
+            "set-recipe-collection-icon",
+            "add-recipes-to-collection"
+        ]
+    );
+    assert!(ops[0]
+        .recipe_collection
+        .as_ref()
+        .unwrap()
+        .recipe_ids
+        .is_empty());
+    assert_eq!(ops[2].recipe_collection.as_ref().unwrap().recipe_ids, ids);
+}
+
+#[tokio::test]
+async fn create_recipe_collection_with_unknown_recipe_sends_nothing() {
+    let api = FakeApi::start(recipe_data(vec![])).await;
+
+    let result = api
+        .client()
+        .create_recipe_collection_with_recipe_ids("Dinners", vec!["missing".to_string()])
+        .await;
+
+    assert!(matches!(result, Err(AnyListError::NotFound(_))));
+    assert_eq!(api.paths(), [USER_DATA]);
 }
 
 #[tokio::test]

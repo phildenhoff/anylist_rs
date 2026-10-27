@@ -18,6 +18,15 @@ pub struct PbTag {
     pub price_stats: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     #[prost(enumeration = "pb_tag::TagType", optional, tag = "5")]
     pub tag_type: ::core::option::Option<i32>,
+    /// From the web client's schema.
+    #[prost(message, repeated, tag = "9")]
+    pub localized_display_names: ::prost::alloc::vec::Vec<PbValue>,
+    #[prost(message, repeated, tag = "10")]
+    pub localized_search_terms: ::prost::alloc::vec::Vec<PbValue>,
+    #[prost(string, repeated, tag = "11")]
+    pub exclusive_locales: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "12")]
+    pub excluded_locales: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Nested message and enum types in `PBTag`.
 pub mod pb_tag {
@@ -242,6 +251,29 @@ pub struct PbListItem {
     pub manual_sort_index: ::core::option::Option<i32>,
     #[prost(string, optional, tag = "30")]
     pub product_upc: ::core::option::Option<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(message, optional, tag = "21")]
+    pub quantity_pb: ::core::option::Option<PbItemQuantity>,
+    #[prost(message, optional, tag = "22")]
+    pub price_quantity_pb: ::core::option::Option<PbItemQuantity>,
+    #[prost(bool, optional, tag = "23")]
+    pub price_quantity_should_override_item_quantity: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "24")]
+    pub package_size_pb: ::core::option::Option<PbItemPackageSize>,
+    #[prost(message, optional, tag = "25")]
+    pub price_package_size_pb: ::core::option::Option<PbItemPackageSize>,
+    #[prost(bool, optional, tag = "26")]
+    pub price_package_size_should_override_item_package_size: ::core::option::Option<
+        bool,
+    >,
+    #[prost(message, repeated, tag = "27")]
+    pub ingredients: ::prost::alloc::vec::Vec<PbItemIngredient>,
+    #[prost(bool, optional, tag = "28")]
+    pub item_quantity_should_override_ingredient_quantity: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "29")]
+    pub item_package_size_should_override_ingredient_package_size: ::core::option::Option<
+        bool,
+    >,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -311,6 +343,9 @@ pub struct PbListFolderSettings {
     pub folder_sort_position: ::core::option::Option<i32>,
     #[prost(string, optional, tag = "3")]
     pub folder_hex_color: ::core::option::Option<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(message, optional, tag = "4")]
+    pub icon: ::core::option::Option<PbIcon>,
 }
 /// Nested message and enum types in `PBListFolderSettings`.
 pub mod pb_list_folder_settings {
@@ -747,6 +782,9 @@ pub struct PbRecipe {
     pub servings: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "21")]
     pub paprika_identifier: ::core::option::Option<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(string, optional, tag = "23")]
+    pub recipe_data_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -785,6 +823,19 @@ pub struct PbRecipeCollectionSettings {
     pub recipes_sort_order: ::core::option::Option<i32>,
     #[prost(bool, optional, tag = "2")]
     pub show_only_recipes_with_no_collection: ::core::option::Option<bool>,
+    /// From the web client's schema.
+    #[prost(message, optional, tag = "3")]
+    pub smart_filter: ::core::option::Option<PbSmartFilter>,
+    #[prost(bool, optional, tag = "4")]
+    pub use_reversed_sort_direction: ::core::option::Option<bool>,
+    #[prost(double, optional, tag = "5")]
+    pub timestamp: ::core::option::Option<f64>,
+    #[prost(int32, optional, tag = "6")]
+    pub collections_sort_order: ::core::option::Option<i32>,
+    #[prost(bool, optional, tag = "7")]
+    pub use_reversed_collections_sort_direction: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "8")]
+    pub icon: ::core::option::Option<PbIcon>,
 }
 /// Nested message and enum types in `PBRecipeCollectionSettings`.
 pub mod pb_recipe_collection_settings {
@@ -880,6 +931,11 @@ pub struct PbUserRecipeData {
     pub meal_planning_calendar_id: ::core::option::Option<
         ::prost::alloc::string::String,
     >,
+    /// From the web client's schema.
+    #[prost(int32, optional, tag = "13")]
+    pub max_recipe_count: ::core::option::Option<i32>,
+    #[prost(double, optional, tag = "15")]
+    pub settings_map_for_system_collections_timestamp: ::core::option::Option<f64>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -936,6 +992,9 @@ pub struct PbRecipeDataResponse {
     pub has_imported_punchfork_recipes: ::core::option::Option<bool>,
     #[prost(bool, optional, tag = "11")]
     pub includes_recipe_collection_ids: ::core::option::Option<bool>,
+    /// From the web client's schema.
+    #[prost(int32, optional, tag = "12")]
+    pub max_recipe_count: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -958,6 +1017,11 @@ pub struct PbRecipeOperation {
     pub is_new_recipe_from_web_import: ::core::option::Option<bool>,
     #[prost(string, repeated, tag = "9")]
     pub recipe_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(string, repeated, tag = "10")]
+    pub recipe_event_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "11")]
+    pub max_recipe_count: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1016,6 +1080,21 @@ pub struct PbCalendarEvent {
     pub order_added_sort_index: ::core::option::Option<i32>,
     #[prost(double, optional, tag = "10")]
     pub recipe_scale_factor: ::core::option::Option<f64>,
+    /// From the web client's schema.
+    #[prost(int32, optional, tag = "11")]
+    pub label_sort_index: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "12")]
+    pub event_type: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "13")]
+    pub template_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "14")]
+    pub template_day_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "15")]
+    pub event_list_items: ::prost::alloc::vec::Vec<PbCalendarEventListItem>,
+    #[prost(message, optional, tag = "16")]
+    pub icon: ::core::option::Option<PbIcon>,
+    #[prost(bool, optional, tag = "17")]
+    pub is_leftover: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1050,6 +1129,25 @@ pub struct PbCalendarResponse {
     pub labels: ::prost::alloc::vec::Vec<PbCalendarLabel>,
     #[prost(string, repeated, tag = "7")]
     pub deleted_label_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(message, repeated, tag = "8")]
+    pub templates: ::prost::alloc::vec::Vec<PbMealPlanTemplate>,
+    #[prost(string, repeated, tag = "9")]
+    pub deleted_template_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "10")]
+    pub template_events: ::prost::alloc::vec::Vec<PbCalendarEvent>,
+    #[prost(string, repeated, tag = "11")]
+    pub deleted_template_event_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(int32, optional, tag = "12")]
+    pub response_version: ::core::option::Option<i32>,
+    #[prost(message, repeated, tag = "13")]
+    pub template_groups: ::prost::alloc::vec::Vec<PbMealPlanTemplateGroup>,
+    #[prost(string, repeated, tag = "14")]
+    pub deleted_template_group_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1074,6 +1172,35 @@ pub struct PbCalendarOperation {
     pub updated_events: ::prost::alloc::vec::Vec<PbCalendarEvent>,
     #[prost(message, repeated, tag = "10")]
     pub original_events: ::prost::alloc::vec::Vec<PbCalendarEvent>,
+    /// From the web client's schema.
+    #[prost(int32, optional, tag = "11")]
+    pub event_type: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "12")]
+    pub updated_template: ::core::option::Option<PbMealPlanTemplate>,
+    #[prost(message, optional, tag = "13")]
+    pub original_template: ::core::option::Option<PbMealPlanTemplate>,
+    #[prost(string, repeated, tag = "14")]
+    pub template_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "15")]
+    pub template_group: ::core::option::Option<PbMealPlanTemplateGroup>,
+    #[prost(message, repeated, tag = "16")]
+    pub template_group_items: ::prost::alloc::vec::Vec<PbMealPlanTemplateGroupItem>,
+    #[prost(string, optional, tag = "17")]
+    pub original_parent_template_group_id: ::core::option::Option<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(string, optional, tag = "18")]
+    pub updated_parent_template_group_id: ::core::option::Option<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(message, optional, tag = "19")]
+    pub updated_event_list_item: ::core::option::Option<PbCalendarEventListItem>,
+    #[prost(message, optional, tag = "20")]
+    pub original_event_list_item: ::core::option::Option<PbCalendarEventListItem>,
+    #[prost(string, repeated, tag = "21")]
+    pub ordered_event_list_item_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1092,6 +1219,9 @@ pub struct PbOperationMetadata {
     pub user_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int32, optional, tag = "4")]
     pub operation_class: ::core::option::Option<i32>,
+    /// From the web client's schema.
+    #[prost(int32, optional, tag = "5")]
+    pub operation_version: ::core::option::Option<i32>,
 }
 /// Nested message and enum types in `PBOperationMetadata`.
 pub mod pb_operation_metadata {
@@ -1425,6 +1555,15 @@ pub struct PbListSettings {
     pub linked_google_assistant_list_id: ::core::option::Option<
         ::prost::alloc::string::String,
     >,
+    /// From the web client's schema.
+    #[prost(message, optional, tag = "31")]
+    pub custom_dark_theme: ::core::option::Option<PbListTheme>,
+    #[prost(message, optional, tag = "32")]
+    pub icon: ::core::option::Option<PbIcon>,
+    #[prost(bool, optional, tag = "33")]
+    pub has_shown_account_name_prompt: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "34")]
+    pub is_enabled_for_alexa: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1581,6 +1720,53 @@ pub struct PbMobileAppSettings {
     pub is_active_google_assistant_provider: ::core::option::Option<bool>,
     #[prost(bool, optional, tag = "36")]
     pub client_has_shown_google_assistant_onboarding: ::core::option::Option<bool>,
+    /// From the web client's schema.
+    #[prost(message, repeated, tag = "37")]
+    pub recipe_cooking_states: ::prost::alloc::vec::Vec<PbRecipeCookingState>,
+    #[prost(bool, optional, tag = "38")]
+    pub should_exclude_new_lists_from_alexa_by_default: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "39")]
+    pub should_not_link_new_lists_with_google_assistant_by_default: ::core::option::Option<
+        bool,
+    >,
+    #[prost(int32, optional, tag = "40")]
+    pub web_selected_recipe_collection_type: ::core::option::Option<i32>,
+    #[prost(bool, optional, tag = "41")]
+    pub did_suppress_account_name_prompt: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "42")]
+    pub is_online_shopping_disabled: ::core::option::Option<bool>,
+    #[prost(string, optional, tag = "43")]
+    pub web_selected_list_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "44")]
+    pub keep_screen_on_behavior: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "45")]
+    pub default_list_id_for_alexa: ::core::option::Option<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(bool, optional, tag = "46")]
+    pub client_has_shown_alexa_onboarding: ::core::option::Option<bool>,
+    #[prost(int32, optional, tag = "47")]
+    pub meal_plan_week_start_day: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "48")]
+    pub web_recipe_collection_layout_style: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "49")]
+    pub web_selected_meal_plan_tab_v49: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "50")]
+    pub web_meal_plan_calendar_layout: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "51")]
+    pub web_meal_plan_month_event_list_type: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "52")]
+    pub web_meal_plan_week_event_list_type: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "53")]
+    pub web_meal_plan_notes_sort_order: ::core::option::Option<i32>,
+    #[prost(bool, optional, tag = "54")]
+    pub web_meal_plan_add_entries_screen_pinned_entries_collapsed: ::core::option::Option<
+        bool,
+    >,
+    #[prost(bool, optional, tag = "55")]
+    pub web_meal_plan_add_entries_screen_queue_entries_collapsed: ::core::option::Option<
+        bool,
+    >,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1765,6 +1951,35 @@ pub struct PbUserSubscriptionInfo {
     pub sent_email_identifiers: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(bool, optional, tag = "11")]
     pub user_confirmed_not_renewing: ::core::option::Option<bool>,
+    /// From the web client's schema.
+    #[prost(string, optional, tag = "18")]
+    pub stripe_customer_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "19")]
+    pub stripe_subscription_invoices: ::prost::alloc::vec::Vec<
+        PbStripeSubscriptionInvoice,
+    >,
+    #[prost(bool, optional, tag = "20")]
+    pub subscription_is_canceled: ::core::option::Option<bool>,
+    #[prost(string, optional, tag = "21")]
+    pub stripe_subscription_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "22")]
+    pub stripe_payment_method_last4: ::core::option::Option<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(int32, optional, tag = "23")]
+    pub stripe_payment_method_expiration_month: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "24")]
+    pub stripe_payment_method_expiration_year: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "25")]
+    pub stripe_payment_method_brand: ::core::option::Option<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(bool, optional, tag = "26")]
+    pub subscription_is_pending_downgrade: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "27")]
+    pub subscription_is_in_stripe_autorenew_migration_period: ::core::option::Option<
+        bool,
+    >,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1809,6 +2024,9 @@ pub struct PbUserEmailInfo {
     pub should_send_newsletters: ::core::option::Option<bool>,
     #[prost(bool, optional, tag = "5")]
     pub should_send_onboarding_tips: ::core::option::Option<bool>,
+    /// From the web client's schema.
+    #[prost(bool, optional, tag = "6")]
+    pub should_send_subscription_lifecycle_messages: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1837,6 +2055,13 @@ pub struct PbAccountInfoResponse {
     pub subusers: ::prost::alloc::vec::Vec<PbEmailUserIdPair>,
     #[prost(int32, optional, tag = "10")]
     pub subscription_management_system: ::core::option::Option<i32>,
+    /// From the web client's schema.
+    #[prost(string, optional, tag = "12")]
+    pub icalendar_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "13")]
+    pub subscription_is_canceled: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "14")]
+    pub subscription_is_pending_downgrade: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1847,6 +2072,11 @@ pub struct PbAccountChangePasswordResponse {
     pub error_title: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "3")]
     pub error_message: ::core::option::Option<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(string, optional, tag = "4")]
+    pub refresh_token: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub access_token: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2173,6 +2403,9 @@ pub struct PbAlexaUser {
     >,
     #[prost(string, optional, tag = "11")]
     pub alexa_api_endpoint: ::core::option::Option<::prost::alloc::string::String>,
+    /// From the web client's schema.
+    #[prost(bool, optional, tag = "12")]
+    pub did_hear_welcome_message: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2317,6 +2550,9 @@ pub struct PbGoogleAssistantListOperation {
     pub operation_items: ::prost::alloc::vec::Vec<PbGoogleAssistantListItem>,
     #[prost(message, repeated, tag = "5")]
     pub operation_lists: ::prost::alloc::vec::Vec<PbGoogleAssistantList>,
+    /// From the web client's schema.
+    #[prost(string, optional, tag = "6")]
+    pub google_assistant_list_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2327,4 +2563,645 @@ pub struct PbGoogleAssistantTask {
     pub anylist_user_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "3")]
     pub list_operation: ::core::option::Option<PbGoogleAssistantListOperation>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAppNotice {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, optional, tag = "2")]
+    pub timestamp: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "3")]
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub notification_title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub notification_subtitle: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub body_html: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "7")]
+    pub body_css: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "8")]
+    pub user_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "9")]
+    pub context: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "10")]
+    pub is_draft: ::core::option::Option<bool>,
+    #[prost(double, optional, tag = "11")]
+    pub max_user_creation_time: ::core::option::Option<f64>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAppNoticeList {
+    #[prost(message, repeated, tag = "1")]
+    pub notices: ::prost::alloc::vec::Vec<PbAppNotice>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAppNoticeOperation {
+    #[prost(message, optional, tag = "1")]
+    pub metadata: ::core::option::Option<PbOperationMetadata>,
+    #[prost(string, repeated, tag = "2")]
+    pub notice_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAppNoticeOperationList {
+    #[prost(message, repeated, tag = "1")]
+    pub operations: ::prost::alloc::vec::Vec<PbAppNoticeOperation>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAppNoticesResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub new_global_notices: ::prost::alloc::vec::Vec<PbAppNotice>,
+    #[prost(message, repeated, tag = "2")]
+    pub updated_global_notices: ::prost::alloc::vec::Vec<PbAppNotice>,
+    #[prost(string, repeated, tag = "3")]
+    pub removed_global_notice_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(message, repeated, tag = "4")]
+    pub new_user_notices: ::prost::alloc::vec::Vec<PbAppNotice>,
+    #[prost(message, repeated, tag = "5")]
+    pub updated_user_notices: ::prost::alloc::vec::Vec<PbAppNotice>,
+    #[prost(string, repeated, tag = "6")]
+    pub removed_user_notice_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(message, optional, tag = "7")]
+    pub user_data: ::core::option::Option<PbAppNoticesUserData>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAppNoticesUserData {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, optional, tag = "2")]
+    pub timestamp: ::core::option::Option<f64>,
+    #[prost(string, repeated, tag = "3")]
+    pub read_notice_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "4")]
+    pub dismissed_global_notice_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbAuthTokenInfo {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "2")]
+    pub is_blacklisted: ::core::option::Option<bool>,
+    #[prost(string, optional, tag = "3")]
+    pub user_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "4")]
+    pub creation_timestamp: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "5")]
+    pub expiration_timestamp: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "6")]
+    pub blacklisted_timestamp: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "7")]
+    pub last_used_for_refresh_timestamp: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "8")]
+    pub replacement_token_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "9")]
+    pub replacement_token_str: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "10")]
+    pub replacement_token_generation_timestamp: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "11")]
+    pub client_platform: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbCalendarEventDescriptor {
+    #[prost(string, optional, tag = "1")]
+    pub event_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "2")]
+    pub event_type: ::core::option::Option<i32>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbCalendarEventListItem {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub details: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "4")]
+    pub quantity_pb: ::core::option::Option<PbItemQuantity>,
+    #[prost(message, optional, tag = "5")]
+    pub package_size_pb: ::core::option::Option<PbItemPackageSize>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbDataRequestClientInfo {
+    #[prost(int32, optional, tag = "1")]
+    pub processed_response_version: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "2")]
+    pub supported_response_version: ::core::option::Option<i32>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbDeletedUserInfo {
+    #[prost(string, required, tag = "1")]
+    pub identifier: ::prost::alloc::string::String,
+    #[prost(double, optional, tag = "2")]
+    pub timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "3")]
+    pub deletion_timestamp: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "4")]
+    pub user_email: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub admin_email: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub admin_note: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "7")]
+    pub support_ticket_url: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "8")]
+    pub ip_address: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbEmailEvent {
+    #[prost(string, optional, tag = "1")]
+    pub event_type: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub event_data: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub description: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbEmailSuppressionInfo {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub email_address: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "3")]
+    pub should_suppress_all_messages: ::core::option::Option<bool>,
+    #[prost(message, repeated, tag = "4")]
+    pub email_events: ::prost::alloc::vec::Vec<PbEmailEvent>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbIcon {
+    #[prost(string, optional, tag = "1")]
+    pub icon_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub tint_hex_color: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbItemIngredient {
+    #[prost(message, optional, tag = "1")]
+    pub ingredient: ::core::option::Option<PbIngredient>,
+    #[prost(string, optional, tag = "2")]
+    pub recipe_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub event_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub recipe_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub event_date: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "6")]
+    pub quantity_pb: ::core::option::Option<PbItemQuantity>,
+    #[prost(message, optional, tag = "7")]
+    pub package_size_pb: ::core::option::Option<PbItemPackageSize>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbItemPackageSize {
+    #[prost(string, optional, tag = "1")]
+    pub size: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub unit: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub package_type: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub raw_package_size: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbItemQuantity {
+    #[prost(string, optional, tag = "1")]
+    pub amount: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub unit: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub raw_quantity: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbItemQuantityAndPackageSize {
+    #[prost(message, optional, tag = "1")]
+    pub quantity_pb: ::core::option::Option<PbItemQuantity>,
+    #[prost(message, optional, tag = "2")]
+    pub package_size_pb: ::core::option::Option<PbItemPackageSize>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbListFolderArchive {
+    #[prost(string, optional, tag = "1")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "2")]
+    pub folder_settings: ::core::option::Option<PbListFolderSettings>,
+    #[prost(message, repeated, tag = "3")]
+    pub items: ::prost::alloc::vec::Vec<PbListFolderItemArchive>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbListFolderItemArchive {
+    #[prost(message, optional, tag = "1")]
+    pub list_archive: ::core::option::Option<PbShoppingListArchive>,
+    #[prost(message, optional, tag = "2")]
+    pub folder_archive: ::core::option::Option<PbListFolderArchive>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbMealPlanSetICalendarEnabledRequest {
+    #[prost(bool, optional, tag = "1")]
+    pub should_enable_icalendar_generation: ::core::option::Option<bool>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbMealPlanSetICalendarEnabledRequestResponse {
+    #[prost(int32, optional, tag = "1")]
+    pub status_code: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "2")]
+    pub account_info: ::core::option::Option<PbAccountInfoResponse>,
+    #[prost(string, optional, tag = "3")]
+    pub error_title: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub error_message: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbMealPlanTemplate {
+    #[prost(string, required, tag = "1")]
+    pub identifier: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag = "2")]
+    pub logical_timestamp: ::core::option::Option<u64>,
+    #[prost(string, optional, tag = "3")]
+    pub calendar_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "5")]
+    pub day_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "6")]
+    pub sort_index: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "7")]
+    pub icon: ::core::option::Option<PbIcon>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbMealPlanTemplateGroup {
+    #[prost(string, required, tag = "1")]
+    pub identifier: ::prost::alloc::string::String,
+    #[prost(uint64, optional, tag = "2")]
+    pub logical_timestamp: ::core::option::Option<u64>,
+    #[prost(string, optional, tag = "3")]
+    pub calendar_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "5")]
+    pub items: ::prost::alloc::vec::Vec<PbMealPlanTemplateGroupItem>,
+    #[prost(message, optional, tag = "6")]
+    pub group_settings: ::core::option::Option<PbMealPlanTemplateGroupSettings>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbMealPlanTemplateGroupItem {
+    #[prost(string, required, tag = "1")]
+    pub identifier: ::prost::alloc::string::String,
+    #[prost(int32, optional, tag = "2")]
+    pub item_type: ::core::option::Option<i32>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbMealPlanTemplateGroupSettings {
+    #[prost(int32, optional, tag = "1")]
+    pub items_sort_order: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "2")]
+    pub groups_sort_position: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "3")]
+    pub icon: ::core::option::Option<PbIcon>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbProductLookupResponse {
+    #[prost(message, optional, tag = "1")]
+    pub list_item: ::core::option::Option<PbListItem>,
+    #[prost(string, optional, tag = "2")]
+    pub product_thumbnail_url: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbRecipeCookingState {
+    #[prost(string, optional, tag = "2")]
+    pub recipe_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub event_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, optional, tag = "4")]
+    pub last_opened_timestamp: ::core::option::Option<f64>,
+    #[prost(int32, optional, tag = "5")]
+    pub selected_tab_id: ::core::option::Option<i32>,
+    #[prost(string, repeated, tag = "6")]
+    pub checked_ingredient_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "7")]
+    pub selected_step_number: ::core::option::Option<i32>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbRecipeDataArchive {
+    #[prost(message, repeated, tag = "1")]
+    pub recipes: ::prost::alloc::vec::Vec<PbRecipe>,
+    #[prost(message, repeated, tag = "2")]
+    pub recipe_collections: ::prost::alloc::vec::Vec<PbRecipeCollection>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbRetailProductSubmission {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, optional, tag = "2")]
+    pub timestamp: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "3")]
+    pub user_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(double, optional, tag = "4")]
+    pub submission_timestamp: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "5")]
+    pub product_upc: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub product_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "7")]
+    pub product_package_size: ::core::option::Option<PbItemPackageSize>,
+    #[prost(string, optional, tag = "8")]
+    pub product_root_tag: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "9")]
+    pub submission_status: ::core::option::Option<i32>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbShoppingListArchive {
+    #[prost(message, optional, tag = "1")]
+    pub shopping_list: ::core::option::Option<PbShoppingList>,
+    #[prost(message, optional, tag = "2")]
+    pub list_settings: ::core::option::Option<PbListSettings>,
+    #[prost(message, repeated, tag = "3")]
+    pub list_category_groups: ::prost::alloc::vec::Vec<PbListCategoryGroup>,
+    #[prost(message, repeated, tag = "4")]
+    pub stores: ::prost::alloc::vec::Vec<PbStore>,
+    #[prost(message, repeated, tag = "5")]
+    pub store_filters: ::prost::alloc::vec::Vec<PbStoreFilter>,
+    #[prost(message, repeated, tag = "6")]
+    pub categorization_rules: ::prost::alloc::vec::Vec<PbListCategorizationRule>,
+    #[prost(message, optional, tag = "7")]
+    pub favorite_items: ::core::option::Option<PbStarterList>,
+    #[prost(message, optional, tag = "8")]
+    pub recent_items: ::core::option::Option<PbStarterList>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbSmartCondition {
+    #[prost(string, optional, tag = "1")]
+    pub field_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub operator_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub value: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbSmartFilter {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, optional, tag = "2")]
+    pub logical_timestamp: ::core::option::Option<u64>,
+    #[prost(string, optional, tag = "3")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "4")]
+    pub requires_matching_all_conditions: ::core::option::Option<bool>,
+    #[prost(message, repeated, tag = "5")]
+    pub conditions: ::prost::alloc::vec::Vec<PbSmartCondition>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbStripeSubscriptionInvoice {
+    #[prost(string, optional, tag = "1")]
+    pub subscription_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub invoice_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub subscription: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbUserDataClientInfo {
+    #[prost(message, optional, tag = "1")]
+    pub meal_planning_calendar_client_info: ::core::option::Option<
+        PbDataRequestClientInfo,
+    >,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbxIngredient {
+    #[prost(string, optional, tag = "1")]
+    pub raw_ingredient: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub quantity: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub note: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "5")]
+    pub is_heading: ::core::option::Option<bool>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbxRecipe {
+    #[prost(string, optional, tag = "1")]
+    pub identifier: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub icon: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "4")]
+    pub note: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub source_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub source_url: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "7")]
+    pub ingredients: ::prost::alloc::vec::Vec<PbxIngredient>,
+    #[prost(string, repeated, tag = "8")]
+    pub preparation_steps: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(bytes = "vec", optional, tag = "9")]
+    pub photo_bytes: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    #[prost(double, optional, tag = "10")]
+    pub scale_factor: ::core::option::Option<f64>,
+    #[prost(int32, optional, tag = "11")]
+    pub rating: ::core::option::Option<i32>,
+    #[prost(double, optional, tag = "12")]
+    pub creation_timestamp: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "13")]
+    pub nutritional_info: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "14")]
+    pub cook_time: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "15")]
+    pub prep_time: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "16")]
+    pub servings: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PbxRecipeArchive {
+    #[prost(message, repeated, tag = "1")]
+    pub recipes: ::prost::alloc::vec::Vec<PbxRecipe>,
+}
+/// From the web client's schema.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct User {
+    #[prost(string, required, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub deprecated_starred: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub email: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "4")]
+    pub deprecated_saved_searches: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(bytes = "vec", optional, tag = "5")]
+    pub deprecated_list: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    #[prost(bool, optional, tag = "6")]
+    pub notify: ::core::option::Option<bool>,
+    #[prost(int64, optional, tag = "7")]
+    pub created: ::core::option::Option<i64>,
+    #[prost(bool, optional, tag = "8")]
+    pub deprecated_welcomed: ::core::option::Option<bool>,
+    #[prost(string, repeated, tag = "9")]
+    pub deprecated_notify_products: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(string, repeated, tag = "10")]
+    pub deprecated_notify_tag_names: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(bytes = "vec", optional, tag = "11")]
+    pub deprecated_location: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    #[prost(string, repeated, tag = "12")]
+    pub deprecated_preferred_chain_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(string, repeated, tag = "13")]
+    pub deprecated_favorite_tags: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(string, repeated, tag = "14")]
+    pub deprecated_hidden_tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "15")]
+    pub first_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "16")]
+    pub last_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "17")]
+    pub deprecated_referrer: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "18")]
+    pub deprecated_invite_code: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "19")]
+    pub deprecated_http_referrer: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "20")]
+    pub deprecated_weekly_deals_email_count: ::core::option::Option<i64>,
+    #[prost(string, repeated, tag = "21")]
+    pub deprecated_preferred_store_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(double, optional, tag = "22")]
+    pub deprecated_favorite_products_timestamp: ::core::option::Option<f64>,
+    #[prost(string, repeated, tag = "23")]
+    pub shopping_list_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "24")]
+    pub push_tokens: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(double, optional, tag = "25")]
+    pub saved_recipes_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "26")]
+    pub categorized_items_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "27")]
+    pub categorized_items_require_refresh_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "28")]
+    pub list_settings_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "29")]
+    pub list_settings_require_refresh_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "30")]
+    pub starter_list_settings_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "31")]
+    pub starter_list_settings_require_refresh_timestamp: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "32")]
+    pub ordered_shopping_list_ids_timestamp: ::core::option::Option<f64>,
+    #[prost(string, repeated, tag = "33")]
+    pub ordered_starter_list_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    #[prost(double, optional, tag = "34")]
+    pub ordered_starter_list_ids_timestamp: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "35")]
+    pub recipe_data_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "36")]
+    pub has_migrated_user_favorites: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "37")]
+    pub is_premium_user: ::core::option::Option<bool>,
+    #[prost(string, optional, tag = "38")]
+    pub list_data_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "39")]
+    pub facebook_user_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "40")]
+    pub free_recipe_imports_remaining_count: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "41")]
+    pub otp_secret: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "42")]
+    pub fcm_tokens: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "43")]
+    pub icalendar_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "44")]
+    pub locale: ::core::option::Option<::prost::alloc::string::String>,
 }

@@ -1,0 +1,55 @@
+{
+  "label": "recipe: delete (the duplicate)",
+  "endpoint": "/data/user-recipe-data/update",
+  "type": "PBRecipeOperationList",
+  "handlerIds": [
+    "remove-recipe"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "838cae2eb7304da9992ac52192ce0c34",
+        "handlerId": "remove-recipe",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "recipeDataId": "515dff1907ce4e469274b404a17e11ee",
+      "recipe": {
+        "identifier": "1d28f967ea5f4600a385c15ee192ffd4",
+        "name": "zz capture recipe copy",
+        "note": "zz capture note",
+        "sourceName": "zz capture source",
+        "sourceUrl": "https://example.com/zz-capture",
+        "ingredients": [
+          {
+            "rawIngredient": "2 cups zz flour",
+            "name": "zz flour",
+            "quantity": "2 cups",
+            "identifier": "ddd0e4f38c434f218e73556518898e13"
+          },
+          {
+            "rawIngredient": "1 tsp zz salt",
+            "name": "zz salt",
+            "quantity": "1 tsp",
+            "identifier": "b79ad44754b14146b9b87ba9419e739a"
+          },
+          {
+            "rawIngredient": "250 mL zz water",
+            "name": "zz water",
+            "quantity": "250 mL",
+            "identifier": "354d97d691bc48cf9b580dd2b829ad1f"
+          }
+        ],
+        "preparationSteps": [
+          "Mix zz flour and zz salt.",
+          "Add zz water and knead."
+        ],
+        "rating": 4,
+        "creationTimestamp": 1793078436.624,
+        "nutritionalInfo": "zz 100 kcal",
+        "prepTime": 900,
+        "servings": "4 servings"
+      }
+    }
+  ],
+  "hex": "0aa8040a530a203833386361653265623733303464613939393261633532313932636530633334120d72656d6f76652d7265636970651a206331363835336333623139613437393439616339633563336333666262383335122035313564666631393037636534653436393237346234303461313765313165651aae030a2031643238663936376561356634363030613338356331356565313932666664341a167a7a20636170747572652072656369706520636f70792a0f7a7a2063617074757265206e6f746532117a7a206361707475726520736f757263653a1e68747470733a2f2f6578616d706c652e636f6d2f7a7a2d636170747572654245322064646430653466333863343334663231386537333535363531383839386531330a0f322063757073207a7a20666c6f757212087a7a20666c6f75721a063220637570734241322062373961643434373534623134313436623962383762613934313965373339610a0d3120747370207a7a2073616c7412077a7a2073616c741a0531207473704245322033353464393764363931626334386366396235383064643262383239616431660a0f323530206d4c207a7a20776174657212087a7a2077617465721a06323530206d4c4a194d6978207a7a20666c6f757220616e64207a7a2073616c742e4a17416464207a7a20776174657220616e64206b6e6561642e780481019eef27290db8da418a010b7a7a20313030206b63616c98018407a2010a342073657276696e6773"
+}

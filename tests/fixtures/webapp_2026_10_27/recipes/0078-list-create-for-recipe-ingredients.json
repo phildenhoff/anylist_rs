@@ -1,0 +1,27 @@
+{
+  "label": "list: create (for recipe ingredients)",
+  "endpoint": "/data/list-settings/update",
+  "type": "PBListSettingsOperationList",
+  "handlerIds": [
+    "set-icon"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "9b420fef04cc499c9293c937b5dcdd61",
+        "handlerId": "set-icon",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "19da294809587cfd27d83c5ff188ece6",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "listId": "576ceccfdc1741bdb5b0dc69cd1cce3f",
+        "icon": {
+          "iconName": "default_list_icon",
+          "tintHexColor": "16a1e0"
+        }
+      }
+    }
+  ],
+  "hex": "0ad7010a4e0a20396234323066656630346363343939633932393363393337623564636464363112087365742d69636f6e1a2063313638353363336231396134373934396163396335633363336662623833351284010a203139646132393438303935383763666432376438336335666631383865636536122063313638353363336231396134373934396163396335633363336662623833351a20353736636563636664633137343162646235623064633639636431636365336682021b0a1164656661756c745f6c6973745f69636f6e1206313661316530"
+}

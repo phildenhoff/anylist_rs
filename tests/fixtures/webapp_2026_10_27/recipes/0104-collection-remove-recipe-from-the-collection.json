@@ -1,0 +1,22 @@
+{
+  "label": "collection: remove recipe (from the collection)",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-recipe-collection-type"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "9ddf4e7c0e1f4d5b9d5e510f22dbcafe",
+        "handlerId": "set-web-selected-recipe-collection-type",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078471.7607355
+      }
+    }
+  ],
+  "hex": "0a9c010a6d0a20396464663465376330653166346435623964356535313066323264626361666512277365742d7765622d73656c65637465642d7265636970652d636f6c6c656374696f6e2d747970651a206331363835336333623139613437393439616339633563336333666262383335122b0a20633136383533633362313961343739343961633963356333633366626238333511e4aff0310db8da41"
+}

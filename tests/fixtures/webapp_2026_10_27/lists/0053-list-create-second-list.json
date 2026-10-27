@@ -1,0 +1,23 @@
+{
+  "label": "list: create second list",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-list-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "88112c805f614c1796f8178f77c9c98c",
+        "handlerId": "set-web-selected-list-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078847.0111122,
+        "webSelectedListId": "4a32d6958d604452b002a4098ab5e1ab"
+      }
+    }
+  ],
+  "hex": "0ab0010a5e0a20383831313263383035663631346331373936663831373866373763396339386312187365742d7765622d73656c65637465642d6c6973742d69641a206331363835336333623139613437393439616339633563336333666262383335124e0a2063313638353363336231396134373934396163396335633363336662623833351110b6c08f0db8da41da02203461333264363935386436303434353262303032613430393861623565316162"
+}

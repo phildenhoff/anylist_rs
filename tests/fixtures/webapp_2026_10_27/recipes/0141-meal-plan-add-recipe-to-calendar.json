@@ -1,0 +1,23 @@
+{
+  "label": "meal plan: add recipe to calendar",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-recipe-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "6e54f1eb620640368a16468bcf19f83a",
+        "handlerId": "set-web-selected-recipe-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078484.3376193,
+        "webSelectedRecipeId": "93553f276ef14257a4c3e676ae822455"
+      }
+    }
+  ],
+  "hex": "0ab1010a600a203665353466316562363230363430333638613136343638626366313966383361121a7365742d7765622d73656c65637465642d7265636970652d69641a206331363835336333623139613437393439616339633563336333666262383335124d0a206331363835336333623139613437393439616339633563336333666262383335118e9b15350db8da416a203933353533663237366566313432353761346333653637366165383232343535"
+}

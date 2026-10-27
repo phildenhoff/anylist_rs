@@ -1,0 +1,27 @@
+{
+  "label": "template: apply to calendar",
+  "endpoint": "/data/meal-planning-calendar/update",
+  "type": "PBCalendarOperationList",
+  "handlerIds": [
+    "new-event"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "8f052f7c79814a21896c394d99b2a5dc",
+        "handlerId": "new-event",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "calendarId": "515dff1907ce4e469274b404a17e11ee",
+      "updatedEvent": {
+        "identifier": "cce4f30abb3e4d6791bba753d40a6b32",
+        "calendarId": "515dff1907ce4e469274b404a17e11ee",
+        "date": "2026-10-20",
+        "title": "zz template note",
+        "orderAddedSortIndex": 0
+      },
+      "eventType": 0
+    }
+  ],
+  "hex": "0adb010a4f0a20386630353266376337393831346132313839366333393464393962326135646312096e65772d6576656e741a206331363835336333623139613437393439616339633563336333666262383335122035313564666631393037636534653436393237346234303461313765313165651a640a2063636534663330616262336534643637393162626137353364343061366233321a2035313564666631393037636534653436393237346234303461313765313165652a107a7a2074656d706c617465206e6f74654800220a323032362d31302d32305800"
+}

@@ -1,0 +1,20 @@
+{
+  "label": "list: rename",
+  "endpoint": "/data/shopping-lists/update",
+  "type": "PBListOperationList",
+  "handlerIds": [
+    "rename-list"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "861e2e568aa94ad5bd4c29adaa9c1515",
+        "handlerId": "rename-list",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "listId": "4a32d6958d604452b002a4098ab5e1ab",
+      "updatedValue": "zz capture list 2"
+    }
+  ],
+  "hex": "0a88010a510a203836316532653536386161393461643562643463323961646161396331353135120b72656e616d652d6c6973741a2063313638353363336231396134373934396163396335633363336662623833351220346133326436393538643630343435326230303261343039386162356531616222117a7a2063617074757265206c6973742032"
+}

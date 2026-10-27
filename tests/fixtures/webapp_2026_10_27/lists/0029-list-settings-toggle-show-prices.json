@@ -1,0 +1,24 @@
+{
+  "label": "list settings: toggle show prices",
+  "endpoint": "/data/list-settings/update",
+  "type": "PBListSettingsOperationList",
+  "handlerIds": [
+    "set-should-hide-prices"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "ebf44c6902ec44bc85fa30ad29644541",
+        "handlerId": "set-should-hide-prices",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "9b3e6d55af116dbd3c812d05db7d9e8b",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "listId": "4a32d6958d604452b002a4098ab5e1ab",
+        "shouldHidePrices": true
+      }
+    }
+  ],
+  "hex": "0ac9010a5c0a20656266343463363930326563343462633835666133306164323936343435343112167365742d73686f756c642d686964652d7072696365731a20633136383533633362313961343739343961633963356333633366626238333512690a203962336536643535616631313664626433633831326430356462376439653862122063313638353363336231396134373934396163396335633363336662623833351a203461333264363935386436303434353262303032613430393861623565316162b80101"
+}

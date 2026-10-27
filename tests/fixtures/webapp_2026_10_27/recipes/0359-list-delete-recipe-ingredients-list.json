@@ -1,0 +1,26 @@
+{
+  "label": "list: delete (recipe ingredients list)",
+  "endpoint": "/data/list-folders/update",
+  "type": "PBListFolderOperationList",
+  "handlerIds": [
+    "delete-folder-items"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "376210c38e4947debe11260afd5d5e06",
+        "handlerId": "delete-folder-items",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "listDataId": "c16853c3b19a47949ac9c5c3c3fbb835",
+      "folderItems": [
+        {
+          "identifier": "576ceccfdc1741bdb5b0dc69cd1cce3f",
+          "itemType": 0
+        }
+      ],
+      "originalParentFolderId": "c16853c3b19a47949ac9c5c3c3fbb835"
+    }
+  ],
+  "hex": "0ac5010a590a203337363231306333386534393437646562653131323630616664356435653036121364656c6574652d666f6c6465722d6974656d731a2063313638353363336231396134373934396163396335633363336662623833351220633136383533633362313961343739343961633963356333633366626238333522240a20353736636563636664633137343162646235623064633639636431636365336610002a206331363835336333623139613437393439616339633563336333666262383335"
+}

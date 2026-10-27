@@ -5,6 +5,9 @@ Static scan of `app.min.js` from <https://www.anylist.com/web>, taken on 2026-10
 operation type column is a best guess from where the ID appears in the minified
 bundle; live captures (see `tools/webapp_capture/README.md`) are the authority.
 
+The scan is incomplete: the live capture in [webapp-operations.md](webapp-operations.md)
+found 16 handler IDs that are not listed here, such as `delete-store` and `new-label`.
+
 ## Handler IDs
 
 | Handler ID | Operation type (best guess) |

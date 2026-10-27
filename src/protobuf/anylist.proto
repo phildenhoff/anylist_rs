@@ -16,6 +16,12 @@ message PBTag {
         TAG_TYPE_CATEGORY = 2;
         TAG_TYPE_ATTRIBUTE = 3;
     }
+
+    // From the web client's schema.
+    repeated PBValue localizedDisplayNames = 9;
+    repeated PBValue localizedSearchTerms = 10;
+    repeated string exclusiveLocales = 11;
+    repeated string excludedLocales = 12;
 }
 
 message PBUserListData {
@@ -81,6 +87,17 @@ message PBListItem {
     repeated PBListItemCategoryAssignment categoryAssignments = 20;
     optional int32 manualSortIndex = 17;
     optional string productUpc = 30;
+
+    // From the web client's schema.
+    optional PBItemQuantity quantityPb = 21;
+    optional PBItemQuantity priceQuantityPb = 22;
+    optional bool priceQuantityShouldOverrideItemQuantity = 23;
+    optional PBItemPackageSize packageSizePb = 24;
+    optional PBItemPackageSize pricePackageSizePb = 25;
+    optional bool pricePackageSizeShouldOverrideItemPackageSize = 26;
+    repeated PBItemIngredient ingredients = 27;
+    optional bool itemQuantityShouldOverrideIngredientQuantity = 28;
+    optional bool itemPackageSizeShouldOverrideIngredientPackageSize = 29;
 }
 
 message PBItemPrice {
@@ -115,6 +132,9 @@ message PBListFolderSettings {
         FolderSortPositionBefore = 1;
         FolderSortPositionWith = 2;
     }
+
+    // From the web client's schema.
+    optional PBIcon icon = 4;
 }
 
 message PBListFolder {
@@ -295,6 +315,9 @@ message PBRecipe {
     optional int32 prepTime = 19;
     optional string servings = 20;
     optional string paprikaIdentifier = 21;
+
+    // From the web client's schema.
+    optional string recipeDataId = 23;
 }
 
 message PBIngredient {
@@ -327,6 +350,14 @@ message PBRecipeCollectionSettings {
         PrepTime = 4;
         CookTime = 5;
     }
+
+    // From the web client's schema.
+    optional PBSmartFilter smartFilter = 3;
+    optional bool useReversedSortDirection = 4;
+    optional double timestamp = 5;
+    optional int32 collectionsSortOrder = 6;
+    optional bool useReversedCollectionsSortDirection = 7;
+    optional PBIcon icon = 8;
 }
 
 message PBRecipeCollection {
@@ -350,6 +381,10 @@ message PBUserRecipeData {
     optional double userIdsTimestamp = 10;
     optional bool hasImportedPunchforkRecipes = 11;
     optional string mealPlanningCalendarId = 12;
+
+    // From the web client's schema.
+    optional int32 maxRecipeCount = 13;
+    optional double settingsMapForSystemCollectionsTimestamp = 15;
 }
 
 message PBRecipeLinkRequest {
@@ -381,6 +416,9 @@ message PBRecipeDataResponse {
     optional string recipeDataId = 9;
     optional bool hasImportedPunchforkRecipes = 10;
     optional bool includesRecipeCollectionIds = 11;
+
+    // From the web client's schema.
+    optional int32 maxRecipeCount = 12;
 }
 
 message PBRecipeOperation {
@@ -393,6 +431,10 @@ message PBRecipeOperation {
     repeated PBRecipe recipes = 7;
     optional bool isNewRecipeFromWebImport = 8;
     repeated string recipeIds = 9;
+
+    // From the web client's schema.
+    repeated string recipeEventIds = 10;
+    optional int32 maxRecipeCount = 11;
 }
 
 message PBRecipeOperationList {
@@ -427,6 +469,15 @@ message PBCalendarEvent {
     optional string labelId = 8;
     optional int32 orderAddedSortIndex = 9;
     optional double recipeScaleFactor = 10;
+
+    // From the web client's schema.
+    optional int32 labelSortIndex = 11;
+    optional int32 eventType = 12;
+    optional string templateId = 13;
+    optional string templateDayId = 14;
+    repeated PBCalendarEventListItem eventListItems = 15;
+    optional PBIcon icon = 16;
+    optional bool isLeftover = 17;
 }
 
 message PBCalendarLabel {
@@ -446,6 +497,15 @@ message PBCalendarResponse {
     repeated string deletedEventIds = 5;
     repeated PBCalendarLabel labels = 6;
     repeated string deletedLabelIds = 7;
+
+    // From the web client's schema.
+    repeated PBMealPlanTemplate templates = 8;
+    repeated string deletedTemplateIds = 9;
+    repeated PBCalendarEvent templateEvents = 10;
+    repeated string deletedTemplateEventIds = 11;
+    optional int32 responseVersion = 12;
+    repeated PBMealPlanTemplateGroup templateGroups = 13;
+    repeated string deletedTemplateGroupIds = 14;
 }
 
 message PBCalendarOperation {
@@ -459,6 +519,19 @@ message PBCalendarOperation {
     repeated string eventIds = 8;
     repeated PBCalendarEvent updatedEvents = 9;
     repeated PBCalendarEvent originalEvents = 10;
+
+    // From the web client's schema.
+    optional int32 eventType = 11;
+    optional PBMealPlanTemplate updatedTemplate = 12;
+    optional PBMealPlanTemplate originalTemplate = 13;
+    repeated string templateIds = 14;
+    optional PBMealPlanTemplateGroup templateGroup = 15;
+    repeated PBMealPlanTemplateGroupItem templateGroupItems = 16;
+    optional string originalParentTemplateGroupId = 17;
+    optional string updatedParentTemplateGroupId = 18;
+    optional PBCalendarEventListItem updatedEventListItem = 19;
+    optional PBCalendarEventListItem originalEventListItem = 20;
+    repeated string orderedEventListItemIds = 21;
 }
 
 message PBCalendarOperationList {
@@ -479,6 +552,9 @@ message PBOperationMetadata {
         ListCategoryGroup = 4;
         ListCategorizationRule = 5;
     }
+
+    // From the web client's schema.
+    optional int32 operationVersion = 5;
 }
 
 message PBFavoriteProductOperation {
@@ -635,6 +711,12 @@ message PBListSettings {
     optional string migrationListCategoryGroupIdForNewList = 28;
     optional bool shouldShowSharedListCategoryOrderHintBanner = 29;
     optional string linkedGoogleAssistantListId = 30;
+
+    // From the web client's schema.
+    optional PBListTheme customDarkTheme = 31;
+    optional PBIcon icon = 32;
+    optional bool hasShownAccountNamePrompt = 33;
+    optional bool isEnabledForAlexa = 34;
 }
 
 message PBListSettingsList {
@@ -715,6 +797,27 @@ message PBMobileAppSettings {
     optional bool isAccountLinkedToGoogleAssistant = 34;
     optional bool isActiveGoogleAssistantProvider = 35;
     optional bool clientHasShownGoogleAssistantOnboarding = 36;
+
+    // From the web client's schema.
+    repeated PBRecipeCookingState recipeCookingStates = 37;
+    optional bool shouldExcludeNewListsFromAlexaByDefault = 38;
+    optional bool shouldNotLinkNewListsWithGoogleAssistantByDefault = 39;
+    optional int32 webSelectedRecipeCollectionType = 40;
+    optional bool didSuppressAccountNamePrompt = 41;
+    optional bool isOnlineShoppingDisabled = 42;
+    optional string webSelectedListId = 43;
+    optional int32 keepScreenOnBehavior = 44;
+    optional string defaultListIdForAlexa = 45;
+    optional bool clientHasShownAlexaOnboarding = 46;
+    optional int32 mealPlanWeekStartDay = 47;
+    optional int32 webRecipeCollectionLayoutStyle = 48;
+    optional int32 webSelectedMealPlanTabV49 = 49;
+    optional int32 webMealPlanCalendarLayout = 50;
+    optional int32 webMealPlanMonthEventListType = 51;
+    optional int32 webMealPlanWeekEventListType = 52;
+    optional int32 webMealPlanNotesSortOrder = 53;
+    optional bool webMealPlanAddEntriesScreenPinnedEntriesCollapsed = 54;
+    optional bool webMealPlanAddEntriesScreenQueueEntriesCollapsed = 55;
 }
 
 message PBHintBannerDisplayStats {
@@ -817,6 +920,18 @@ message PBUserSubscriptionInfo {
     optional int32 subuserLimit = 8 [default = 5];
     repeated string sentEmailIdentifiers = 10;
     optional bool userConfirmedNotRenewing = 11;
+
+    // From the web client's schema.
+    optional string stripeCustomerId = 18;
+    repeated PBStripeSubscriptionInvoice stripeSubscriptionInvoices = 19;
+    optional bool subscriptionIsCanceled = 20;
+    optional string stripeSubscriptionId = 21;
+    optional string stripePaymentMethodLast4 = 22;
+    optional int32 stripePaymentMethodExpirationMonth = 23;
+    optional int32 stripePaymentMethodExpirationYear = 24;
+    optional string stripePaymentMethodBrand = 25;
+    optional bool subscriptionIsPendingDowngrade = 26;
+    optional bool subscriptionIsInStripeAutorenewMigrationPeriod = 27;
 }
 
 message PBIAPReceipt {
@@ -842,6 +957,9 @@ message PBUserEmailInfo {
     repeated string sentMessageIdentifiers = 4;
     optional bool shouldSendNewsletters = 3;
     optional bool shouldSendOnboardingTips = 5;
+
+    // From the web client's schema.
+    optional bool shouldSendSubscriptionLifecycleMessages = 6;
 }
 
 message PBAccountInfoResponse {
@@ -856,12 +974,21 @@ message PBAccountInfoResponse {
     optional PBEmailUserIDPair masterUser = 8;
     repeated PBEmailUserIDPair subusers = 9;
     optional int32 subscriptionManagementSystem = 10;
+
+    // From the web client's schema.
+    optional string icalendarId = 12;
+    optional bool subscriptionIsCanceled = 13;
+    optional bool subscriptionIsPendingDowngrade = 14;
 }
 
 message PBAccountChangePasswordResponse {
     optional int32 statusCode = 1;
     optional string errorTitle = 2;
     optional string errorMessage = 3;
+
+    // From the web client's schema.
+    optional string refreshToken = 4;
+    optional string accessToken = 5;
 }
 
 message PBRedemptionCodeInfo {
@@ -1033,6 +1160,9 @@ message PBAlexaUser {
     optional string skillEnabledTimestamp = 8;
     optional string skillPermissionTimestamp = 10;
     optional string alexaApiEndpoint = 11;
+
+    // From the web client's schema.
+    optional bool didHearWelcomeMessage = 12;
 }
 
 message PBAlexaList {
@@ -1112,10 +1242,381 @@ message PBGoogleAssistantListOperation {
     optional string anylistUserId = 3;
     repeated PBGoogleAssistantListItem operationItems = 4;
     repeated PBGoogleAssistantList operationLists = 5;
+
+    // From the web client's schema.
+    optional string googleAssistantListId = 6;
 }
 
 message PBGoogleAssistantTask {
     optional string identifier = 1;
     optional string anylistUserId = 2;
     optional PBGoogleAssistantListOperation listOperation = 3;
+}
+
+// From the web client's schema.
+message PBAppNotice {
+    optional string identifier = 1;
+    optional double timestamp = 2;
+    optional string title = 3;
+    optional string notificationTitle = 4;
+    optional string notificationSubtitle = 5;
+    optional string bodyHtml = 6;
+    optional string bodyCss = 7;
+    optional string userId = 8;
+    optional string context = 9;
+    optional bool isDraft = 10;
+    optional double maxUserCreationTime = 11;
+}
+
+// From the web client's schema.
+message PBAppNoticeList {
+    repeated PBAppNotice notices = 1;
+}
+
+// From the web client's schema.
+message PBAppNoticeOperation {
+    optional PBOperationMetadata metadata = 1;
+    repeated string noticeIds = 2;
+}
+
+// From the web client's schema.
+message PBAppNoticeOperationList {
+    repeated PBAppNoticeOperation operations = 1;
+}
+
+// From the web client's schema.
+message PBAppNoticesResponse {
+    repeated PBAppNotice newGlobalNotices = 1;
+    repeated PBAppNotice updatedGlobalNotices = 2;
+    repeated string removedGlobalNoticeIds = 3;
+    repeated PBAppNotice newUserNotices = 4;
+    repeated PBAppNotice updatedUserNotices = 5;
+    repeated string removedUserNoticeIds = 6;
+    optional PBAppNoticesUserData userData = 7;
+}
+
+// From the web client's schema.
+message PBAppNoticesUserData {
+    optional string identifier = 1;
+    optional double timestamp = 2;
+    repeated string readNoticeIds = 3;
+    repeated string dismissedGlobalNoticeIds = 4;
+}
+
+// From the web client's schema.
+message PBAuthTokenInfo {
+    optional string identifier = 1;
+    optional bool isBlacklisted = 2;
+    optional string userId = 3;
+    optional int64 creationTimestamp = 4;
+    optional int64 expirationTimestamp = 5;
+    optional int64 blacklistedTimestamp = 6;
+    optional int64 lastUsedForRefreshTimestamp = 7;
+    optional string replacementTokenId = 8;
+    optional string replacementTokenStr = 9;
+    optional int64 replacementTokenGenerationTimestamp = 10;
+    optional string clientPlatform = 11;
+}
+
+// From the web client's schema.
+message PBCalendarEventDescriptor {
+    optional string eventId = 1;
+    optional int32 eventType = 2;
+}
+
+// From the web client's schema.
+message PBCalendarEventListItem {
+    optional string identifier = 1;
+    optional string name = 2;
+    optional string details = 3;
+    optional PBItemQuantity quantityPb = 4;
+    optional PBItemPackageSize packageSizePb = 5;
+}
+
+// From the web client's schema.
+message PBDataRequestClientInfo {
+    optional int32 processedResponseVersion = 1;
+    optional int32 supportedResponseVersion = 2;
+}
+
+// From the web client's schema.
+message PBDeletedUserInfo {
+    required string identifier = 1;
+    optional double timestamp = 2;
+    optional double deletionTimestamp = 3;
+    optional string userEmail = 4;
+    optional string adminEmail = 5;
+    optional string adminNote = 6;
+    optional string supportTicketUrl = 7;
+    optional string ipAddress = 8;
+}
+
+// From the web client's schema.
+message PBEmailEvent {
+    optional string eventType = 1;
+    optional string eventData = 2;
+    optional string description = 3;
+}
+
+// From the web client's schema.
+message PBEmailSuppressionInfo {
+    optional string identifier = 1;
+    optional string emailAddress = 2;
+    optional bool shouldSuppressAllMessages = 3;
+    repeated PBEmailEvent emailEvents = 4;
+}
+
+// From the web client's schema.
+message PBIcon {
+    optional string iconName = 1;
+    optional string tintHexColor = 2;
+}
+
+// From the web client's schema.
+message PBItemIngredient {
+    optional PBIngredient ingredient = 1;
+    optional string recipeId = 2;
+    optional string eventId = 3;
+    optional string recipeName = 4;
+    optional string eventDate = 5;
+    optional PBItemQuantity quantityPb = 6;
+    optional PBItemPackageSize packageSizePb = 7;
+}
+
+// From the web client's schema.
+message PBItemPackageSize {
+    optional string size = 1;
+    optional string unit = 2;
+    optional string packageType = 3;
+    optional string rawPackageSize = 4;
+}
+
+// From the web client's schema.
+message PBItemQuantity {
+    optional string amount = 1;
+    optional string unit = 2;
+    optional string rawQuantity = 3;
+}
+
+// From the web client's schema.
+message PBItemQuantityAndPackageSize {
+    optional PBItemQuantity quantityPb = 1;
+    optional PBItemPackageSize packageSizePb = 2;
+}
+
+// From the web client's schema.
+message PBListFolderArchive {
+    optional string name = 1;
+    optional PBListFolderSettings folderSettings = 2;
+    repeated PBListFolderItemArchive items = 3;
+}
+
+// From the web client's schema.
+message PBListFolderItemArchive {
+    optional PBShoppingListArchive listArchive = 1;
+    optional PBListFolderArchive folderArchive = 2;
+}
+
+// From the web client's schema.
+message PBMealPlanSetICalendarEnabledRequest {
+    optional bool shouldEnableIcalendarGeneration = 1;
+}
+
+// From the web client's schema.
+message PBMealPlanSetICalendarEnabledRequestResponse {
+    optional int32 statusCode = 1;
+    optional PBAccountInfoResponse accountInfo = 2;
+    optional string errorTitle = 3;
+    optional string errorMessage = 4;
+}
+
+// From the web client's schema.
+message PBMealPlanTemplate {
+    required string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string calendarId = 3;
+    optional string name = 4;
+    repeated string dayIds = 5;
+    optional int32 sortIndex = 6;
+    optional PBIcon icon = 7;
+}
+
+// From the web client's schema.
+message PBMealPlanTemplateGroup {
+    required string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string calendarId = 3;
+    optional string name = 4;
+    repeated PBMealPlanTemplateGroupItem items = 5;
+    optional PBMealPlanTemplateGroupSettings groupSettings = 6;
+}
+
+// From the web client's schema.
+message PBMealPlanTemplateGroupItem {
+    required string identifier = 1;
+    optional int32 itemType = 2;
+}
+
+// From the web client's schema.
+message PBMealPlanTemplateGroupSettings {
+    optional int32 itemsSortOrder = 1;
+    optional int32 groupsSortPosition = 2;
+    optional PBIcon icon = 3;
+}
+
+// From the web client's schema.
+message PBProductLookupResponse {
+    optional PBListItem listItem = 1;
+    optional string productThumbnailUrl = 2;
+}
+
+// From the web client's schema.
+message PBRecipeCookingState {
+    optional string recipeId = 2;
+    optional string eventId = 3;
+    optional double lastOpenedTimestamp = 4;
+    optional int32 selectedTabId = 5;
+    repeated string checkedIngredientIds = 6;
+    optional int32 selectedStepNumber = 7;
+}
+
+// From the web client's schema.
+message PBRecipeDataArchive {
+    repeated PBRecipe recipes = 1;
+    repeated PBRecipeCollection recipeCollections = 2;
+}
+
+// From the web client's schema.
+message PBRetailProductSubmission {
+    optional string identifier = 1;
+    optional double timestamp = 2;
+    optional string userId = 3;
+    optional double submissionTimestamp = 4;
+    optional string productUpc = 5;
+    optional string productName = 6;
+    optional PBItemPackageSize productPackageSize = 7;
+    optional string productRootTag = 8;
+    optional int32 submissionStatus = 9;
+}
+
+// From the web client's schema.
+message PBShoppingListArchive {
+    optional PBShoppingList shoppingList = 1;
+    optional PBListSettings listSettings = 2;
+    repeated PBListCategoryGroup listCategoryGroups = 3;
+    repeated PBStore stores = 4;
+    repeated PBStoreFilter storeFilters = 5;
+    repeated PBListCategorizationRule categorizationRules = 6;
+    optional PBStarterList favoriteItems = 7;
+    optional PBStarterList recentItems = 8;
+}
+
+// From the web client's schema.
+message PBSmartCondition {
+    optional string fieldID = 1;
+    optional string operatorID = 2;
+    optional string value = 3;
+}
+
+// From the web client's schema.
+message PBSmartFilter {
+    optional string identifier = 1;
+    optional uint64 logicalTimestamp = 2;
+    optional string name = 3;
+    optional bool requiresMatchingAllConditions = 4;
+    repeated PBSmartCondition conditions = 5;
+}
+
+// From the web client's schema.
+message PBStripeSubscriptionInvoice {
+    optional string subscriptionId = 1;
+    optional string invoiceId = 2;
+    optional string subscription = 3;
+}
+
+// From the web client's schema.
+message PBUserDataClientInfo {
+    optional PBDataRequestClientInfo mealPlanningCalendarClientInfo = 1;
+}
+
+// From the web client's schema.
+message PBXIngredient {
+    optional string rawIngredient = 1;
+    optional string name = 2;
+    optional string quantity = 3;
+    optional string note = 4;
+    optional bool isHeading = 5;
+}
+
+// From the web client's schema.
+message PBXRecipe {
+    optional string identifier = 1;
+    optional string name = 2;
+    optional string icon = 3;
+    optional string note = 4;
+    optional string sourceName = 5;
+    optional string sourceUrl = 6;
+    repeated PBXIngredient ingredients = 7;
+    repeated string preparationSteps = 8;
+    optional bytes photoBytes = 9;
+    optional double scaleFactor = 10;
+    optional int32 rating = 11;
+    optional double creationTimestamp = 12;
+    optional string nutritionalInfo = 13;
+    optional int32 cookTime = 14;
+    optional int32 prepTime = 15;
+    optional string servings = 16;
+}
+
+// From the web client's schema.
+message PBXRecipeArchive {
+    repeated PBXRecipe recipes = 1;
+}
+
+// From the web client's schema.
+message User {
+    required string id = 1;
+    repeated string DEPRECATEDStarred = 2;
+    optional string email = 3;
+    repeated string DEPRECATEDSavedSearches = 4;
+    optional bytes DEPRECATEDList = 5;
+    optional bool notify = 6;
+    optional int64 created = 7;
+    optional bool DEPRECATEDWelcomed = 8;
+    repeated string DEPRECATEDNotifyProducts = 9;
+    repeated string DEPRECATEDNotifyTagNames = 10;
+    optional bytes DEPRECATEDLocation = 11;
+    repeated string DEPRECATEDPreferredChainIds = 12;
+    repeated string DEPRECATEDFavoriteTags = 13;
+    repeated string DEPRECATEDHiddenTags = 14;
+    optional string firstName = 15;
+    optional string lastName = 16;
+    optional string DEPRECATEDReferrer = 17;
+    optional string DEPRECATEDInviteCode = 18;
+    optional string DEPRECATEDHttpReferrer = 19;
+    optional int64 DEPRECATEDWeeklyDealsEmailCount = 20;
+    repeated string DEPRECATEDPreferredStoreIds = 21;
+    optional double DEPRECATEDFavoriteProductsTimestamp = 22;
+    repeated string shoppingListIds = 23;
+    repeated string pushTokens = 24;
+    optional double savedRecipesTimestamp = 25;
+    optional double categorizedItemsTimestamp = 26;
+    optional double categorizedItemsRequireRefreshTimestamp = 27;
+    optional double listSettingsTimestamp = 28;
+    optional double listSettingsRequireRefreshTimestamp = 29;
+    optional double starterListSettingsTimestamp = 30;
+    optional double starterListSettingsRequireRefreshTimestamp = 31;
+    optional double orderedShoppingListIdsTimestamp = 32;
+    repeated string orderedStarterListIds = 33;
+    optional double orderedStarterListIdsTimestamp = 34;
+    optional string recipeDataId = 35;
+    optional bool hasMigratedUserFavorites = 36;
+    optional bool isPremiumUser = 37;
+    optional string listDataId = 38;
+    optional string facebookUserId = 39;
+    optional int32 freeRecipeImportsRemainingCount = 40;
+    optional string otpSecret = 41;
+    repeated string fcmTokens = 42;
+    optional string icalendarId = 43;
+    optional string locale = 44;
 }

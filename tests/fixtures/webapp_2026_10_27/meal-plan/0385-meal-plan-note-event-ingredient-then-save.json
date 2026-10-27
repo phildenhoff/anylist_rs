@@ -1,0 +1,39 @@
+{
+  "label": "meal plan: note event ingredient, then save",
+  "endpoint": "/data/meal-planning-calendar/update",
+  "type": "PBCalendarOperationList",
+  "handlerIds": [
+    "new-event"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "8456c4e1bce34596a7ed8f279c9f46f4",
+        "handlerId": "new-event",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "calendarId": "515dff1907ce4e469274b404a17e11ee",
+      "updatedEvent": {
+        "identifier": "99ca461643794fd7b6919f54e08d1e49",
+        "calendarId": "515dff1907ce4e469274b404a17e11ee",
+        "date": "2026-10-20",
+        "title": "zz capture note event",
+        "details": "zz details",
+        "labelId": "fa6d4f01d2b74c668ed34af257df0fbd",
+        "orderAddedSortIndex": 0,
+        "eventListItems": [
+          {
+            "identifier": "bbee354c967e428db6cfb2ca55225daa",
+            "name": "zz event ingredient",
+            "quantityPb": {
+              "amount": "2",
+              "rawQuantity": "2"
+            }
+          }
+        ]
+      },
+      "eventType": 0
+    }
+  ],
+  "hex": "0ad0020a4f0a20383435366334653162636533343539366137656438663237396339663436663412096e65772d6576656e741a206331363835336333623139613437393439616339633563336333666262383335122035313564666631393037636534653436393237346234303461313765313165651ad8010a2039396361343631363433373934666437623639313966353465303864316534391a2035313564666631393037636534653436393237346234303461313765313165652a157a7a2063617074757265206e6f7465206576656e74320a7a7a2064657461696c734220666136643466303164326237346336363865643334616632353764663066626448007a3f0a20626265653335346339363765343238646236636662326361353532323564616112137a7a206576656e7420696e6772656469656e7422060a01321a0132220a323032362d31302d32305800"
+}

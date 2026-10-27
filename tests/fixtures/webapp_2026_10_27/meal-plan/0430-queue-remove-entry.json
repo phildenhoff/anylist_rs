@@ -1,0 +1,23 @@
+{
+  "label": "queue: remove entry",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-meal-plan-tab-v2"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "3093475455e64c36b3f702bb394dc971",
+        "handlerId": "set-web-selected-meal-plan-tab-v2",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078586.9680743,
+        "webSelectedMealPlanTabV49": 0
+      }
+    }
+  ],
+  "hex": "0a99010a670a20333039333437353435356536346333366233663730326262333934646339373112217365742d7765622d73656c65637465642d6d65616c2d706c616e2d7461622d76321a206331363835336333623139613437393439616339633563336333666262383335122e0a20633136383533633362313961343739343961633963356333633366626238333511eef4bd4e0db8da41880300"
+}

@@ -1,0 +1,23 @@
+{
+  "label": "list: delete all items",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-list-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "cc240aaa3c0d4f32ac1b4562458645f6",
+        "handlerId": "set-web-selected-list-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078848.3572824,
+        "webSelectedListId": "2f17fd46a7cb4b07a5fc4667fe5a7c82"
+      }
+    }
+  ],
+  "hex": "0ab0010a5e0a20636332343061616133633064346633326163316234353632343538363435663612187365742d7765622d73656c65637465642d6c6973742d69641a206331363835336333623139613437393439616339633563336333666262383335124e0a20633136383533633362313961343739343961633963356333633366626238333511b7dd16900db8da41da02203266313766643436613763623462303761356663343636376665356137633832"
+}

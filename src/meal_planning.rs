@@ -1,12 +1,8 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbCalendarEvent, PbCalendarOperation,
-    PbCalendarOperationList, PbOperationMetadata,
-};
-use crate::utils::generate_id;
+use crate::operations;
+use crate::protobuf::anylist::{pb_starter_list, PbCalendarEvent, PbListItem, PbUserDataResponse};
 use chrono::NaiveDate;
-use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
 /// Represents a meal planning calendar event
@@ -110,60 +106,18 @@ impl AnyListClient {
         title: Option<&str>,
         label_id: Option<&str>,
     ) -> Result<MealPlanEvent> {
-        let event_id = generate_id();
-        let operation_id = generate_id();
-
-        let new_event = PbCalendarEvent {
-            identifier: event_id.clone(),
-            logical_timestamp: Some(1),
-            calendar_id: Some(calendar_id.to_string()),
+        let data = self.get_user_data().await?;
+        let event = PbCalendarEvent {
             date: Some(date.to_string()),
-            title: title.map(|t| t.to_string()),
-            details: None,
-            recipe_id: recipe_id.map(|r| r.to_string()),
-            label_id: label_id.map(|l| l.to_string()),
-            order_added_sort_index: Some(0),
-            recipe_scale_factor: Some(1.0),
+            title: title.map(str::to_string),
+            recipe_id: recipe_id.map(str::to_string),
+            label_id: label_id.map(str::to_string),
+            ..Default::default()
         };
-
-        let operation = PbCalendarOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("new-event".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            calendar_id: Some(calendar_id.to_string()),
-            updated_event: Some(new_event),
-            original_event: None,
-            updated_label: None,
-            original_label: None,
-            sorted_label_ids: vec![],
-            event_ids: vec![],
-            updated_events: vec![],
-            original_events: vec![],
-        };
-
-        let operation_list = PbCalendarOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/meal-planning-calendar/update", buf).await?;
-
-        Ok(MealPlanEvent {
-            id: event_id,
-            calendar_id: Some(calendar_id.to_string()),
-            date: date.to_string(),
-            title: title.map(|t| t.to_string()),
-            recipe_id: recipe_id.map(|r| r.to_string()),
-            label_id: label_id.map(|l| l.to_string()),
-            details: None,
-        })
+        let (event, requests) =
+            operations::create_event(&mut self.ids(), calendar_id, event, calendar_events(&data));
+        self.send(requests).await?;
+        Ok(meal_plan_event_from_pb(&event))
     }
 
     /// Update a meal plan event
@@ -185,50 +139,36 @@ impl AnyListClient {
         title: Option<&str>,
         label_id: Option<&str>,
     ) -> Result<()> {
-        let operation_id = generate_id();
-
-        let updated_event = PbCalendarEvent {
-            identifier: event_id.to_string(),
-            logical_timestamp: Some(1),
-            calendar_id: Some(calendar_id.to_string()),
+        let data = self.get_user_data().await?;
+        let stored = stored_event(&data, calendar_id, event_id)?;
+        let event = PbCalendarEvent {
             date: Some(date.to_string()),
-            title: title.map(|t| t.to_string()),
-            details: None,
-            recipe_id: recipe_id.map(|r| r.to_string()),
-            label_id: label_id.map(|l| l.to_string()),
-            order_added_sort_index: Some(0),
-            recipe_scale_factor: Some(1.0),
+            title: title.map(str::to_string),
+            recipe_id: recipe_id.map(str::to_string),
+            label_id: label_id.map(str::to_string),
+            ..stored.clone()
         };
-
-        let operation = PbCalendarOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("update-event".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            calendar_id: Some(calendar_id.to_string()),
-            updated_event: Some(updated_event),
-            original_event: None,
-            updated_label: None,
-            original_label: None,
-            sorted_label_ids: vec![],
-            event_ids: vec![],
-            updated_events: vec![],
-            original_events: vec![],
-        };
-
-        let operation_list = PbCalendarOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/meal-planning-calendar/update", buf).await?;
-        Ok(())
+        let mut ids = self.ids();
+        let mut requests =
+            operations::update_event(&mut ids, stored, event.clone(), calendar_events(&data));
+        let recipe = event.recipe_id.as_deref().and_then(|id| {
+            data.recipe_data_response
+                .as_ref()?
+                .recipes
+                .iter()
+                .find(|r| r.identifier == id)
+        });
+        if let (Some(recipe), Some((list_id, items))) = (recipe, recipe_ingredients_list(&data)) {
+            requests.extend(operations::update_event_ingredients_on_list(
+                &mut ids,
+                data.list_context(list_id),
+                items,
+                recipe,
+                stored,
+                &event,
+            ));
+        }
+        self.send(requests).await
     }
 
     /// Delete a meal plan event
@@ -238,37 +178,11 @@ impl AnyListClient {
     /// * `calendar_id` - The ID of the meal planning calendar
     /// * `event_id` - The ID of the event to delete
     pub async fn delete_meal_plan_event(&self, calendar_id: &str, event_id: &str) -> Result<()> {
-        let operation_id = generate_id();
-
-        let operation = PbCalendarOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("delete-event".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            calendar_id: Some(calendar_id.to_string()),
-            updated_event: None,
-            original_event: None,
-            updated_label: None,
-            original_label: None,
-            sorted_label_ids: vec![],
-            event_ids: vec![event_id.to_string()],
-            updated_events: vec![],
-            original_events: vec![],
-        };
-
-        let operation_list = PbCalendarOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/meal-planning-calendar/update", buf).await?;
-        Ok(())
+        let data = self.get_user_data().await?;
+        let stored = stored_event(&data, calendar_id, event_id)?;
+        let requests =
+            operations::delete_event(&mut self.ids(), stored, recipe_ingredients_list(&data));
+        self.send(requests).await
     }
 
     /// Add ingredients from meal plan to a shopping list for a date range
@@ -284,17 +198,94 @@ impl AnyListClient {
         start_date: &str,
         end_date: &str,
     ) -> Result<()> {
-        let events = self.get_meal_plan_events(start_date, end_date).await?;
+        let start = NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
+            .map_err(|e| AnyListError::Other(format!("Invalid start date: {}", e)))?;
+        let end = NaiveDate::parse_from_str(end_date, "%Y-%m-%d")
+            .map_err(|e| AnyListError::Other(format!("Invalid end date: {}", e)))?;
+        let data = self.get_user_data().await?;
+        let items = data
+            .shopping_list(list_id)
+            .map(|l| l.items.as_slice())
+            .ok_or_else(|| AnyListError::NotFound(format!("List with ID {} not found", list_id)))?;
 
-        for event in events {
-            if let Some(recipe_id) = event.recipe_id {
-                // Add recipe ingredients to the list
-                self.add_recipe_to_list(&recipe_id, list_id, None).await?;
-            }
-        }
+        let mut events: Vec<&PbCalendarEvent> = calendar_events(&data)
+            .iter()
+            .filter(|e| {
+                e.date
+                    .as_deref()
+                    .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+                    .is_some_and(|d| d >= start && d <= end)
+            })
+            .collect();
+        events.sort_by_key(|e| (e.date.clone(), e.order_added_sort_index.unwrap_or_default()));
 
-        Ok(())
+        let recipes = data
+            .recipe_data_response
+            .as_ref()
+            .map(|r| r.recipes.as_slice())
+            .unwrap_or_default();
+        let ingredients: Vec<_> = events
+            .iter()
+            .filter_map(|event| {
+                let recipe_id = event.recipe_id.as_deref()?;
+                let recipe = recipes.iter().find(|r| r.identifier == recipe_id)?;
+                Some(
+                    recipe
+                        .ingredients
+                        .iter()
+                        .filter(|i| i.is_heading != Some(true))
+                        .map(move |i| operations::event_item_ingredient(recipe, i, event)),
+                )
+            })
+            .flatten()
+            .collect();
+
+        let requests = operations::add_ingredients_to_list(
+            &mut self.ids(),
+            data.list_context(list_id),
+            items,
+            data.starter_list(list_id, pb_starter_list::Type::FavoriteItems),
+            data.starter_list(list_id, pb_starter_list::Type::RecentItems),
+            &ingredients,
+        );
+        self.send(requests).await
     }
+}
+
+fn calendar_events(data: &PbUserDataResponse) -> &[PbCalendarEvent] {
+    data.meal_planning_calendar_response
+        .as_ref()
+        .map(|c| c.events.as_slice())
+        .unwrap_or_default()
+}
+
+fn stored_event<'a>(
+    data: &'a PbUserDataResponse,
+    calendar_id: &str,
+    event_id: &str,
+) -> Result<&'a PbCalendarEvent> {
+    calendar_events(data)
+        .iter()
+        .find(|e| e.identifier == event_id)
+        .ok_or_else(|| {
+            AnyListError::NotFound(format!(
+                "Event {} not found in calendar {}",
+                event_id, calendar_id
+            ))
+        })
+}
+
+/// The list recipe ingredients were last added to in the apps, and its
+/// items.
+fn recipe_ingredients_list(data: &PbUserDataResponse) -> Option<(&str, &[PbListItem])> {
+    let list_id = data
+        .mobile_app_settings_response
+        .as_ref()?
+        .list_id_for_recipe_ingredients
+        .as_deref()
+        .filter(|id| !id.is_empty())?;
+    data.shopping_list(list_id)
+        .map(|l| (list_id, l.items.as_slice()))
 }
 
 fn meal_plan_event_from_pb(event: &PbCalendarEvent) -> MealPlanEvent {
@@ -326,6 +317,7 @@ mod tests {
             label_id: Some("label-1".to_string()),
             order_added_sort_index: Some(0),
             recipe_scale_factor: Some(1.0),
+            ..Default::default()
         };
 
         let event = meal_plan_event_from_pb(&pb);

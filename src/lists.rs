@@ -1,9 +1,9 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
-    PbEmailUserIdPair, PbListItem, PbShoppingListsResponse, PbUserDataResponse,
+    PbAccountInfoResponse, PbEmailUserIdPair, PbListItem, PbShoppingListsResponse,
+    PbUserDataResponse,
 };
-use crate::utils::{current_timestamp, generate_id};
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
@@ -164,6 +164,10 @@ impl AnyListClient {
 
     /// Create a new shopping list
     ///
+    /// Like the web client, this creates the list with the default
+    /// categories, its Recent Items and Favorite Items lists, and its
+    /// settings, and puts it in the top-level folder.
+    ///
     /// # Arguments
     ///
     /// * `name` - The name of the new list
@@ -183,93 +187,64 @@ impl AnyListClient {
     /// # }
     /// ```
     pub async fn create_list(&self, name: &str) -> Result<List> {
-        let list_id = generate_id();
-        let operation_id = generate_id();
-
-        // Imperative shell: gather runtime values
-        let params = crate::operations::CreateListParams {
-            list_id: list_id.clone(),
-            operation_id,
-            user_id: self.user_id(),
-            timestamp: current_timestamp(),
-            name: name.to_string(),
+        let data = self.get_user_data().await?;
+        let user_id = self.user_id();
+        let email = match data.email_of(&user_id) {
+            Some(email) => email.to_string(),
+            None => self.account_email().await?,
         };
+        let folder_id = data
+            .root_folder_id()
+            .ok_or_else(|| AnyListError::NotFound("Could not find the root list folder".into()))?;
 
-        // Functional core: pure operation building
-        let operation_list = crate::operations::build_create_list_operation(params);
-
-        // Imperative shell: side effects
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update", buf).await?;
+        let created = crate::operations::create_list(
+            &mut self.ids(),
+            crate::operations::NewList {
+                name,
+                email: &email,
+                folder_id,
+                theme_id: data.new_list_theme_id(),
+            },
+        );
+        self.send(created.requests).await?;
 
         Ok(List {
-            id: list_id,
+            id: created.list.identifier,
             name: name.to_string(),
             items: vec![],
-            shared_users: vec![],
+            shared_users: transform_shared_users(created.list.shared_users),
         })
+    }
+
+    /// The signed-in user's email address, from their account info.
+    async fn account_email(&self) -> Result<String> {
+        let bytes = self.post("data/account/info", vec![]).await?;
+        PbAccountInfoResponse::decode(bytes.as_ref())?
+            .email
+            .ok_or_else(|| AnyListError::NotFound("Account info has no email".into()))
     }
 
     /// Delete a shopping list
     pub async fn delete_list(&self, list_id: &str) -> Result<()> {
-        let user_data = self.get_user_data().await?;
-
-        let list_data_id = user_data
-            .list_folders_response
-            .as_ref()
-            .and_then(|r| r.list_data_id.clone())
-            .ok_or_else(|| {
-                AnyListError::NotFound("Could not find list_data_id for folder operations".into())
-            })?;
-
-        let settings_id = user_data
-            .list_settings_response
-            .as_ref()
-            .and_then(|r| {
-                r.settings
-                    .iter()
-                    .find(|s| s.list_id.as_deref() == Some(list_id))
-                    .map(|s| s.identifier.clone())
-            })
-            .ok_or_else(|| {
-                AnyListError::NotFound(format!("Could not find settings for list {}", list_id))
-            })?;
-
-        let folder_params = crate::operations::DeleteFolderItemsParams {
-            list_id: list_id.to_string(),
-            list_data_id,
-            operation_id: generate_id(),
-            user_id: self.user_id(),
-        };
-        let folder_operation_list =
-            crate::operations::build_delete_folder_items_operation(folder_params);
-        let mut folder_buf = Vec::new();
-        folder_operation_list.encode(&mut folder_buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode folder operation: {}", e))
+        let data = self.get_user_data().await?;
+        let list_data_id = data.list_data_id().ok_or_else(|| {
+            AnyListError::NotFound("Could not find list_data_id for folder operations".into())
         })?;
-        self.post("data/list-folders/update", folder_buf).await?;
+        let folder_id = data.parent_folder_id(list_id).ok_or_else(|| {
+            AnyListError::NotFound(format!("Could not find the folder of list {}", list_id))
+        })?;
+        let settings = data.list_settings(list_id).ok_or_else(|| {
+            AnyListError::NotFound(format!("Could not find settings for list {}", list_id))
+        })?;
 
-        let settings_params = crate::operations::RemoveListSettingsParams {
-            settings_id,
-            list_id: list_id.to_string(),
-            operation_id: generate_id(),
-            user_id: self.user_id(),
-        };
-        let settings_operation_list =
-            crate::operations::build_remove_list_settings_operation(settings_params);
-        let mut settings_buf = Vec::new();
-        settings_operation_list
-            .encode(&mut settings_buf)
-            .map_err(|e| {
-                AnyListError::ProtobufError(format!("Failed to encode settings operation: {}", e))
-            })?;
-        self.post("data/list-settings/update", settings_buf).await?;
-
-        Ok(())
+        let requests = crate::operations::delete_list(
+            &mut self.ids(),
+            list_data_id,
+            folder_id,
+            list_id,
+            settings,
+        );
+        self.send(requests).await
     }
 
     /// Rename a shopping list
@@ -279,32 +254,8 @@ impl AnyListClient {
     /// * `list_id` - The ID of the list to rename
     /// * `new_name` - The new name for the list
     pub async fn rename_list(&self, list_id: &str, new_name: &str) -> Result<()> {
-        let operation_id = generate_id();
-
-        // Get the current list to preserve other fields
-        let current_list = self.get_list_by_id(list_id).await?;
-
-        // Imperative shell: gather runtime values
-        let params = crate::operations::RenameListParams {
-            list_id: list_id.to_string(),
-            operation_id,
-            user_id: self.user_id(),
-            timestamp: current_timestamp(),
-            old_name: current_list.name,
-            new_name: new_name.to_string(),
-        };
-
-        // Functional core: pure operation building
-        let operation_list = crate::operations::build_rename_list_operation(params);
-
-        // Imperative shell: side effects
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update", buf).await?;
-        Ok(())
+        let requests = crate::operations::rename_list(&mut self.ids(), list_id, new_name);
+        self.send(requests).await
     }
 
     /// Get user data from the API
@@ -315,7 +266,7 @@ impl AnyListClient {
     }
 }
 
-fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
+pub(crate) fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
     let mut result: Vec<ListItem> = Vec::new();
     for item in items {
         if let (Some(name), Some(list_id)) = (item.name, item.list_id) {
@@ -325,7 +276,9 @@ fn transform_api_list_item(items: Vec<PbListItem>) -> Vec<ListItem> {
                 name,
                 details: item.details.unwrap_or("".to_string()),
                 is_checked: item.checked.unwrap_or(false),
-                quantity: item.quantity,
+                quantity: item
+                    .quantity
+                    .or_else(|| item.quantity_pb.and_then(|q| q.raw_quantity)),
                 category: item.category,
                 user_id: item.user_id,
                 product_upc: item.product_upc,

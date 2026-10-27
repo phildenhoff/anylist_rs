@@ -1,11 +1,7 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
-use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbListCategory, PbListOperation, PbListOperationList,
-    PbOperationMetadata,
-};
-use crate::utils::generate_id;
-use prost::Message;
+use crate::operations;
+use crate::protobuf::anylist::PbListCategory;
 use serde_derive::{Deserialize, Serialize};
 
 /// Represents a category for organizing list items
@@ -60,6 +56,8 @@ impl CategoryGroup {
 impl AnyListClient {
     /// Create a new category in a list
     ///
+    /// Like the web client, the category goes last, before "Other".
+    ///
     /// # Arguments
     ///
     /// * `list_id` - The ID of the list
@@ -71,83 +69,44 @@ impl AnyListClient {
         category_group_id: &str,
         name: &str,
     ) -> Result<Category> {
-        let category_id = generate_id();
-        let operation_id = generate_id();
-
-        let new_category = PbListCategory {
-            identifier: Some(category_id.clone()),
-            logical_timestamp: Some(1),
-            category_group_id: Some(category_group_id.to_string()),
-            list_id: Some(list_id.to_string()),
-            name: Some(name.to_string()),
-            icon: None,
-            system_category: None,
-            sort_index: Some(0),
-        };
-
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("create-category".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::ListCategory as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_category: Some(new_category),
-            ..Default::default()
-        };
-
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update-v2", buf).await?;
-
-        Ok(Category {
-            id: category_id,
-            name: name.to_string(),
-            icon: None,
-            sort_index: 0,
-        })
+        let data = self.get_user_data().await?;
+        let group = data
+            .category_group(list_id, category_group_id)
+            .ok_or_else(|| {
+                AnyListError::NotFound(format!(
+                    "Category group {} not found in list {}",
+                    category_group_id, list_id
+                ))
+            })?;
+        let created = operations::create_category(&mut self.ids(), group, name);
+        self.send(created.requests).await?;
+        Ok(category(&created.category))
     }
 
     /// Delete a category
+    ///
+    /// Like the web client, this also removes the list's categorization
+    /// rules for the category and moves its items to the default category.
     ///
     /// # Arguments
     ///
     /// * `list_id` - The ID of the list
     /// * `category_id` - The ID of the category to delete
     pub async fn delete_category(&self, list_id: &str, category_id: &str) -> Result<()> {
-        let operation_id = generate_id();
-
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-category".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::ListCategory as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            original_value: Some(category_id.to_string()),
-            ..Default::default()
-        };
-
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        let data = self.get_user_data().await?;
+        let list = data.list_context(list_id);
+        let category = list.category(category_id).ok_or_else(|| {
+            AnyListError::NotFound(format!(
+                "Category {} not found in list {}",
+                category_id, list_id
+            ))
         })?;
-
-        self.post("data/shopping-lists/update-v2", buf).await?;
-        Ok(())
+        let items = data
+            .shopping_list(list_id)
+            .map(|l| l.items.as_slice())
+            .unwrap_or_default();
+        let requests = operations::delete_category(&mut self.ids(), list, category, items);
+        self.send(requests).await
     }
 
     /// Rename a category
@@ -165,42 +124,30 @@ impl AnyListClient {
         category_id: &str,
         new_name: &str,
     ) -> Result<()> {
-        let operation_id = generate_id();
+        let data = self.get_user_data().await?;
+        let category = data
+            .category_group(list_id, category_group_id)
+            .and_then(|g| {
+                g.categories
+                    .iter()
+                    .find(|c| c.identifier.as_deref() == Some(category_id))
+            })
+            .ok_or_else(|| {
+                AnyListError::NotFound(format!(
+                    "Category {} not found in list {}",
+                    category_id, list_id
+                ))
+            })?;
+        let requests = operations::rename_category(&mut self.ids(), category, new_name);
+        self.send(requests).await
+    }
+}
 
-        let updated_category = PbListCategory {
-            identifier: Some(category_id.to_string()),
-            logical_timestamp: Some(1),
-            category_group_id: Some(category_group_id.to_string()),
-            list_id: Some(list_id.to_string()),
-            name: Some(new_name.to_string()),
-            icon: None,
-            system_category: None,
-            sort_index: Some(0),
-        };
-
-        let operation = PbListOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("set-category-name".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::ListCategory as i32),
-            }),
-            list_id: Some(list_id.to_string()),
-            updated_value: Some(new_name.to_string()),
-            updated_category: Some(updated_category),
-            ..Default::default()
-        };
-
-        let operation_list = PbListOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/shopping-lists/update-v2", buf).await?;
-        Ok(())
+fn category(category: &PbListCategory) -> Category {
+    Category {
+        id: category.identifier.clone().unwrap_or_default(),
+        name: category.name.clone().unwrap_or_default(),
+        icon: category.icon.clone(),
+        sort_index: category.sort_index.unwrap_or_default(),
     }
 }
