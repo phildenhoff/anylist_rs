@@ -1,0 +1,21 @@
+{
+  "name": "anylist-webapp-capture",
+  "private": true,
+  "type": "module",
+  "description": "Record and decode the requests the AnyList web client sends",
+  "scripts": {
+    "capture": "node capture.mjs",
+    "decode": "node decode.mjs"
+  },
+  "dependencies": {
+    "protobufjs": "^7.4.0"
+  },
+  "peerDependencies": {
+    "playwright": "*"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  }
+}
