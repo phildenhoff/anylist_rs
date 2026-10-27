@@ -85,7 +85,7 @@ impl AnyListClient {
         let operation = PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
                 operation_id: Some(operation_id),
-                handler_id: Some("save-recipe-collection".to_string()),
+                handler_id: Some("new-recipe-collection".to_string()),
                 user_id: Some(self.user_id()),
                 operation_class: Some(OperationClass::Undefined as i32),
             }),
