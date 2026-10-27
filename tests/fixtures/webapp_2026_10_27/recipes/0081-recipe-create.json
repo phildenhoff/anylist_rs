@@ -1,0 +1,23 @@
+{
+  "label": "recipe: create",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-recipe-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "9e894ebf3025404ca190c330bc20957a",
+        "handlerId": "set-web-selected-recipe-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078397.045414,
+        "webSelectedRecipeId": "93553f276ef14257a4c3e676ae822455"
+      }
+    }
+  ],
+  "hex": "0ab1010a600a203965383934656266333032353430346361313930633333306263323039353761121a7365742d7765622d73656c65637465642d7265636970652d69641a206331363835336333623139613437393439616339633563336333666262383335124d0a2063313638353363336231396134373934396163396335633363336662623833351110e8421f0db8da416a203933353533663237366566313432353761346333653637366165383232343535"
+}

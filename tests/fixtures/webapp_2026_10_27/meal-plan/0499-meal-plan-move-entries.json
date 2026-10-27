@@ -1,0 +1,28 @@
+{
+  "label": "meal plan: move entries",
+  "endpoint": "/data/meal-planning-calendar/update",
+  "type": "PBCalendarOperationList",
+  "handlerIds": [
+    "set-date-for-events"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "b668dbb415e941f58c3b50641ee6a3bb",
+        "handlerId": "set-date-for-events",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "calendarId": "515dff1907ce4e469274b404a17e11ee",
+      "updatedEvents": [
+        {
+          "identifier": "cce4f30abb3e4d6791bba753d40a6b32",
+          "calendarId": "515dff1907ce4e469274b404a17e11ee",
+          "date": "2026-10-22",
+          "title": "zz template note",
+          "orderAddedSortIndex": 0
+        }
+      ]
+    }
+  ],
+  "hex": "0ae3010a590a20623636386462623431356539343166353863336235303634316565366133626212137365742d646174652d666f722d6576656e74731a206331363835336333623139613437393439616339633563336333666262383335122035313564666631393037636534653436393237346234303461313765313165654a640a2063636534663330616262336534643637393162626137353364343061366233321a2035313564666631393037636534653436393237346234303461313765313165652a107a7a2074656d706c617465206e6f74654800220a323032362d31302d3232"
+}

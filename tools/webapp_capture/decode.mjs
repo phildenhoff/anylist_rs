@@ -10,11 +10,13 @@
 // Usage:
 //   node decode.mjs captures/2026_10_27
 //   node decode.mjs captures/2026_10_27 --snapshot 0012 webapp_new_recipe_2026_10_27
+//   node decode.mjs captures/2026_10_27 --fixtures ../../tests/fixtures/webapp_2026_10_27/lists [--from 1] [--to 70]
 
 import protobuf from "protobufjs";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { redactEmail } from "./recorder.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../..");
@@ -169,7 +171,7 @@ function decodeResponse(endpoint, response) {
 
 const [dir, flag, seq, snapName] = process.argv.slice(2);
 if (!dir) {
-  console.error("usage: node decode.mjs <capture-dir> [--snapshot <seq> <name>]");
+  console.error("usage: node decode.mjs <capture-dir> [--snapshot <seq> <name> | --fixtures <dir> [--from <seq>] [--to <seq>]]");
   process.exit(2);
 }
 
@@ -183,6 +185,43 @@ if (flag === "--snapshot") {
   const out = join(repo, "src/snapshots", `webapp_captures__${snapName}.snap`);
   writeFileSync(out, `---\nsource: tools/webapp_capture/decode.mjs\nexpression: "Captured from webapp"\n---\n${hex}\n`);
   console.error(`wrote ${out}`);
+  process.exit(0);
+}
+
+// Writes one fixture per request that changes data: the request's typed
+// decode and hex, without the response (which holds the account's data).
+if (flag === "--fixtures") {
+  const out = resolve(seq);
+  const range = (name, fallback) => {
+    const i = process.argv.indexOf(name);
+    return i === -1 ? fallback : Number(process.argv[i + 1]);
+  };
+  const from = range("--from", 0);
+  const to = range("--to", Infinity);
+  mkdirSync(out, { recursive: true });
+  let n = 0;
+  for (const file of files) {
+    const rec = JSON.parse(readFileSync(join(dir, file), "utf8"));
+    if (rec.seq < from || rec.seq > to || !REQUEST_TYPES[rec.endpoint]) continue;
+    const part = rec.parts?.find((p) => p.name === "operations" && p.base64);
+    if (!part) continue;
+    // Captures made before the recorder redacted the email still hold it.
+    const base64 = redactEmail(Buffer.from(part.base64, "base64")).toString("base64");
+    const decoded = decodePart(rec.endpoint, { ...part, base64 });
+    const slug = rec.label.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
+    const fixture = {
+      label: rec.label,
+      endpoint: rec.endpoint,
+      type: REQUEST_TYPES[rec.endpoint],
+      handlerIds: decoded.handlerIds,
+      operations: decoded.typed?.value?.operations,
+      hex: decoded.hex,
+    };
+    const name = `${String(rec.seq).padStart(4, "0")}-${slug}.json`;
+    writeFileSync(join(out, name), JSON.stringify(fixture, null, 2) + "\n");
+    n++;
+  }
+  console.error(`wrote ${n} fixtures to ${out}`);
   process.exit(0);
 }
 

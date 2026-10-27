@@ -1,0 +1,20 @@
+{
+  "label": "store: delete (with an item assigned)",
+  "endpoint": "/data/starter-lists/update",
+  "type": "PBStarterListOperationList",
+  "handlerIds": [
+    "remove-store-id-from-all-items"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "0f91d5577af342ba812eb8f1333ee441",
+        "handlerId": "remove-store-id-from-all-items",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "listId": "dcc377c85393580fbb9f8d2184729a40",
+      "updatedValue": "c9a5592bdba84520894926bf5b3aba60"
+    }
+  ],
+  "hex": "0aaa010a640a203066393164353537376166333432626138313265623866313333336565343431121e72656d6f76652d73746f72652d69642d66726f6d2d616c6c2d6974656d731a2063313638353363336231396134373934396163396335633363336662623833351220646363333737633835333933353830666262396638643231383437323961343022206339613535393262646261383435323038393439323662663562336162613630"
+}

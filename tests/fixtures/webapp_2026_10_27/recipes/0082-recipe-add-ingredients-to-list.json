@@ -1,0 +1,23 @@
+{
+  "label": "recipe: add ingredients to list",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-list-id-for-recipe-ingredients"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "8a0ea0d53bb047d5bb0be45912b2f031",
+        "handlerId": "set-list-id-for-recipe-ingredients",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078414.1019466,
+        "listIdForRecipeIngredients": "576ceccfdc1741bdb5b0dc69cd1cce3f"
+      }
+    }
+  ],
+  "hex": "0ab9010a680a20386130656130643533626230343764356262306265343539313262326630333112227365742d6c6973742d69642d666f722d7265636970652d696e6772656469656e74731a206331363835336333623139613437393439616339633563336333666262383335124d0a206331363835336333623139613437393439616339633563336333666262383335114b8686230db8da4162203537366365636366646331373431626462356230646336396364316363653366"
+}

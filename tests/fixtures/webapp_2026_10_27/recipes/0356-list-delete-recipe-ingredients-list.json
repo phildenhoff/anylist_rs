@@ -1,0 +1,23 @@
+{
+  "label": "list: delete (recipe ingredients list)",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-tab-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "66e95b6fc2c94775a856eba04490284c",
+        "handlerId": "set-web-selected-tab-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078540.389698,
+        "webSelectedTabId": "ALListsTabBarItemIdentifier"
+      }
+    }
+  ],
+  "hex": "0aa9010a5d0a20363665393562366663326339343737356138353665626130343439303238346312177365742d7765622d73656c65637465642d7461622d69641a20633136383533633362313961343739343961633963356333633366626238333512480a20633136383533633362313961343739343961633963356333633366626238333511d0f018430db8da417a1b414c4c697374735461624261724974656d4964656e746966696572"
+}

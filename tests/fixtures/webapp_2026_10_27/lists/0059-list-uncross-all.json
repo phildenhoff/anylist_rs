@@ -1,0 +1,19 @@
+{
+  "label": "list: uncross all",
+  "endpoint": "/data/shopping-lists/update",
+  "type": "PBListOperationList",
+  "handlerIds": [
+    "uncheck-all"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "83b22d307170430caa2d6e85f6e6f151",
+        "handlerId": "uncheck-all",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "listId": "4a32d6958d604452b002a4098ab5e1ab"
+    }
+  ],
+  "hex": "0a750a510a203833623232643330373137303433306361613264366538356636653666313531120b756e636865636b2d616c6c1a20633136383533633362313961343739343961633963356333633366626238333512203461333264363935386436303434353262303032613430393861623565316162"
+}

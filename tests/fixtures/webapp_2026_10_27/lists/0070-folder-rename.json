@@ -1,0 +1,23 @@
+{
+  "label": "folder: rename",
+  "endpoint": "/data/list-folders/update",
+  "type": "PBListFolderOperationList",
+  "handlerIds": [
+    "set-folder-name"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "881b1cad3fe84c9ba8b8b040bd63d0e7",
+        "handlerId": "set-folder-name",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "listDataId": "c16853c3b19a47949ac9c5c3c3fbb835",
+      "listFolder": {
+        "identifier": "64dc0b61c8b24718826d94a5590cb105",
+        "name": "zz capture folder 2"
+      }
+    }
+  ],
+  "hex": "0ab2010a550a203838316231636164336665383463396261386238623034306264363364306537120f7365742d666f6c6465722d6e616d651a206331363835336333623139613437393439616339633563336333666262383335122063313638353363336231396134373934396163396335633363336662623833351a370a2036346463306236316338623234373138383236643934613535393063623130351a137a7a206361707475726520666f6c6465722032"
+}

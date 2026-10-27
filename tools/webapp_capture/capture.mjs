@@ -23,14 +23,6 @@ import { Recorder } from "./recorder.mjs";
 // CommonJS resolution also finds a globally installed Playwright (NODE_PATH).
 const { chromium } = createRequire(import.meta.url)("playwright");
 
-const { values: args } = parseArgs({
-  options: {
-    out: { type: "string", default: `captures/${new Date().toISOString().slice(0, 10).replaceAll("-", "_")}` },
-    scenario: { type: "string", multiple: true },
-    "storage-state": { type: "string" },
-  },
-});
-
 export async function signIn(page) {
   const email = process.env.ANYLIST_EMAIL;
   const password = process.env.ANYLIST_PASSWORD;
@@ -49,6 +41,14 @@ export async function signIn(page) {
 }
 
 async function main() {
+  const { values: args } = parseArgs({
+    options: {
+      out: { type: "string", default: `captures/${new Date().toISOString().slice(0, 10).replaceAll("-", "_")}` },
+      scenario: { type: "string", multiple: true },
+      "storage-state": { type: "string" },
+    },
+  });
+
   const browser = await chromium.launch({ headless: !process.env.HEADED });
   const context = await browser.newContext({
     viewport: { width: 1400, height: 900 },
@@ -57,7 +57,7 @@ async function main() {
   });
   const page = await context.newPage();
   const rec = new Recorder(resolve(args.out));
-  rec.attach(page);
+  await rec.attach(page);
 
   rec.mark("sign-in");
   await signIn(page);

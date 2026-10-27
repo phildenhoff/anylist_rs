@@ -6,3 +6,4 @@ mod meal_plan_calendar_id;
 mod protobuf_codegen;
 mod realtime;
 mod recipe_serde;
+mod webapp_captures;

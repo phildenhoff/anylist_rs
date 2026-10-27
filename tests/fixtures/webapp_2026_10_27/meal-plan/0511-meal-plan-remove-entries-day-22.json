@@ -1,0 +1,26 @@
+{
+  "label": "meal plan: remove entries (day 22)",
+  "endpoint": "/data/meal-planning-calendar/update",
+  "type": "PBCalendarOperationList",
+  "handlerIds": [
+    "delete-event"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "573603345c23436ebe9039eedfe66c44",
+        "handlerId": "delete-event",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "calendarId": "515dff1907ce4e469274b404a17e11ee",
+      "updatedEvent": {
+        "identifier": "cce4f30abb3e4d6791bba753d40a6b32",
+        "calendarId": "515dff1907ce4e469274b404a17e11ee",
+        "date": "2026-10-22",
+        "title": "zz template note",
+        "orderAddedSortIndex": 0
+      }
+    }
+  ],
+  "hex": "0adc010a520a203537333630333334356332333433366562653930333965656466653636633434120c64656c6574652d6576656e741a206331363835336333623139613437393439616339633563336333666262383335122035313564666631393037636534653436393237346234303461313765313165651a640a2063636534663330616262336534643637393162626137353364343061366233321a2035313564666631393037636534653436393237346234303461313765313165652a107a7a2074656d706c617465206e6f74654800220a323032362d31302d3232"
+}

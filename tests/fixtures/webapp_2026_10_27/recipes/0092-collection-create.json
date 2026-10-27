@@ -1,0 +1,23 @@
+{
+  "label": "collection: create",
+  "endpoint": "/data/user-recipe-data/update",
+  "type": "PBRecipeOperationList",
+  "handlerIds": [
+    "new-recipe-collection"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "2a57cb34fbe44773b3f540e36d62450c",
+        "handlerId": "new-recipe-collection",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "recipeDataId": "515dff1907ce4e469274b404a17e11ee",
+      "recipeCollection": {
+        "identifier": "41d55fedd91946aeb85d2db43d7368d6",
+        "name": "zz capture collection"
+      }
+    }
+  ],
+  "hex": "0aba010a5b0a20326135376362333466626534343737336233663534306533366436323435306312156e65772d7265636970652d636f6c6c656374696f6e1a2063313638353363336231396134373934396163396335633363336662623833351220353135646666313930376365346534363932373462343034613137653131656522390a2034316435356665646439313934366165623835643264623433643733363864361a157a7a206361707475726520636f6c6c656374696f6e"
+}

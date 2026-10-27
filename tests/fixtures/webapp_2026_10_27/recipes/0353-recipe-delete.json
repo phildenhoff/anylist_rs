@@ -1,0 +1,22 @@
+{
+  "label": "recipe: delete",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-recipe-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "e6b206bcadb8494f8e0793caa3f7269e",
+        "handlerId": "set-web-selected-recipe-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078531.034529
+      }
+    }
+  ],
+  "hex": "0a8f010a600a206536623230366263616462383439346638653037393363616133663732363965121a7365742d7765622d73656c65637465642d7265636970652d69641a206331363835336333623139613437393439616339633563336333666262383335122b0a20633136383533633362313961343739343961633963356333633366626238333511b935c2400db8da41"
+}

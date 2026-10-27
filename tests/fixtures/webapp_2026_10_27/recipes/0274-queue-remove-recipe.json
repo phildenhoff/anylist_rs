@@ -1,0 +1,22 @@
+{
+  "label": "queue: remove recipe",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-meal-plan-tab-v2"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "67455e9695ee456783acadf82182dc77",
+        "handlerId": "set-web-selected-meal-plan-tab-v2",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078504.8525481
+      }
+    }
+  ],
+  "hex": "0a99010a670a20363734353565393639356565343536373833616361646638323138326463373712217365742d7765622d73656c65637465642d6d65616c2d706c616e2d7461622d76321a206331363835336333623139613437393439616339633563336333666262383335122e0a206331363835336333623139613437393439616339633563336333666262383335112690363a0db8da41880302"
+}

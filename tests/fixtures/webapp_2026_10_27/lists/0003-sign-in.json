@@ -1,0 +1,23 @@
+{
+  "label": "sign-in",
+  "endpoint": "/data/mobile-app-settings/update",
+  "type": "PBMobileAppSettingsOperationList",
+  "handlerIds": [
+    "set-web-selected-tab-id"
+  ],
+  "operations": [
+    {
+      "metadata": {
+        "operationId": "352eb80ed4124f089d6beb4a5279a686",
+        "handlerId": "set-web-selected-tab-id",
+        "userId": "c16853c3b19a47949ac9c5c3c3fbb835"
+      },
+      "updatedSettings": {
+        "identifier": "c16853c3b19a47949ac9c5c3c3fbb835",
+        "timestamp": 1793078593.449822,
+        "webSelectedTabId": "ALListsTabBarItemIdentifier"
+      }
+    }
+  ],
+  "hex": "0aa9010a5d0a20333532656238306564343132346630383964366265623461353237396136383612177365742d7765622d73656c65637465642d7461622d69641a20633136383533633362313961343739343961633963356333633366626238333512480a20633136383533633362313961343739343961633963356333633366626238333511e2c95c500db8da417a1b414c4c697374735461624261724974656d4964656e746966696572"
+}
