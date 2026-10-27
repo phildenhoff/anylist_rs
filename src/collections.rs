@@ -1,10 +1,10 @@
 use crate::client::AnyListClient;
 use crate::error::{AnyListError, Result};
 use crate::protobuf::anylist::{
-    pb_operation_metadata::OperationClass, PbOperationMetadata, PbRecipeCollection,
-    PbRecipeCollectionSettings, PbRecipeDataResponse, PbRecipeOperation, PbRecipeOperationList,
+    PbOperationMetadata, PbRecipeCollection, PbRecipeDataResponse, PbRecipeOperation,
+    PbRecipeOperationList,
 };
-use crate::utils::{current_timestamp, generate_id};
+use crate::utils::generate_id;
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
 
@@ -29,16 +29,34 @@ impl RecipeCollection {
     }
 }
 
+/// Identifiers every recipe collection operation carries.
+struct OperationIds {
+    operation_id: String,
+    user_id: String,
+    /// The account's recipe data ID, from the user data response.
+    recipe_data_id: Option<String>,
+}
+
 impl AnyListClient {
     async fn get_recipe_data(&self) -> Result<Option<PbRecipeDataResponse>> {
         Ok(self.get_user_data().await?.recipe_data_response)
     }
 
-    async fn get_recipe_data_id(&self) -> Result<Option<String>> {
-        Ok(self
-            .get_recipe_data()
-            .await?
-            .and_then(|response| response.recipe_data_id))
+    fn operation_ids(&self, recipe_data: Option<&PbRecipeDataResponse>) -> OperationIds {
+        OperationIds {
+            operation_id: generate_id(),
+            user_id: self.user_id(),
+            recipe_data_id: recipe_data.and_then(|response| response.recipe_data_id.clone()),
+        }
+    }
+
+    async fn send_recipe_operation(&self, operation_list: PbRecipeOperationList) -> Result<()> {
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).map_err(|e| {
+            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
+        })?;
+        self.post("data/user-recipe-data/update", buf).await?;
+        Ok(())
     }
 
     pub async fn get_recipe_collections(&self) -> Result<Vec<RecipeCollection>> {
@@ -67,54 +85,24 @@ impl AnyListClient {
         name: &str,
         recipe_ids: Vec<String>,
     ) -> Result<RecipeCollection> {
-        let collection_id = generate_id();
-        let operation_id = generate_id();
-        let recipe_data_id = self.get_recipe_data_id().await?;
+        let recipe_data = self.get_recipe_data().await?;
+        let ids = self.operation_ids(recipe_data.as_ref());
 
-        let new_collection = PbRecipeCollection {
-            identifier: collection_id.clone(),
-            timestamp: Some(current_timestamp()),
+        let collection = PbRecipeCollection {
+            identifier: generate_id(),
             name: Some(name.to_string()),
             recipe_ids: recipe_ids.clone(),
-            collection_settings: Some(PbRecipeCollectionSettings {
-                recipes_sort_order: Some(0), // Manual
-                show_only_recipes_with_no_collection: Some(false),
-            }),
+            ..Default::default()
         };
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("new-recipe-collection".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id,
-            recipe: None,
-            recipe_collection: Some(new_collection),
-            recipe_link_request: None,
-            recipe_collection_ids: vec![collection_id.clone()],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: recipe_ids.clone(),
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-
-        Ok(RecipeCollection {
-            id: collection_id,
+        let created = RecipeCollection {
+            id: collection.identifier.clone(),
             name: name.to_string(),
             recipe_ids,
-        })
+        };
+
+        self.send_recipe_operation(new_collection_operation(ids, collection))
+            .await?;
+        Ok(created)
     }
 
     /// Delete a recipe collection
@@ -123,40 +111,17 @@ impl AnyListClient {
     ///
     /// * `collection_id` - The ID of the collection to delete
     pub async fn delete_recipe_collection(&self, collection_id: &str) -> Result<()> {
-        let operation_id = generate_id();
-        let recipe_data_id = self.get_recipe_data_id().await?;
+        let recipe_data = self.get_recipe_data().await?;
+        let ids = self.operation_ids(recipe_data.as_ref());
+        let collection = find_collection(recipe_data.as_ref(), collection_id)?;
 
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-recipe-collection".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id,
-            recipe: None,
-            recipe_collection: None,
-            recipe_link_request: None,
-            recipe_collection_ids: vec![collection_id.to_string()],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-        Ok(())
+        self.send_recipe_operation(remove_collection_operation(ids, collection))
+            .await
     }
 
     /// Add a recipe to a collection
+    ///
+    /// Sends nothing when the recipe is already in the collection.
     ///
     /// # Arguments
     ///
@@ -167,61 +132,21 @@ impl AnyListClient {
         collection_id: &str,
         recipe_id: &str,
     ) -> Result<()> {
-        let operation_id = generate_id();
         // One fetch gives both the recipe data ID and the current collection
         let recipe_data = self.get_recipe_data().await?;
-        let recipe_data_id = recipe_data
-            .as_ref()
-            .and_then(|response| response.recipe_data_id.clone());
+        let ids = self.operation_ids(recipe_data.as_ref());
         let collection = find_collection(recipe_data.as_ref(), collection_id)?;
 
-        let mut new_recipe_ids = collection.recipe_ids.clone();
-        if !new_recipe_ids.contains(&recipe_id.to_string()) {
-            new_recipe_ids.push(recipe_id.to_string());
+        if collection.recipe_ids.iter().any(|id| id == recipe_id) {
+            return Ok(());
         }
-
-        let updated_collection = PbRecipeCollection {
-            identifier: collection_id.to_string(),
-            timestamp: Some(current_timestamp()),
-            name: Some(collection.name.clone()),
-            recipe_ids: new_recipe_ids,
-            collection_settings: Some(PbRecipeCollectionSettings {
-                recipes_sort_order: Some(0),
-                show_only_recipes_with_no_collection: Some(false),
-            }),
-        };
-
-        let operation = PbRecipeOperation {
-            metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("add-recipes-to-collection".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
-            }),
-            recipe_data_id,
-            recipe: None,
-            recipe_collection: Some(updated_collection),
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-        Ok(())
+        self.send_recipe_operation(add_recipes_operation(ids, collection, recipe_id))
+            .await
     }
 
     /// Remove a recipe from a collection
+    ///
+    /// Sends nothing when the recipe is not in the collection.
     ///
     /// # Arguments
     ///
@@ -232,60 +157,93 @@ impl AnyListClient {
         collection_id: &str,
         recipe_id: &str,
     ) -> Result<()> {
-        let operation_id = generate_id();
         // One fetch gives both the recipe data ID and the current collection
         let recipe_data = self.get_recipe_data().await?;
-        let recipe_data_id = recipe_data
-            .as_ref()
-            .and_then(|response| response.recipe_data_id.clone());
+        let ids = self.operation_ids(recipe_data.as_ref());
         let collection = find_collection(recipe_data.as_ref(), collection_id)?;
 
-        let new_recipe_ids: Vec<String> = collection
-            .recipe_ids
-            .iter()
-            .filter(|id| *id != recipe_id)
-            .cloned()
-            .collect();
+        if !collection.recipe_ids.iter().any(|id| id == recipe_id) {
+            return Ok(());
+        }
+        self.send_recipe_operation(remove_recipes_operation(ids, collection, recipe_id))
+            .await
+    }
+}
 
-        let updated_collection = PbRecipeCollection {
-            identifier: collection_id.to_string(),
-            timestamp: Some(current_timestamp()),
-            name: Some(collection.name.clone()),
-            recipe_ids: new_recipe_ids,
-            collection_settings: Some(PbRecipeCollectionSettings {
-                recipes_sort_order: Some(0),
-                show_only_recipes_with_no_collection: Some(false),
-            }),
-        };
+// The operation shapes below match what the AnyList web client sends, captured
+// on 2026-10-25 (see the `webapp_*` snapshots in the tests). Each operation
+// carries only metadata, the recipe data ID, and a recipe collection.
 
-        let operation = PbRecipeOperation {
+/// `new-recipe-collection`: the collection to create. The server honours
+/// `recipe_ids` set on it, so a collection can start populated.
+fn new_collection_operation(
+    ids: OperationIds,
+    collection: PbRecipeCollection,
+) -> PbRecipeOperationList {
+    collection_operation("new-recipe-collection", ids, collection)
+}
+
+/// `remove-recipe-collection`: the stored collection, sent as is.
+fn remove_collection_operation(
+    ids: OperationIds,
+    collection: PbRecipeCollection,
+) -> PbRecipeOperationList {
+    collection_operation("remove-recipe-collection", ids, collection)
+}
+
+/// `add-recipes-to-collection`: the stored collection with `recipe_ids`
+/// narrowed to just the recipes being added.
+fn add_recipes_operation(
+    ids: OperationIds,
+    collection: PbRecipeCollection,
+    recipe_id: &str,
+) -> PbRecipeOperationList {
+    collection_operation(
+        "add-recipes-to-collection",
+        ids,
+        with_only(collection, recipe_id),
+    )
+}
+
+/// `remove-recipes-from-collection`: the stored collection with `recipe_ids`
+/// narrowed to just the recipes being removed. Sending the recipes that
+/// should remain instead makes the server remove those.
+fn remove_recipes_operation(
+    ids: OperationIds,
+    collection: PbRecipeCollection,
+    recipe_id: &str,
+) -> PbRecipeOperationList {
+    collection_operation(
+        "remove-recipes-from-collection",
+        ids,
+        with_only(collection, recipe_id),
+    )
+}
+
+fn with_only(collection: PbRecipeCollection, recipe_id: &str) -> PbRecipeCollection {
+    PbRecipeCollection {
+        recipe_ids: vec![recipe_id.to_string()],
+        ..collection
+    }
+}
+
+fn collection_operation(
+    handler_id: &str,
+    ids: OperationIds,
+    collection: PbRecipeCollection,
+) -> PbRecipeOperationList {
+    PbRecipeOperationList {
+        operations: vec![PbRecipeOperation {
             metadata: Some(PbOperationMetadata {
-                operation_id: Some(operation_id),
-                handler_id: Some("remove-recipes-from-collection".to_string()),
-                user_id: Some(self.user_id()),
-                operation_class: Some(OperationClass::Undefined as i32),
+                operation_id: Some(ids.operation_id),
+                handler_id: Some(handler_id.to_string()),
+                user_id: Some(ids.user_id),
+                operation_class: None,
             }),
-            recipe_data_id,
-            recipe: None,
-            recipe_collection: Some(updated_collection),
-            recipe_link_request: None,
-            recipe_collection_ids: vec![],
-            recipes: vec![],
-            is_new_recipe_from_web_import: Some(false),
-            recipe_ids: vec![],
-        };
-
-        let operation_list = PbRecipeOperationList {
-            operations: vec![operation],
-        };
-
-        let mut buf = Vec::new();
-        operation_list.encode(&mut buf).map_err(|e| {
-            AnyListError::ProtobufError(format!("Failed to encode operation: {}", e))
-        })?;
-
-        self.post("data/user-recipe-data/update", buf).await?;
-        Ok(())
+            recipe_data_id: ids.recipe_data_id,
+            recipe_collection: Some(collection),
+            ..Default::default()
+        }],
     }
 }
 
@@ -309,11 +267,92 @@ fn collections_from(data: Option<&PbRecipeDataResponse>) -> Vec<RecipeCollection
 fn find_collection(
     data: Option<&PbRecipeDataResponse>,
     collection_id: &str,
-) -> Result<RecipeCollection> {
-    collections_from(data)
-        .into_iter()
-        .find(|c| c.id == collection_id)
-        .ok_or_else(|| {
-            AnyListError::NotFound(format!("Collection with ID {} not found", collection_id))
-        })
+) -> Result<PbRecipeCollection> {
+    data.and_then(|res| {
+        res.recipe_collections
+            .iter()
+            .find(|c| c.identifier == collection_id)
+            .cloned()
+    })
+    .ok_or_else(|| {
+        AnyListError::NotFound(format!("Collection with ID {} not found", collection_id))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    //! Byte-exact comparisons against requests the AnyList web client sent on
+    //! 2026-10-25, captured from the official client with its own IDs.
+    use super::*;
+
+    const USER_ID: &str = "cda21b0078644a01b640c84d3d74187e";
+    const RECIPE_DATA_ID: &str = "404f4849109b465e8e641b32762434eb";
+    const COLLECTION_ID: &str = "c61f7b81ba01495eaf99f08c8547d67c";
+    const COLLECTION_NAME: &str = "anylist_rs capture 2 2026-10-25";
+    const RECIPE_ID: &str = "916cbbf27354447c806725c710b5a20f";
+
+    fn ids(operation_id: &str) -> OperationIds {
+        OperationIds {
+            operation_id: operation_id.to_string(),
+            user_id: USER_ID.to_string(),
+            recipe_data_id: Some(RECIPE_DATA_ID.to_string()),
+        }
+    }
+
+    /// The collection as stored on the server at capture time.
+    fn stored_collection() -> PbRecipeCollection {
+        PbRecipeCollection {
+            identifier: COLLECTION_ID.to_string(),
+            name: Some(COLLECTION_NAME.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn hex_of(operation_list: PbRecipeOperationList) -> String {
+        let mut buf = Vec::new();
+        operation_list.encode(&mut buf).unwrap();
+        hex::encode(&buf)
+    }
+
+    #[test]
+    fn webapp_new_recipe_collection_2026_10_25() {
+        let operation_list =
+            new_collection_operation(ids("b1d16a806e7c4addb8e81163cf7bfbcb"), stored_collection());
+        insta::assert_snapshot!(hex_of(operation_list));
+    }
+
+    #[test]
+    fn webapp_add_recipes_to_collection_2026_10_25() {
+        let operation_list = add_recipes_operation(
+            ids("35c10cf164494a7b9bf34f1297db02b1"),
+            stored_collection(),
+            RECIPE_ID,
+        );
+        insta::assert_snapshot!(hex_of(operation_list));
+    }
+
+    #[test]
+    fn webapp_remove_recipes_from_collection_2026_10_25() {
+        // The web client sends only the recipe being removed, however many
+        // other recipes the collection holds.
+        let stored = PbRecipeCollection {
+            recipe_ids: vec![RECIPE_ID.to_string(), "other".to_string()],
+            ..stored_collection()
+        };
+        let operation_list =
+            remove_recipes_operation(ids("16eebbbc62f0450ea702f7faf1222a87"), stored, RECIPE_ID);
+        insta::assert_snapshot!(hex_of(operation_list));
+    }
+
+    #[test]
+    fn webapp_remove_recipe_collection_2026_10_25() {
+        let stored = PbRecipeCollection {
+            identifier: "dfa5021db26349a1876a295990c819f7".to_string(),
+            name: Some("anylist_rs capture 2026-10-25".to_string()),
+            ..Default::default()
+        };
+        let operation_list =
+            remove_collection_operation(ids("8b20e907ca914eb7a37035118c9542e7"), stored);
+        insta::assert_snapshot!(hex_of(operation_list));
+    }
 }

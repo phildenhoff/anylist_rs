@@ -67,6 +67,7 @@ schema is checked in, so you don't need `protoc` to build the crate.
 - [Lists](./docs/examples/lists.rs)
 - [List items](./docs/examples/list_items.rs)
 - [Recipes](./docs/examples/recipes.rs)
+- [Recipe collections](./docs/examples/collections.rs)
 - [Meal planning](./docs/examples/meal_planning.rs)
 - [Categories](./docs/examples/categories.rs)
 - [Stores](./docs/examples/stores.rs)

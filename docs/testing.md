@@ -109,6 +109,28 @@ The test will decode the response, parse it, and verify fields are populated cor
 **Troubleshooting:** If you see `efbfbd` (UTF-8 replacement character `�`) in the hex output,
 the binary data was corrupted. Re-capture using a proxy tool, not the clipboard.
 
+### Checking handler IDs against the web client
+
+The web client's bundle is public, so a handler ID can be confirmed without
+signing in. Read the current script URL from the page at
+<https://www.anylist.com/web> (it is `/static/webapp/js/app.min.js?v=...`) and
+grep the file:
+
+```bash
+curl -sL "https://www.anylist.com/static/webapp/js/app.min.js?v=<hash>" -o /tmp/app.min.js
+grep -oE '"[a-z-]*recipe-collection[a-z-]*"' /tmp/app.min.js | sort -u
+```
+
+A 200 from an update endpoint does not mean the operation was applied. AnyList
+returns 200 for unknown handler IDs and silently drops the operation, so a live
+check must read the data back and assert on it.
+
+Safari can still produce request captures even without "Copy as cURL": enable
+"Allow JavaScript from Apple Events" in Safari's Developer settings, patch
+`XMLHttpRequest.prototype.send` in the signed-in tab to stash request bodies,
+perform the action, and read the bodies back out. The `webapp_*_2026_10_25`
+collection snapshots were captured this way.
+
 ### Debugging failing snapshot tests
 
 If the base64-encoded snapshot doesn't match the output from your function,
